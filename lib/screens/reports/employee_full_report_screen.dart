@@ -9,6 +9,7 @@ import '../../models/payroll_model.dart';
 import '../../models/penalty_model.dart';
 import '../../models/profile_model.dart';
 import '../../services/employee_report_service.dart';
+import '../../services/report_pdf_service.dart';
 import '../../widgets/common/app_scaffold.dart';
 
 class EmployeeFullReportScreen extends StatefulWidget {
@@ -28,6 +29,7 @@ class _EmployeeFullReportScreenState extends State<EmployeeFullReportScreen> {
   String? _selectedEmployeeId;
   DateTime? _from;
   DateTime? _to;
+  bool _exporting = false;
 
   @override
   void initState() {
@@ -46,6 +48,10 @@ class _EmployeeFullReportScreenState extends State<EmployeeFullReportScreen> {
   void _loadReport() {
     final employeeId = _selectedEmployeeId;
     if (employeeId == null) return;
+    if (_from != null && _to != null && _from!.isAfter(_to!)) {
+      _showMessage('تاريخ البداية يجب أن يسبق تاريخ النهاية.');
+      return;
+    }
     setState(() {
       _reportFuture = _service.getEmployeeFullReport(
         employeeId: employeeId,
@@ -82,26 +88,243 @@ class _EmployeeFullReportScreenState extends State<EmployeeFullReportScreen> {
   String _money(num value) =>
       value.toStringAsFixed(value.truncateToDouble() == value ? 0 : 2);
 
+  Future<void> _handleExport(_ExportAction action) async {
+    if (_exporting) return;
+    final future = _reportFuture;
+    if (future == null) {
+      _showMessage('اعرض تقرير الموظف أولًا قبل التصدير.');
+      return;
+    }
+
+    setState(() => _exporting = true);
+    try {
+      final report = await future;
+      final payload = _buildPdfPayload(report);
+      final timestamp = DateTime.now().millisecondsSinceEpoch;
+      switch (action) {
+        case _ExportAction.pdf:
+          await ReportPdfService.share(
+            payload: payload,
+            fileName: 'employee_full_report_$timestamp.pdf',
+          );
+        case _ExportAction.print:
+          await ReportPdfService.printReport(payload);
+      }
+    } catch (error) {
+      _showMessage('تعذر تجهيز التقرير: $error');
+    } finally {
+      if (mounted) setState(() => _exporting = false);
+    }
+  }
+
+  void _showMessage(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message)),
+    );
+  }
+
+  ReportPdfPayload _buildPdfPayload(EmployeeFullReport report) {
+    final employee = report.employee;
+    final period =
+        'الفترة: من ${_from == null ? 'البداية' : _date(_from)} إلى ${_to == null ? 'اليوم' : _date(_to)}';
+
+    return ReportPdfPayload(
+      title: 'التقرير الشامل للموظف',
+      subtitle: '${employee.fullName} - ${employee.employeeNumber}',
+      filterSummary: period,
+      metrics: [
+        ReportPdfMetric(
+          label: 'أيام الحضور',
+          value: report.presentDays.toString(),
+        ),
+        ReportPdfMetric(
+          label: 'أيام الغياب',
+          value: report.absentDays.toString(),
+        ),
+        ReportPdfMetric(
+          label: 'مرات التأخير',
+          value: report.lateCount.toString(),
+        ),
+        ReportPdfMetric(
+          label: 'إجمالي الرواتب',
+          value: _money(report.totalPayroll),
+        ),
+        ReportPdfMetric(
+          label: 'إجمالي السلف',
+          value: _money(report.totalAdvances),
+        ),
+        ReportPdfMetric(
+          label: 'السلف المتبقية',
+          value: _money(report.remainingAdvances),
+        ),
+        ReportPdfMetric(
+          label: 'إجمالي الجزاءات',
+          value: _money(report.totalPenalties),
+        ),
+        ReportPdfMetric(
+          label: 'إجمالي الإضافي',
+          value: _money(report.totalOvertime),
+        ),
+      ],
+      sections: [
+        ReportPdfSection(
+          title: 'بيانات الموظف',
+          lines: [
+            ReportPdfLine(
+              title: 'الاسم: ${employee.fullName}',
+              subtitle:
+                  'الرقم الوظيفي: ${employee.employeeNumber} | الدور: ${employee.roleLabel}',
+            ),
+            ReportPdfLine(
+              title: 'القسم: ${employee.departmentName ?? '-'}',
+              subtitle:
+                  'المسمى الوظيفي: ${employee.jobTitleName ?? '-'} | الهاتف: ${employee.phone ?? '-'}',
+            ),
+            ReportPdfLine(
+              title: 'تاريخ التعيين: ${_date(employee.hireDate)}',
+              subtitle:
+                  'الراتب الأساسي: ${_money(employee.baseSalary)} | المكافأة الشهرية: ${_money(employee.monthlyBonus)}',
+              trailing: employee.active ? 'نشط' : 'غير نشط',
+            ),
+          ],
+        ),
+        ReportPdfSection(
+          title: 'الحضور والانصراف (${report.attendance.length})',
+          lines: report.attendance
+              .map(
+                (row) => ReportPdfLine(
+                  title: _date(row.workDate),
+                  subtitle:
+                      'دخول: ${_dateTime(row.checkIn)} | خروج: ${_dateTime(row.checkOut)} | ساعات: ${(row.workedMinutes / 60).toStringAsFixed(1)}',
+                  trailing: row.status,
+                ),
+              )
+              .toList(),
+        ),
+        ReportPdfSection(
+          title: 'الرواتب (${report.payroll.length})',
+          lines: report.payroll
+              .map(
+                (row) => ReportPdfLine(
+                  title: 'صافي الراتب: ${_money(row.netSalary)}',
+                  subtitle:
+                      'أساسي: ${_money(row.baseSalary)} | إضافات: ${_money(row.allowances + row.bonuses + row.overtimeAmount)} | خصومات: ${_money(row.absenceDeductions + row.lateDeductions + row.penaltiesAmount + row.advanceInstallments + row.otherDeductions)}',
+                  trailing: row.status,
+                ),
+              )
+              .toList(),
+        ),
+        ReportPdfSection(
+          title: 'السلف (${report.advances.length})',
+          lines: report.advances
+              .map(
+                (row) => ReportPdfLine(
+                  title: 'السلفة: ${_money(row.principalAmount)}',
+                  subtitle:
+                      'التاريخ: ${_date(row.requestDate)} | المتبقي: ${_money(row.remainingAmount)}',
+                  trailing: row.status,
+                ),
+              )
+              .toList(),
+        ),
+        ReportPdfSection(
+          title: 'الجزاءات (${report.penalties.length})',
+          lines: report.penalties
+              .map(
+                (row) => ReportPdfLine(
+                  title: row.category,
+                  subtitle: '${_date(row.penaltyDate)} | ${row.reason}',
+                  trailing: _money(row.amount),
+                ),
+              )
+              .toList(),
+        ),
+        ReportPdfSection(
+          title: 'الإجازات (${report.leaves.length})',
+          lines: report.leaves
+              .map(
+                (row) => ReportPdfLine(
+                  title: row.leaveType,
+                  subtitle:
+                      '${_date(row.startDate)} إلى ${_date(row.endDate)}',
+                  trailing: row.status,
+                ),
+              )
+              .toList(),
+        ),
+        ReportPdfSection(
+          title: 'العمل الإضافي (${report.overtime.length})',
+          lines: report.overtime
+              .map(
+                (row) => ReportPdfLine(
+                  title:
+                      '${(row.overtimeMinutes / 60).toStringAsFixed(1)} ساعة',
+                  subtitle: _date(row.workDate),
+                  trailing: row.overtimeAmount == null
+                      ? row.approvalStatus
+                      : _money(row.overtimeAmount!),
+                ),
+              )
+              .toList(),
+        ),
+        ReportPdfSection(
+          title: 'مستندات الموظف (${report.documents.length})',
+          lines: report.documents
+              .map(
+                (row) => ReportPdfLine(
+                  title:
+                      '${row.data['title'] ?? row.data['document_type'] ?? row.$id}',
+                  subtitle:
+                      '${row.data['file_name'] ?? row.data['notes'] ?? ''}',
+                ),
+              )
+              .toList(),
+        ),
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return AppScaffold(
       title: 'التقرير الشامل للموظف',
       actions: [
-        IconButton(
-          tooltip: 'تصدير PDF',
-          onPressed: null,
-          icon: const Icon(Icons.picture_as_pdf_outlined),
-        ),
-        IconButton(
-          tooltip: 'تصدير Excel',
-          onPressed: null,
-          icon: const Icon(Icons.table_chart_outlined),
-        ),
-        IconButton(
-          tooltip: 'طباعة',
-          onPressed: null,
-          icon: const Icon(Icons.print_outlined),
-        ),
+        if (_exporting)
+          const Padding(
+            padding: EdgeInsets.symmetric(horizontal: 14),
+            child: Center(
+              child: SizedBox(
+                width: 20,
+                height: 20,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              ),
+            ),
+          )
+        else
+          PopupMenuButton<_ExportAction>(
+            tooltip: 'تصدير وطباعة',
+            icon: const Icon(Icons.ios_share_outlined),
+            onSelected: _handleExport,
+            itemBuilder: (context) => const [
+              PopupMenuItem(
+                value: _ExportAction.pdf,
+                child: ListTile(
+                  leading: Icon(Icons.picture_as_pdf_outlined),
+                  title: Text('مشاركة / حفظ PDF'),
+                  dense: true,
+                ),
+              ),
+              PopupMenuItem(
+                value: _ExportAction.print,
+                child: ListTile(
+                  leading: Icon(Icons.print_outlined),
+                  title: Text('طباعة التقرير'),
+                  dense: true,
+                ),
+              ),
+            ],
+          ),
       ],
       body: FutureBuilder<List<ProfileModel>>(
         future: _employeesFuture,
@@ -125,39 +348,50 @@ class _EmployeeFullReportScreenState extends State<EmployeeFullReportScreen> {
             );
           }
 
-          return ListView(
-            padding: const EdgeInsets.all(16),
-            children: [
-              _filters(employees),
-              const SizedBox(height: 12),
-              if (_reportFuture == null)
-                const _StateMessage(
-                  icon: Icons.analytics_outlined,
-                  title: 'اختر موظفًا',
-                  message: 'حدد الموظف والفترة ثم اضغط عرض التقرير.',
-                )
-              else
-                FutureBuilder<EmployeeFullReport>(
-                  future: _reportFuture,
-                  builder: (context, reportSnapshot) {
-                    if (reportSnapshot.connectionState !=
-                        ConnectionState.done) {
-                      return const Padding(
-                        padding: EdgeInsets.all(48),
-                        child: Center(child: CircularProgressIndicator()),
-                      );
-                    }
-                    if (reportSnapshot.hasError) {
-                      return _StateMessage(
-                        icon: Icons.error_outline,
-                        title: 'تعذر تحميل التقرير',
-                        message: '${reportSnapshot.error}',
-                      );
-                    }
-                    return _report(reportSnapshot.data!);
-                  },
+          return Align(
+            alignment: Alignment.topCenter,
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 1200),
+              child: ListView(
+                padding: EdgeInsets.all(
+                  MediaQuery.sizeOf(context).width < 650 ? 10 : 16,
                 ),
-            ],
+                children: [
+                  _filters(employees),
+                  const SizedBox(height: 12),
+                  if (_reportFuture == null)
+                    const _StateMessage(
+                      icon: Icons.analytics_outlined,
+                      title: 'اختر موظفًا',
+                      message:
+                          'حدد الموظف والفترة ثم اضغط عرض التقرير.',
+                    )
+                  else
+                    FutureBuilder<EmployeeFullReport>(
+                      future: _reportFuture,
+                      builder: (context, reportSnapshot) {
+                        if (reportSnapshot.connectionState !=
+                            ConnectionState.done) {
+                          return const Padding(
+                            padding: EdgeInsets.all(48),
+                            child: Center(
+                              child: CircularProgressIndicator(),
+                            ),
+                          );
+                        }
+                        if (reportSnapshot.hasError) {
+                          return _StateMessage(
+                            icon: Icons.error_outline,
+                            title: 'تعذر تحميل التقرير',
+                            message: '${reportSnapshot.error}',
+                          );
+                        }
+                        return _report(reportSnapshot.data!);
+                      },
+                    ),
+                ],
+              ),
+            ),
           );
         },
       ),
@@ -167,52 +401,80 @@ class _EmployeeFullReportScreenState extends State<EmployeeFullReportScreen> {
   Widget _filters(List<ProfileModel> employees) {
     return Card(
       child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Wrap(
-          spacing: 12,
-          runSpacing: 12,
-          crossAxisAlignment: WrapCrossAlignment.center,
-          children: [
-            SizedBox(
-              width: 320,
-              child: DropdownButtonFormField<String>(
-                isExpanded: true,
-                initialValue: _selectedEmployeeId,
-                decoration: const InputDecoration(
-                  labelText: 'اختيار الموظف',
-                  border: OutlineInputBorder(),
-                ),
-                items: employees
-                    .map(
-                      (employee) => DropdownMenuItem(
-                        value: employee.id,
-                        child: Text(
-                          '${employee.fullName} - ${employee.employeeNumber}',
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                    )
-                    .toList(),
-                onChanged: (value) =>
-                    setState(() => _selectedEmployeeId = value),
+        padding: const EdgeInsets.all(14),
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final compact = constraints.maxWidth < 600;
+            final employeeField = DropdownButtonFormField<String>(
+              isExpanded: true,
+              initialValue: _selectedEmployeeId,
+              decoration: const InputDecoration(
+                labelText: 'اختيار الموظف',
+                border: OutlineInputBorder(),
               ),
-            ),
-            OutlinedButton.icon(
+              items: employees
+                  .map(
+                    (employee) => DropdownMenuItem(
+                      value: employee.id,
+                      child: Text(
+                        '${employee.fullName} - ${employee.employeeNumber}',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  )
+                  .toList(),
+              onChanged: (value) =>
+                  setState(() => _selectedEmployeeId = value),
+            );
+
+            final fromButton = OutlinedButton.icon(
               onPressed: () => _pickDate(true),
               icon: const Icon(Icons.date_range_outlined),
               label: Text('من: ${_date(_from)}'),
-            ),
-            OutlinedButton.icon(
+            );
+            final toButton = OutlinedButton.icon(
               onPressed: () => _pickDate(false),
               icon: const Icon(Icons.event_outlined),
               label: Text('إلى: ${_date(_to)}'),
-            ),
-            FilledButton.icon(
+            );
+            final showButton = FilledButton.icon(
               onPressed: _loadReport,
               icon: const Icon(Icons.search),
               label: const Text('عرض التقرير'),
-            ),
-          ],
+            );
+
+            if (compact) {
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  employeeField,
+                  const SizedBox(height: 10),
+                  Row(
+                    children: [
+                      Expanded(child: fromButton),
+                      const SizedBox(width: 8),
+                      Expanded(child: toButton),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                  showButton,
+                ],
+              );
+            }
+
+            return Wrap(
+              spacing: 12,
+              runSpacing: 12,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              children: [
+                SizedBox(width: 320, child: employeeField),
+                fromButton,
+                toButton,
+                showButton,
+              ],
+            );
+          },
         ),
       ),
     );
@@ -281,7 +543,9 @@ class _EmployeeFullReportScreenState extends State<EmployeeFullReportScreen> {
               radius: 34,
               child: employee.photoPath == null
                   ? Text(
-                      employee.fullName.isNotEmpty ? employee.fullName[0] : 'م',
+                      employee.fullName.isNotEmpty
+                          ? employee.fullName[0]
+                          : 'م',
                     )
                   : const Icon(Icons.person),
             ),
@@ -353,30 +617,49 @@ class _EmployeeFullReportScreenState extends State<EmployeeFullReportScreen> {
         Icons.timer_outlined,
       ),
     ];
-    return Wrap(spacing: 12, runSpacing: 12, children: cards);
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final width = constraints.maxWidth < 520
+            ? (constraints.maxWidth - 10) / 2
+            : 190.0;
+        return Wrap(
+          spacing: 10,
+          runSpacing: 10,
+          children: cards
+              .map((card) => SizedBox(width: width, child: card))
+              .toList(),
+        );
+      },
+    );
   }
 
   Widget _summaryCard(String title, String value, IconData icon) {
-    return SizedBox(
-      width: 190,
-      child: Card(
-        child: Padding(
-          padding: const EdgeInsets.all(14),
-          child: Row(
-            children: [
-              Icon(icon),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(title, maxLines: 1, overflow: TextOverflow.ellipsis),
-                    Text(value, style: Theme.of(context).textTheme.titleMedium),
-                  ],
-                ),
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Row(
+          children: [
+            Icon(icon),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  Text(
+                    value,
+                    style: Theme.of(context).textTheme.titleMedium,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
               ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
@@ -494,7 +777,9 @@ class _EmployeeFullReportScreenState extends State<EmployeeFullReportScreen> {
   }
 
   Widget _overtime(List<OvertimeRecordModel> rows) {
-    if (rows.isEmpty) return const Text('لا توجد سجلات عمل إضافي لهذه الفترة.');
+    if (rows.isEmpty) {
+      return const Text('لا توجد سجلات عمل إضافي لهذه الفترة.');
+    }
     return Column(
       children: rows
           .map(
@@ -556,6 +841,8 @@ class _EmployeeFullReportScreenState extends State<EmployeeFullReportScreen> {
     return '${_date(value)} $hour:$minute';
   }
 }
+
+enum _ExportAction { pdf, print }
 
 class _StateMessage extends StatelessWidget {
   final IconData icon;
