@@ -14,7 +14,7 @@ class HrApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
-      title: 'نظام الموارد البشرية',
+      title: 'نظام إدارة موظفي المصنع',
       theme: AppTheme.light,
       darkTheme: AppTheme.dark,
       locale: const Locale('ar'),
@@ -45,7 +45,17 @@ class AuthGate extends StatelessWidget {
         if (snapshot.hasError) {
           final error = snapshot.error;
           if (error is AppwriteException) return const LoginScreen();
-          return Scaffold(body: Center(child: Text('خطأ في الاتصال: $error')));
+          return Scaffold(
+            body: Center(
+              child: Padding(
+                padding: const EdgeInsets.all(24),
+                child: Text(
+                  'تعذر الاتصال بالخدمة: $error',
+                  textAlign: TextAlign.center,
+                ),
+              ),
+            ),
+          );
         }
         return const EmployeeShell();
       },
