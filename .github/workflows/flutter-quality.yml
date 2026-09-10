@@ -1,0 +1,59 @@
+name: Flutter Quality
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  analyze-and-test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Flutter version
+        run: flutter --version
+
+      - name: Get dependencies
+        run: flutter pub get
+
+      - name: Analyze changed architecture
+        run: |
+          flutter analyze \
+            lib/app.dart \
+            lib/permissions/role_permissions.dart \
+            lib/widgets/common/app_scaffold.dart \
+            lib/widgets/common/app_card.dart \
+            lib/widgets/common/app_form_field.dart \
+            lib/widgets/common/employee_picker_field.dart \
+            lib/services/employee_tab_navigation.dart \
+            lib/screens/auth/login_screen.dart \
+            lib/screens/auth/force_password_change_screen.dart \
+            lib/screens/employee/employee_shell.dart \
+            lib/screens/employee/profile_screen.dart \
+            lib/screens/employee/settings_screen.dart \
+            lib/screens/employee/attendance_timeline_screen.dart \
+            lib/screens/admin/admin_dashboard_screen.dart \
+            lib/screens/admin/employee_directory_screen.dart \
+            lib/screens/admin/manage_advances_screen.dart \
+            lib/screens/admin/manage_leaves_screen.dart \
+            lib/screens/admin/add_penalty_screen.dart \
+            lib/screens/reports/report_list_screen.dart \
+            lib/screens/reports/employee_full_report_screen.dart \
+            lib/services/report_pdf_service.dart
+
+      - name: Test role-aware navigation
+        run: flutter test test/role_permissions_navigation_test.dart
