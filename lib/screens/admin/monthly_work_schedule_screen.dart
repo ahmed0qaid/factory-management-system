@@ -220,7 +220,7 @@ class _MonthlyWorkScheduleScreenState extends State<MonthlyWorkScheduleScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final canManage = AppRoles.canManageAttendance(widget.profile.role);
+    final canManage = AppRoles.canConfigureAttendance(widget.profile.role);
     return AppScaffold(
       title: 'جدول الدوام الشهري',
       body: _isLoading && _employees.isEmpty
