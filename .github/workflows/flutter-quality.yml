@@ -41,11 +41,14 @@ jobs:
             lib/widgets/common/app_scaffold.dart \
             lib/widgets/common/app_card.dart \
             lib/widgets/common/app_form_field.dart \
+            lib/widgets/common/app_empty_state.dart \
+            lib/widgets/common/app_bottom_sheet.dart \
             lib/widgets/common/employee_picker_field.dart \
             lib/services/employee_tab_navigation.dart \
             lib/screens/auth/login_screen.dart \
             lib/screens/auth/force_password_change_screen.dart \
             lib/screens/employee/employee_shell.dart \
+            lib/screens/employee/employee_home_screen.dart \
             lib/screens/employee/profile_screen.dart \
             lib/screens/employee/settings_screen.dart \
             lib/screens/employee/attendance_timeline_screen.dart \
@@ -53,8 +56,12 @@ jobs:
             lib/screens/admin/employee_directory_screen.dart \
             lib/screens/admin/manage_advances_screen.dart \
             lib/screens/admin/manage_leaves_screen.dart \
+            lib/screens/admin/manage_overtime_screen.dart \
+            lib/screens/admin/manage_payroll_screen.dart \
             lib/screens/admin/add_penalty_screen.dart \
             lib/screens/admin/employee_documents_screen.dart \
+            lib/screens/admin/employee_shift_assignments_screen.dart \
+            lib/screens/admin/monthly_work_schedule_screen.dart \
             lib/screens/reports/report_list_screen.dart \
             lib/screens/reports/employee_full_report_screen.dart \
             lib/services/report_pdf_service.dart
