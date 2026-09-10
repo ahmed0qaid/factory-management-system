@@ -176,6 +176,7 @@ class _EmployeeFullReportScreenState extends State<EmployeeFullReportScreen> {
             SizedBox(
               width: 320,
               child: DropdownButtonFormField<String>(
+                isExpanded: true,
                 initialValue: _selectedEmployeeId,
                 decoration: const InputDecoration(
                   labelText: 'اختيار الموظف',
