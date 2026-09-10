@@ -37,8 +37,15 @@ class AppRoles {
   static bool canViewEmployees(String role) => isManagement(role);
 
   static bool canViewAttendance(String role) => isManagement(role);
+
+  /// Day-to-day review/approval access for attendance-related records.
   static bool canManageAttendance(String role) =>
       isHr(role) || isGeneralManager(role);
+
+  /// Structural attendance setup changes are intentionally limited to HR.
+  /// This keeps shift definitions, policies, assignments, schedules and
+  /// biometric imports separate from managerial review/approval duties.
+  static bool canConfigureAttendance(String role) => isHr(role);
 
   static bool canViewPenalties(String role) => isManagement(role);
   static bool canManagePenalties(String role) =>
@@ -102,7 +109,7 @@ class AppRoles {
       );
     }
 
-    if (canManageAttendance(role)) {
+    if (canConfigureAttendance(role)) {
       modules.addAll(const [
         AdminModule(
           type: AdminModuleType.attendancePolicy,
@@ -144,15 +151,20 @@ class AppRoles {
           iconName: 'fingerprint',
           manageMode: true,
         ),
-        AdminModule(
+      ]);
+    }
+
+    if (canManageAttendance(role)) {
+      modules.add(
+        const AdminModule(
           type: AdminModuleType.overtime,
-          category: AdminModuleCategory.attendance,
+          category: AdminModuleCategory.approvals,
           title: 'الوقت الإضافي',
           description: 'مراجعة واعتماد أو رفض الساعات الإضافية',
           iconName: 'timer',
           manageMode: true,
         ),
-      ]);
+      );
     }
 
     if (canManageLeaveRequests(role)) {
@@ -233,8 +245,8 @@ class AppRoles {
       );
     }
 
-    // Audit log permissions are kept for the future data source, but no
-    // unfinished navigation item is shown until an audit screen is implemented.
+    // Audit-log permission remains available for a future implemented screen,
+    // but no placeholder item is exposed in navigation.
     return modules;
   }
 }
