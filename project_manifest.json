@@ -1,0 +1,8 @@
+{
+  "name": "hr_appwrite_flutter_starter",
+  "version": "0.5.0",
+  "backend": "Appwrite Cloud",
+  "database_api": "TablesDB",
+  "flutter_sdk_package": "appwrite ^25.3.0",
+  "notes": "Updated from Databases/Collections/Documents to TablesDB/Tables/Rows."
+}

@@ -1,0 +1,13 @@
+{
+  "name": "update-employee-credentials",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "type": "module",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "dependencies": {
+    "node-appwrite": "^14.1.0"
+  }
+}
