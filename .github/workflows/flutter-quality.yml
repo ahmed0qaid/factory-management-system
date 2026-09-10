@@ -49,9 +49,15 @@ jobs:
             lib/screens/auth/force_password_change_screen.dart \
             lib/screens/employee/employee_shell.dart \
             lib/screens/employee/employee_home_screen.dart \
+            lib/screens/employee/attendance_screen.dart \
+            lib/screens/employee/attendance_timeline_screen.dart \
+            lib/screens/employee/payroll_screen.dart \
+            lib/screens/employee/advances_screen.dart \
+            lib/screens/employee/leave_requests_screen.dart \
+            lib/screens/employee/notifications_screen.dart \
+            lib/screens/employee/penalties_screen.dart \
             lib/screens/employee/profile_screen.dart \
             lib/screens/employee/settings_screen.dart \
-            lib/screens/employee/attendance_timeline_screen.dart \
             lib/screens/admin/admin_dashboard_screen.dart \
             lib/screens/admin/employee_directory_screen.dart \
             lib/screens/admin/manage_advances_screen.dart \
@@ -62,6 +68,7 @@ jobs:
             lib/screens/admin/employee_documents_screen.dart \
             lib/screens/admin/employee_shift_assignments_screen.dart \
             lib/screens/admin/monthly_work_schedule_screen.dart \
+            lib/screens/reports/reports_dashboard_screen.dart \
             lib/screens/reports/report_list_screen.dart \
             lib/screens/reports/employee_full_report_screen.dart \
             lib/services/report_pdf_service.dart
