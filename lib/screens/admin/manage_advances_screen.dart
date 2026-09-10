@@ -118,14 +118,13 @@ class _ManageAdvancesScreenState extends State<ManageAdvancesScreen> {
   ) async {
     if (!_canManage) return;
     final funds = await FundService().getFunds();
+    if (!mounted) return;
     if (funds.isEmpty) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('لا توجد صناديق متاحة. أنشئ صندوقًا قبل اعتماد السلفة.'),
-          ),
-        );
-      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('لا توجد صناديق متاحة. أنشئ صندوقًا قبل اعتماد السلفة.'),
+        ),
+      );
       return;
     }
 
