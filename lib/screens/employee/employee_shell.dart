@@ -17,6 +17,7 @@ import 'advances_screen.dart';
 import 'attendance_screen.dart';
 import 'employee_home_screen.dart';
 import 'leave_requests_screen.dart';
+import 'notifications_screen.dart';
 import 'payroll_screen.dart';
 import 'penalties_screen.dart';
 import 'profile_screen.dart';
@@ -152,6 +153,10 @@ class _EmployeeShellState extends State<EmployeeShell> {
       MaterialPageRoute(builder: (_) => const LoginScreen()),
       (_) => false,
     );
+  }
+
+  void _openPage(Widget page) {
+    Navigator.of(context).push(MaterialPageRoute(builder: (_) => page));
   }
 
   @override
@@ -293,6 +298,13 @@ class _EmployeeShellState extends State<EmployeeShell> {
 
         return AppScaffold(
           title: destinations[_index].label,
+          actions: [
+            IconButton(
+              tooltip: 'الإشعارات',
+              onPressed: () => _openPage(const NotificationsScreen()),
+              icon: const Icon(Icons.notifications_none_outlined),
+            ),
+          ],
           drawer: _buildDrawer(profile),
           body: IndexedStack(index: _index, children: pages),
           bottomNavigationBar: NavigationBar(
@@ -311,9 +323,7 @@ class _EmployeeShellState extends State<EmployeeShell> {
       action();
     }
 
-    void open(Widget page) {
-      Navigator.of(context).push(MaterialPageRoute(builder: (_) => page));
-    }
+    void open(Widget page) => _openPage(page);
 
     return Drawer(
       child: SafeArea(
