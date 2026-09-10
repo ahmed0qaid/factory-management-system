@@ -1,19 +1,20 @@
-import 'package:flutter/material.dart';
-import 'package:file_picker/file_picker.dart';
 import 'package:appwrite/appwrite.dart';
+import 'package:file_picker/file_picker.dart';
+import 'package:flutter/material.dart';
+
+import '../../config/constants.dart';
 import '../../models/profile_model.dart';
 import '../../services/admin_service.dart';
 import '../../services/appwrite_service.dart';
-import '../../config/constants.dart';
 import '../../utils/formatters.dart';
 import '../../widgets/common/app_card.dart';
 import '../../widgets/common/app_dropdown_field.dart';
 import '../../widgets/common/app_form_field.dart';
-import '../../widgets/common/app_list_item.dart';
 import '../../widgets/common/app_loading_button.dart';
 import '../../widgets/common/app_scaffold.dart';
 import '../../widgets/common/app_section_header.dart';
-import '../../theme/app_colors.dart';
+import '../../widgets/common/employee_picker_field.dart';
+
 class EmployeeDocumentsScreen extends StatefulWidget {
   const EmployeeDocumentsScreen({super.key});
 
@@ -26,7 +27,7 @@ class _EmployeeDocumentsScreenState extends State<EmployeeDocumentsScreen> {
   final AdminService _service = AdminService();
   bool _isLoading = false;
   List<ProfileModel> _employees = [];
-  ProfileModel? _selectedEmployee;
+  String? _selectedEmployeeId;
 
   String _documentType = 'عقد';
   final List<String> _documentTypes = ['عقد', 'هوية', 'شهادة', 'ملف آخر'];
@@ -37,35 +38,61 @@ class _EmployeeDocumentsScreenState extends State<EmployeeDocumentsScreen> {
   PlatformFile? _selectedFile;
   List<dynamic> _employeeDocuments = [];
 
+  ProfileModel? get _selectedEmployee {
+    final id = _selectedEmployeeId;
+    if (id == null) return null;
+    for (final employee in _employees) {
+      if (employee.id == id) return employee;
+    }
+    return null;
+  }
+
   @override
   void initState() {
     super.initState();
     _loadEmployees();
   }
 
+  @override
+  void dispose() {
+    _titleController.dispose();
+    _notesController.dispose();
+    super.dispose();
+  }
+
   Future<void> _loadEmployees() async {
     setState(() => _isLoading = true);
     try {
-      final emps = await _service.getEmployees(limit: 500);
+      final employees = await _service.getEmployees(limit: 500);
       if (mounted) {
-        setState(() {
-          _employees = emps;
-        });
+        setState(() => _employees = employees.where((e) => e.active).toList());
       }
-    } catch (e) {
-      if (mounted)
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('خطأ: $e')));
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('تعذر تحميل الموظفين: $error')),
+        );
+      }
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
   }
 
+  Future<void> _selectEmployee(String? employeeId) async {
+    setState(() {
+      _selectedEmployeeId = employeeId;
+      _employeeDocuments = [];
+      _selectedFile = null;
+      _titleController.clear();
+      _notesController.clear();
+    });
+    if (employeeId != null) await _loadDocuments(employeeId);
+  }
+
   Future<void> _loadDocuments(String employeeId) async {
     setState(() => _isLoading = true);
     try {
-      final docs = await AppwriteService.tablesDB.listRows(
+      final response = await AppwriteService.tablesDB.listRows(
         databaseId: AppConstants.databaseId,
         tableId: AppConstants.employeeDocumentsTable,
         queries: [
@@ -73,16 +100,13 @@ class _EmployeeDocumentsScreenState extends State<EmployeeDocumentsScreen> {
           Query.orderDesc('created_at'),
         ],
       );
+      if (mounted) setState(() => _employeeDocuments = response.rows);
+    } catch (error) {
       if (mounted) {
-        setState(() {
-          _employeeDocuments = docs.rows;
-        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('تعذر جلب مستندات الموظف: $error')),
+        );
       }
-    } catch (e) {
-      if (mounted)
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('خطأ في جلب المستندات: $e')));
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
@@ -90,34 +114,27 @@ class _EmployeeDocumentsScreenState extends State<EmployeeDocumentsScreen> {
 
   Future<void> _pickFile() async {
     try {
-      final result = await FilePicker.pickFiles(
-        type: FileType.any,
-        withData: true,
-      );
-      if (result != null && result.files.isNotEmpty) {
-        setState(() {
-          _selectedFile = result.files.first;
-        });
+      final result = await FilePicker.pickFiles(type: FileType.any, withData: true);
+      if (result != null && result.files.isNotEmpty && mounted) {
+        setState(() => _selectedFile = result.files.first);
       }
-    } catch (e) {
-      if (mounted)
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('خطأ في اختيار الملف: $e')));
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('تعذر اختيار الملف: $error')),
+        );
+      }
     }
   }
 
   Future<void> _uploadDocument() async {
-    if (_selectedEmployee == null) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('الرجاء اختيار الموظف')));
+    final employee = _selectedEmployee;
+    if (employee == null) {
+      _message('اختر الموظف أولًا.');
       return;
     }
     if (_titleController.text.trim().isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('الرجاء كتابة عنوان المستند')),
-      );
+      _message('اكتب عنوان المستند.');
       return;
     }
 
@@ -126,8 +143,8 @@ class _EmployeeDocumentsScreenState extends State<EmployeeDocumentsScreen> {
       String? fileId;
       String? fileName;
 
-      if (_selectedFile != null && _selectedFile!.bytes != null) {
-        final uploadedFile = await AppwriteService.storage.createFile(
+      if (_selectedFile?.bytes != null) {
+        final uploaded = await AppwriteService.storage.createFile(
           bucketId: AppConstants.employeeFilesBucket,
           fileId: ID.unique(),
           file: InputFile.fromBytes(
@@ -135,13 +152,13 @@ class _EmployeeDocumentsScreenState extends State<EmployeeDocumentsScreen> {
             filename: _selectedFile!.name,
           ),
           permissions: [
-            Permission.read(Role.user(_selectedEmployee!.id)),
+            Permission.read(Role.user(employee.id)),
             Permission.read(Role.team('company_main', 'hr_admin')),
             Permission.update(Role.team('company_main', 'hr_admin')),
             Permission.delete(Role.team('company_main', 'hr_admin')),
           ],
         );
-        fileId = uploadedFile.$id;
+        fileId = uploaded.$id;
         fileName = _selectedFile!.name;
       }
 
@@ -150,197 +167,239 @@ class _EmployeeDocumentsScreenState extends State<EmployeeDocumentsScreen> {
         tableId: AppConstants.employeeDocumentsTable,
         rowId: ID.unique(),
         data: {
-          'company_id': _selectedEmployee!.companyId,
-          'employee_id': _selectedEmployee!.id,
+          'company_id': employee.companyId,
+          'employee_id': employee.id,
           'document_type': _documentType,
           'title': _titleController.text.trim(),
           'notes': _notesController.text.trim(),
           'file_id': fileId,
           'file_name': fileName,
-          'uploaded_by':
-              'HR Admin', // In a real app, this would be the logged in admin's name/id
+          'uploaded_by': 'hr_admin',
           'created_at': DateTime.now().toIso8601String(),
         },
         permissions: [
-          Permission.read(Role.user(_selectedEmployee!.id)),
+          Permission.read(Role.user(employee.id)),
           Permission.read(Role.team('company_main', 'hr_admin')),
           Permission.update(Role.team('company_main', 'hr_admin')),
           Permission.delete(Role.team('company_main', 'hr_admin')),
         ],
       );
 
-      if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(const SnackBar(content: Text('تم حفظ المستند بنجاح')));
-        _titleController.clear();
-        _notesController.clear();
-        setState(() => _selectedFile = null);
-        _loadDocuments(_selectedEmployee!.id);
-      }
-    } catch (e) {
-      if (mounted)
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('خطأ: $e')));
+      if (!mounted) return;
+      _titleController.clear();
+      _notesController.clear();
+      setState(() => _selectedFile = null);
+      _message('تم حفظ المستند بنجاح.');
+      await _loadDocuments(employee.id);
+    } catch (error) {
+      _message('تعذر حفظ المستند: $error');
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
   }
 
+  void _message(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+  }
+
   @override
   Widget build(BuildContext context) {
+    final employee = _selectedEmployee;
     return AppScaffold(
       title: 'مستندات الموظفين',
       body: _isLoading && _employees.isEmpty
           ? const Center(child: CircularProgressIndicator())
-          : LayoutBuilder(
-              builder: (context, constraints) {
-                return SingleChildScrollView(
+          : Align(
+              alignment: Alignment.topCenter,
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 900),
+                child: ListView(
+                  keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
                   padding: const EdgeInsets.all(16),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      AppCard(
-                        padding: const EdgeInsets.all(16),
-                        child: AppDropdownField<ProfileModel>(
-                          labelText: 'الموظف',
-                          prefixIcon: Icons.person_outline,
-                          value: _selectedEmployee,
-                          items: _employees
-                              .map(
-                                (e) => DropdownMenuItem(
-                                  value: e,
-                                  child: Text(
-                                    '${e.fullName} (${e.employeeNumber})',
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                ),
-                              )
-                              .toList(),
-                          onChanged: (val) {
-                            setState(() {
-                              _selectedEmployee = val;
-                              _employeeDocuments.clear();
-                            });
-                            if (val != null) _loadDocuments(val.id);
-                          },
-                        ),
+                  children: [
+                    AppCard(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          const AppSectionHeader(
+                            title: 'اختيار الموظف',
+                            icon: Icons.person_search_outlined,
+                          ),
+                          const SizedBox(height: 12),
+                          EmployeePickerField(
+                            employees: _employees,
+                            selectedEmployeeId: _selectedEmployeeId,
+                            onChanged: _selectEmployee,
+                          ),
+                        ],
                       ),
-                      const SizedBox(height: 16),
-
-                      if (_selectedEmployee != null) ...[
-                        AppCard(
-                          padding: const EdgeInsets.all(16),
+                    ),
+                    const SizedBox(height: 14),
+                    if (employee == null)
+                      const AppCard(
+                        child: Padding(
+                          padding: EdgeInsets.symmetric(vertical: 24),
                           child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.stretch,
                             children: [
-                              const AppSectionHeader(
-                                title: 'إضافة مستند جديد',
-                                icon: Icons.post_add_outlined,
-                              ),
-                              const SizedBox(height: 16),
-                              AppDropdownField<String>(
-                                labelText: 'نوع المستند',
-                                prefixIcon: Icons.category_outlined,
-                                value: _documentType,
-                                items: _documentTypes
-                                    .map(
-                                      (t) => DropdownMenuItem(
-                                        value: t,
-                                        child: Text(t),
-                                      ),
-                                    )
-                                    .toList(),
-                                onChanged: (val) =>
-                                    setState(() => _documentType = val!),
-                              ),
-                              const SizedBox(height: 16),
-                              AppFormField(
-                                controller: _titleController,
-                                labelText: 'عنوان المستند',
-                                prefixIcon: Icons.title_outlined,
-                              ),
-                              const SizedBox(height: 16),
-                              AppFormField(
-                                controller: _notesController,
-                                maxLines: 2,
-                                labelText: 'ملاحظات (اختياري)',
-                                prefixIcon: Icons.notes_outlined,
-                              ),
-                                const SizedBox(height: 16),
-                                Row(
-                                  children: [
-                                    ElevatedButton.icon(
-                                      onPressed: _pickFile,
-                                      icon: const Icon(Icons.attach_file),
-                                      label: const Text('اختيار ملف'),
-                                    ),
-                                    const SizedBox(width: 16),
-                                    Expanded(
-                                      child: Text(
-                                        _selectedFile != null
-                                            ? _selectedFile!.name
-                                            : 'لم يتم اختيار ملف',
-                                        overflow: TextOverflow.ellipsis,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                                const SizedBox(height: 16),
-                              const SizedBox(height: 16),
-                              AppLoadingButton(
-                                onPressed: _uploadDocument,
-                                text: 'حفظ ورفع المستند',
-                                icon: Icons.upload_file,
-                                isLoading: _isLoading,
-                              ),
+                              Icon(Icons.folder_shared_outlined, size: 48),
+                              SizedBox(height: 10),
+                              Text('اختر موظفًا لعرض ملفاته وإضافة مستند جديد.'),
                             ],
                           ),
                         ),
-                        const SizedBox(height: 24),
-                        const AppSectionHeader(
-                          title: 'مستندات الموظف الحالية:',
-                          icon: Icons.folder_open_outlined,
-                        ),
-                        const SizedBox(height: 8),
-                        if (_employeeDocuments.isEmpty)
-                          const Text('لا توجد مستندات مسجلة لهذا الموظف.')
-                        else
-                          ListView.builder(
-                            shrinkWrap: true,
-                            physics: const NeverScrollableScrollPhysics(),
-                            itemCount: _employeeDocuments.length,
-                            itemBuilder: (context, index) {
-                              final doc = _employeeDocuments[index].data;
-                              return AppListItem(
-                                leading: const CircleAvatar(
-                                  backgroundColor: AppColors.primary,
-                                  child: Icon(Icons.description_outlined, color: Colors.white),
+                      )
+                    else ...[
+                      AppCard(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            Row(
+                              children: [
+                                CircleAvatar(
+                                  child: Text(employee.fullName.isEmpty ? 'م' : employee.fullName[0]),
                                 ),
-                                title: Text('${doc["title"]} (${doc["document_type"]})'),
-                                subtitle: Text('تاريخ الرفع: ${Formatters.date(DateTime.parse(doc["created_at"]))}'),
-                                trailing: doc['file_id'] != null
-                                    ? IconButton(
-                                        icon: const Icon(Icons.download, color: Colors.blue),
-                                        tooltip: 'تحميل',
-                                        onPressed: () {
-                                          ScaffoldMessenger.of(context).showSnackBar(
-                                            const SnackBar(
-                                              content: Text('التحميل يتطلب فتح الرابط في المتصفح، هذه الميزة برمجية حالياً.'),
+                                const SizedBox(width: 10),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        employee.fullName,
+                                        style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                                              fontWeight: FontWeight.bold,
                                             ),
-                                          );
-                                        },
-                                      )
-                                    : null,
-                              );
-                            },
+                                      ),
+                                      Text(
+                                        '${employee.employeeNumber}${employee.departmentName?.trim().isNotEmpty == true ? ' • ${employee.departmentName}' : ''}',
+                                        style: Theme.of(context).textTheme.bodySmall,
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const Divider(height: 24),
+                            const AppSectionHeader(
+                              title: 'إضافة مستند جديد',
+                              icon: Icons.post_add_outlined,
+                            ),
+                            const SizedBox(height: 12),
+                            AppDropdownField<String>(
+                              labelText: 'نوع المستند',
+                              prefixIcon: Icons.category_outlined,
+                              value: _documentType,
+                              items: _documentTypes
+                                  .map(
+                                    (type) => DropdownMenuItem(
+                                      value: type,
+                                      child: Text(type),
+                                    ),
+                                  )
+                                  .toList(),
+                              onChanged: (value) {
+                                if (value != null) setState(() => _documentType = value);
+                              },
+                            ),
+                            const SizedBox(height: 14),
+                            AppFormField(
+                              controller: _titleController,
+                              labelText: 'عنوان المستند',
+                              prefixIcon: Icons.title_outlined,
+                              textInputAction: TextInputAction.next,
+                            ),
+                            const SizedBox(height: 14),
+                            AppFormField(
+                              controller: _notesController,
+                              maxLines: 2,
+                              labelText: 'ملاحظات (اختياري)',
+                              prefixIcon: Icons.notes_outlined,
+                            ),
+                            const SizedBox(height: 14),
+                            OutlinedButton.icon(
+                              onPressed: _isLoading ? null : _pickFile,
+                              icon: const Icon(Icons.attach_file),
+                              label: Text(
+                                _selectedFile == null
+                                    ? 'إرفاق ملف (اختياري)'
+                                    : _selectedFile!.name,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                            const SizedBox(height: 16),
+                            AppLoadingButton(
+                              onPressed: _uploadDocument,
+                              text: 'حفظ المستند',
+                              icon: Icons.upload_file_outlined,
+                              isLoading: _isLoading,
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 18),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              'مستندات الموظف',
+                              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                            ),
                           ),
-                      ],
+                          Text('${_employeeDocuments.length} مستند'),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      if (_isLoading)
+                        const LinearProgressIndicator()
+                      else if (_employeeDocuments.isEmpty)
+                        const AppCard(
+                          child: Padding(
+                            padding: EdgeInsets.symmetric(vertical: 18),
+                            child: Text(
+                              'لا توجد مستندات مسجلة لهذا الموظف.',
+                              textAlign: TextAlign.center,
+                            ),
+                          ),
+                        )
+                      else
+                        ..._employeeDocuments.map((row) {
+                          final data = row.data;
+                          final createdAt = DateTime.tryParse(
+                            data['created_at']?.toString() ?? '',
+                          );
+                          final hasFile = data['file_id'] != null;
+                          return Card(
+                            margin: const EdgeInsets.only(bottom: 8),
+                            child: ListTile(
+                              leading: const CircleAvatar(
+                                child: Icon(Icons.description_outlined),
+                              ),
+                              title: Text(
+                                '${data['title'] ?? 'مستند'}',
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                              subtitle: Text(
+                                '${data['document_type'] ?? '-'} • ${Formatters.date(createdAt)}${data['file_name'] != null ? '\n${data['file_name']}' : ''}',
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                              trailing: hasFile
+                                  ? const Tooltip(
+                                      message: 'يوجد ملف مرفق',
+                                      child: Icon(Icons.attach_file),
+                                    )
+                                  : null,
+                            ),
+                          );
+                        }),
                     ],
-                  ),
-                );
-              },
+                  ],
+                ),
+              ),
             ),
     );
   }
