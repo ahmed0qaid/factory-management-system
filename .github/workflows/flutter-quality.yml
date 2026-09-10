@@ -30,7 +30,7 @@ jobs:
       - name: Get dependencies
         run: flutter pub get
 
-      - name: Analyze changed architecture
+      - name: Analyze UX and navigation architecture
         run: |
           flutter analyze \
             lib/app.dart \
@@ -51,6 +51,7 @@ jobs:
             lib/screens/admin/manage_advances_screen.dart \
             lib/screens/admin/manage_leaves_screen.dart \
             lib/screens/admin/add_penalty_screen.dart \
+            lib/screens/admin/employee_documents_screen.dart \
             lib/screens/reports/report_list_screen.dart \
             lib/screens/reports/employee_full_report_screen.dart \
             lib/services/report_pdf_service.dart
