@@ -12,7 +12,7 @@ permissions:
 jobs:
   analyze-and-test:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 25
 
     steps:
       - name: Checkout
@@ -75,3 +75,6 @@ jobs:
 
       - name: Test role-aware navigation
         run: flutter test test/role_permissions_navigation_test.dart
+
+      - name: Build web smoke check
+        run: flutter build web --release
