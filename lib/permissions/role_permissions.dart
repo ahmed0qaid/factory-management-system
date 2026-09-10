@@ -233,19 +233,8 @@ class AppRoles {
       );
     }
 
-    if (canViewAuditLogs(role)) {
-      modules.add(
-        const AdminModule(
-          type: AdminModuleType.audit,
-          category: AdminModuleCategory.system,
-          title: 'الصلاحيات وسجل النظام',
-          description: 'مراجعة العمليات الحساسة وصلاحيات النظام',
-          iconName: 'security',
-          manageMode: true,
-        ),
-      );
-    }
-
+    // Audit log permissions are kept for the future data source, but no
+    // unfinished navigation item is shown until an audit screen is implemented.
     return modules;
   }
 }
