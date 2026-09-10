@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../../theme/app_colors.dart';
+
 import '../../theme/app_spacing.dart';
 
 class AppBottomSheet extends StatelessWidget {
@@ -8,11 +8,11 @@ class AppBottomSheet extends StatelessWidget {
   final EdgeInsetsGeometry padding;
 
   const AppBottomSheet({
-    Key? key,
+    super.key,
     required this.child,
     this.title,
     this.padding = const EdgeInsets.all(AppSpacing.md),
-  }) : super(key: key);
+  });
 
   static Future<T?> show<T>(
     BuildContext context, {
@@ -23,30 +23,43 @@ class AppBottomSheet extends StatelessWidget {
     return showModalBottomSheet<T>(
       context: context,
       isScrollControlled: isScrollControlled,
+      useSafeArea: true,
       builder: (context) => Padding(
         padding: EdgeInsets.only(
-          bottom: MediaQuery.of(context).viewInsets.bottom,
+          bottom: MediaQuery.viewInsetsOf(context).bottom,
         ),
-        child: AppBottomSheet(title: title, child: child),
+        child: Align(
+          alignment: Alignment.bottomCenter,
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 760),
+            child: AppBottomSheet(title: title, child: child),
+          ),
+        ),
       ),
     );
   }
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colors = theme.colorScheme;
+
     return SafeArea(
+      top: false,
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          // Drag handle
           Center(
             child: Container(
-              margin: const EdgeInsets.only(top: AppSpacing.sm, bottom: AppSpacing.sm),
+              margin: const EdgeInsets.only(
+                top: AppSpacing.sm,
+                bottom: AppSpacing.sm,
+              ),
               height: 4,
               width: 40,
               decoration: BoxDecoration(
-                color: AppColors.border,
+                color: colors.outlineVariant,
                 borderRadius: BorderRadius.circular(2),
               ),
             ),
@@ -56,21 +69,19 @@ class AppBottomSheet extends StatelessWidget {
               padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
               child: Text(
                 title!,
-                style: const TextStyle(
-                  fontSize: 18,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: theme.textTheme.titleMedium?.copyWith(
                   fontWeight: FontWeight.bold,
-                  color: AppColors.textPrimary,
+                  color: colors.onSurface,
                 ),
                 textAlign: TextAlign.center,
               ),
             ),
             const SizedBox(height: AppSpacing.md),
-            const Divider(height: 1),
+            Divider(height: 1, color: colors.outlineVariant),
           ],
-          Padding(
-            padding: padding,
-            child: child,
-          ),
+          Padding(padding: padding, child: child),
         ],
       ),
     );
