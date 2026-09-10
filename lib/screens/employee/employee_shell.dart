@@ -6,6 +6,7 @@ import '../../models/profile_model.dart';
 import '../../permissions/role_permissions.dart';
 import '../../services/auth_service.dart';
 import '../../services/employee_service.dart';
+import '../../services/employee_tab_navigation.dart';
 import '../../widgets/common/app_loading_button.dart';
 import '../../widgets/common/app_scaffold.dart';
 import '../admin/admin_dashboard_screen.dart';
@@ -41,7 +42,21 @@ class _EmployeeShellState extends State<EmployeeShell> {
   @override
   void initState() {
     super.initState();
+    EmployeeTabNavigation.requestedIndex.addListener(_handleTabRequest);
     _checkBiometricsAndLoad();
+  }
+
+  @override
+  void dispose() {
+    EmployeeTabNavigation.requestedIndex.removeListener(_handleTabRequest);
+    super.dispose();
+  }
+
+  void _handleTabRequest() {
+    final requested = EmployeeTabNavigation.requestedIndex.value;
+    if (requested == null || requested < 0 || requested > 4) return;
+    if (mounted) setState(() => _index = requested);
+    EmployeeTabNavigation.clear();
   }
 
   Future<void> _checkBiometricsAndLoad() async {
