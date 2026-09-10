@@ -17,6 +17,10 @@ class HrApp extends StatelessWidget {
       title: 'نظام إدارة موظفي المصنع',
       theme: AppTheme.light,
       darkTheme: AppTheme.dark,
+      // Several legacy operational screens still use fixed light surface
+      // colors. Keep the production UX visually consistent until every screen
+      // is migrated to ColorScheme-aware styling, then expose ThemeMode.system.
+      themeMode: ThemeMode.light,
       locale: const Locale('ar'),
       supportedLocales: const [Locale('ar'), Locale('en')],
       localizationsDelegates: const [
