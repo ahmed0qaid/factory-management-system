@@ -54,12 +54,24 @@ class _SettingsScreenState extends State<SettingsScreen> {
         final localAuth = LocalAuthentication();
         final authenticated = await localAuth.authenticate(
           localizedReason: 'تحقق من هويتك لتفعيل حماية التطبيق بالبصمة',
-          options: const AuthenticationOptions(
-            biometricOnly: true,
-            stickyAuth: true,
-          ),
+          biometricOnly: true,
+          persistAcrossBackgrounding: true,
         );
         if (!authenticated) return;
+      } on LocalAuthException catch (error) {
+        if (!mounted) return;
+        final message = switch (error.code) {
+          LocalAuthExceptionCode.userCanceled => 'تم إلغاء التحقق من البصمة.',
+          LocalAuthExceptionCode.temporaryLockout =>
+            'تم إيقاف البصمة مؤقتًا. حاول لاحقًا.',
+          LocalAuthExceptionCode.biometricLockout =>
+            'البصمة مقفلة على الجهاز. افتح الجهاز بالطريقة الأساسية ثم أعد المحاولة.',
+          _ => 'تعذر التحقق من البصمة.',
+        };
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(message)),
+        );
+        return;
       } catch (_) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
