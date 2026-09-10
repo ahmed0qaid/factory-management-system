@@ -251,12 +251,11 @@ class _EmployeePickerSheetState extends State<_EmployeePickerSheet> {
                             final employee = results[index];
                             final selected =
                                 employee.id == widget.selectedEmployeeId;
+                            final trimmedName = employee.fullName.trim();
                             return ListTile(
                               leading: CircleAvatar(
                                 child: Text(
-                                  employee.fullName.trim().isEmpty
-                                      ? 'م'
-                                      : employee.fullName.trim().characters.first,
+                                  trimmedName.isEmpty ? 'م' : trimmedName[0],
                                 ),
                               ),
                               title: Text(
