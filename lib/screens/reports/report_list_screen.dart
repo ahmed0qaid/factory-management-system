@@ -35,7 +35,6 @@ class _ReportListScreenState extends State<ReportListScreen> {
   final _service = EmployeeReportService();
   late Future<List<ProfileModel>> _employeesFuture;
   Future<List<models.Row>>? _rowsFuture;
-  List<models.Row> _lastRows = const [];
   List<ProfileModel> _employees = const [];
   String? _selectedEmployeeId;
   DateTime? _from;
@@ -94,14 +93,7 @@ class _ReportListScreenState extends State<ReportListScreen> {
           ),
       };
 
-  void _loadRows() {
-    if (_from != null && _to != null && _from!.isAfter(_to!)) {
-      _showMessage('تاريخ البداية يجب أن يسبق تاريخ النهاية.');
-      return;
-    }
-
-    setState(() {
-      _rowsFuture = switch (widget.kind) {
+  Future<List<models.Row>> _fetchRows() => switch (widget.kind) {
         ReportKind.attendance => _service.getAttendanceReport(
             employeeId: _selectedEmployeeId,
             from: _from,
@@ -136,7 +128,13 @@ class _ReportListScreenState extends State<ReportListScreen> {
             employeeId: _selectedEmployeeId,
           ),
       };
-    });
+
+  void _loadRows() {
+    if (_from != null && _to != null && _from!.isAfter(_to!)) {
+      _showMessage('تاريخ البداية يجب أن يسبق تاريخ النهاية.');
+      return;
+    }
+    setState(() => _rowsFuture = _fetchRows());
   }
 
   void _clearFilters() {
@@ -194,6 +192,7 @@ class _ReportListScreenState extends State<ReportListScreen> {
         _to = picked;
       }
     });
+    _loadRows();
   }
 
   String _date(DateTime? value) {
@@ -225,14 +224,13 @@ class _ReportListScreenState extends State<ReportListScreen> {
 
   Future<void> _handleExport(_ExportAction action) async {
     if (_exporting) return;
-    if (_rowsFuture == null) {
-      _showMessage('اعرض التقرير أولًا قبل التصدير.');
-      return;
-    }
-
     setState(() => _exporting = true);
     try {
-      final rows = _lastRows.isNotEmpty ? _lastRows : await _rowsFuture!;
+      final rows = await _fetchRows();
+      if (rows.isEmpty) {
+        _showMessage('لا توجد بيانات حالية لتصديرها.');
+        return;
+      }
       final payload = _buildPdfPayload(rows);
       final stamp = DateTime.now().millisecondsSinceEpoch;
       if (action == _ExportAction.pdf) {
@@ -259,12 +257,11 @@ class _ReportListScreenState extends State<ReportListScreen> {
         ? 'كل الموظفين'
         : '${employee.fullName} - ${employee.employeeNumber}';
 
-    final summary = _summaryData(rows);
     return ReportPdfPayload(
       title: 'تقرير ${_meta.title}',
       subtitle: employeeText,
       filterSummary: period,
-      metrics: summary
+      metrics: _summaryData(rows)
           .map((item) => ReportPdfMetric(label: item.title, value: item.value))
           .toList(),
       sections: [
@@ -394,7 +391,6 @@ class _ReportListScreenState extends State<ReportListScreen> {
                       }
 
                       final rows = rowsSnapshot.data ?? const <models.Row>[];
-                      _lastRows = rows;
                       if (rows.isEmpty) {
                         return _StateMessage(
                           icon: meta.icon,
@@ -448,7 +444,6 @@ class _ReportListScreenState extends State<ReportListScreen> {
         child: LayoutBuilder(
           builder: (context, constraints) {
             final compact = constraints.maxWidth < 600;
-
             final employeeField = EmployeePickerField(
               employees: employees,
               selectedEmployeeId: _selectedEmployeeId,
@@ -456,6 +451,7 @@ class _ReportListScreenState extends State<ReportListScreen> {
               labelText: 'الموظف',
               onChanged: (value) {
                 setState(() => _selectedEmployeeId = value);
+                _loadRows();
               },
             );
 
@@ -481,8 +477,8 @@ class _ReportListScreenState extends State<ReportListScreen> {
                 Expanded(
                   child: FilledButton.icon(
                     onPressed: _loadRows,
-                    icon: const Icon(Icons.analytics_outlined),
-                    label: const Text('عرض التقرير'),
+                    icon: const Icon(Icons.refresh),
+                    label: const Text('تحديث التقرير'),
                   ),
                 ),
                 const SizedBox(width: 8),
@@ -733,11 +729,7 @@ class _ReportListScreenState extends State<ReportListScreen> {
       margin: const EdgeInsets.only(bottom: 8),
       child: ListTile(
         leading: CircleAvatar(child: Icon(_meta.icon, size: 20)),
-        title: Text(
-          _title(data),
-          maxLines: 2,
-          overflow: TextOverflow.ellipsis,
-        ),
+        title: Text(_title(data), maxLines: 2, overflow: TextOverflow.ellipsis),
         subtitle: Text(
           'الموظف: $employee\n${_subtitle(data)}',
           maxLines: 3,
@@ -819,10 +811,6 @@ class _ReportListScreenState extends State<ReportListScreen> {
         return 'نشط';
       case 'closed':
         return 'مغلق';
-      case 'ملف':
-        return 'ملف';
-      case '-':
-        return '-';
       default:
         return status;
     }
@@ -831,7 +819,6 @@ class _ReportListScreenState extends State<ReportListScreen> {
 
 class _ReportHeader extends StatelessWidget {
   final _ReportMeta meta;
-
   const _ReportHeader({required this.meta});
 
   @override
@@ -870,7 +857,6 @@ class _DateFilterButton extends StatelessWidget {
   final String value;
   final IconData icon;
   final VoidCallback onPressed;
-
   const _DateFilterButton({
     required this.label,
     required this.value,
@@ -906,7 +892,6 @@ class _DateFilterButton extends StatelessWidget {
 
 class _SummaryCard extends StatelessWidget {
   final _SummaryData data;
-
   const _SummaryCard({required this.data});
 
   @override
@@ -946,7 +931,6 @@ class _SummaryData {
   final String title;
   final String value;
   final IconData icon;
-
   const _SummaryData(this.title, this.value, this.icon);
 }
 
@@ -954,7 +938,6 @@ class _ReportMeta {
   final String title;
   final String description;
   final IconData icon;
-
   const _ReportMeta({
     required this.title,
     required this.description,
@@ -969,7 +952,6 @@ class _StateMessage extends StatelessWidget {
   final IconData icon;
   final String title;
   final String message;
-
   const _StateMessage({
     required this.icon,
     required this.title,
