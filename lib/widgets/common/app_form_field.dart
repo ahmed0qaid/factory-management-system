@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import '../../theme/app_colors.dart';
 
 class AppFormField extends StatefulWidget {
   final String? labelText;
@@ -10,14 +9,16 @@ class AppFormField extends StatefulWidget {
   final TextEditingController? controller;
   final String? Function(String?)? validator;
   final TextInputType keyboardType;
+  final TextInputAction? textInputAction;
   final int maxLines;
   final bool? enabled;
   final String? initialValue;
   final void Function(String)? onChanged;
+  final void Function(String)? onFieldSubmitted;
   final void Function(String?)? onSaved;
 
   const AppFormField({
-    Key? key,
+    super.key,
     this.labelText,
     this.hintText,
     this.prefixIcon,
@@ -26,12 +27,14 @@ class AppFormField extends StatefulWidget {
     this.controller,
     this.validator,
     this.keyboardType = TextInputType.text,
+    this.textInputAction,
     this.maxLines = 1,
     this.enabled,
     this.initialValue,
     this.onChanged,
+    this.onFieldSubmitted,
     this.onSaved,
-  }) : super(key: key);
+  });
 
   @override
   State<AppFormField> createState() => _AppFormFieldState();
@@ -42,36 +45,36 @@ class _AppFormFieldState extends State<AppFormField> {
 
   @override
   Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
     Widget? builtSuffix = widget.suffixIcon;
     if (widget.isPassword) {
       builtSuffix = IconButton(
+        tooltip: _obscureText ? 'إظهار كلمة المرور' : 'إخفاء كلمة المرور',
         icon: Icon(
           _obscureText ? Icons.visibility_off : Icons.visibility,
-          color: AppColors.secondary,
+          color: colors.onSurfaceVariant,
         ),
-        onPressed: () {
-          setState(() {
-            _obscureText = !_obscureText;
-          });
-        },
+        onPressed: () => setState(() => _obscureText = !_obscureText),
       );
     }
 
     return TextFormField(
       controller: widget.controller,
-      initialValue: widget.initialValue,
+      initialValue: widget.controller == null ? widget.initialValue : null,
       enabled: widget.enabled,
       obscureText: widget.isPassword ? _obscureText : false,
       keyboardType: widget.keyboardType,
+      textInputAction: widget.textInputAction,
       validator: widget.validator,
       maxLines: widget.isPassword ? 1 : widget.maxLines,
       onChanged: widget.onChanged,
+      onFieldSubmitted: widget.onFieldSubmitted,
       onSaved: widget.onSaved,
       decoration: InputDecoration(
         labelText: widget.labelText,
         hintText: widget.hintText,
         prefixIcon: widget.prefixIcon != null
-            ? Icon(widget.prefixIcon, color: AppColors.secondary)
+            ? Icon(widget.prefixIcon, color: colors.onSurfaceVariant)
             : null,
         suffixIcon: builtSuffix,
       ),
