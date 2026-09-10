@@ -4,28 +4,27 @@ import '../../models/advance_model.dart';
 import '../../models/attendance_model.dart';
 import '../../models/profile_model.dart';
 import '../../services/employee_service.dart';
+import '../../services/employee_tab_navigation.dart';
 import '../../theme/app_colors.dart';
 import '../../theme/app_radius.dart';
 import '../../theme/app_spacing.dart';
 import '../../utils/attendance_display.dart';
 import '../../utils/formatters.dart';
-import '../../widgets/common/app_action_card.dart';
 import '../../widgets/common/app_card.dart';
 import '../../widgets/common/app_empty_state.dart';
 import '../../widgets/common/app_error_state.dart';
-import '../../widgets/common/app_loading_button.dart';
 import '../../widgets/common/app_loading_state.dart';
 import '../../widgets/common/app_section_header.dart';
 import '../../widgets/common/app_stat_card.dart';
 import '../../widgets/common/app_status_badge.dart';
 import 'advance_balance_details_screen.dart';
-import 'attendance_timeline_screen.dart';
 import 'factory_stoppages_screen.dart';
 import 'leave_requests_screen.dart';
 import 'penalties_screen.dart';
 
 class EmployeeHomeScreen extends StatefulWidget {
   final ProfileModel profile;
+
   const EmployeeHomeScreen({super.key, required this.profile});
 
   @override
@@ -48,8 +47,8 @@ class _EmployeeHomeScreenState extends State<EmployeeHomeScreen> {
 
   Future<_HomeSummary> _loadSummary() async {
     final results = await Future.wait<dynamic>([
-      _service.getAdvanceBalance().catchError((e) {
-        debugPrint('advances failed: $e');
+      _service.getAdvanceBalance().catchError((error) {
+        debugPrint('advances failed: $error');
         return AdvanceBalanceInfo(
           periodStart: DateTime.now(),
           periodEnd: DateTime.now(),
@@ -65,16 +64,16 @@ class _EmployeeHomeScreenState extends State<EmployeeHomeScreen> {
           canRequestAdvance: false,
         );
       }),
-      _service.getLeaveRequestsCount().catchError((e) {
-        debugPrint('leave_requests failed: $e');
+      _service.getLeaveRequestsCount().catchError((error) {
+        debugPrint('leave_requests failed: $error');
         return 0;
       }),
-      _service.getFactoryStoppages().catchError((e) {
-        debugPrint('factory_stoppages failed: $e');
+      _service.getFactoryStoppages().catchError((error) {
+        debugPrint('factory_stoppages failed: $error');
         return <Map<String, dynamic>>[];
       }),
-      _service.getMyAttendance(limit: 100).catchError((e) {
-        debugPrint('attendance_records failed: $e');
+      _service.getMyAttendance(limit: 100).catchError((error) {
+        debugPrint('attendance_records failed: $error');
         return <AttendanceRecordModel>[];
       }),
     ]);
@@ -123,28 +122,32 @@ class _EmployeeHomeScreenState extends State<EmployeeHomeScreen> {
 
   Widget _summaryContent(BuildContext context, _HomeSummary summary) {
     final attendance = _AttendanceSummary.from(summary.attendance);
+    final needsAttention = attendance.reviewDays > 0 ||
+        attendance.absentDays > 0 ||
+        summary.balance.penaltiesCount > 0;
 
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
+        const AppSectionHeader(title: 'حالة الدوام'),
+        const SizedBox(height: AppSpacing.sm),
         _attendanceOverviewCard(context, attendance),
+        if (needsAttention) ...[
+          const SizedBox(height: AppSpacing.xl),
+          const AppSectionHeader(
+            title: 'بحاجة إلى انتباه',
+            icon: Icons.notification_important_outlined,
+          ),
+          const SizedBox(height: AppSpacing.sm),
+          _attentionCard(context, summary, attendance),
+        ],
         const SizedBox(height: AppSpacing.xl),
-        AppSectionHeader(
+        const AppSectionHeader(
           title: 'ملخص الفترة الحالية',
-          actionLabel: 'تفاصيل الدوام',
-          actionIcon: Icons.timeline,
-          onAction: _openAttendanceDetails,
+          icon: Icons.dashboard_outlined,
         ),
         const SizedBox(height: AppSpacing.sm),
         _periodGrid(context, summary),
-        const SizedBox(height: AppSpacing.xl),
-        const AppSectionHeader(title: 'مؤشرات الدوام'),
-        const SizedBox(height: AppSpacing.sm),
-        _attendanceMetrics(context, attendance),
-        const SizedBox(height: AppSpacing.xl),
-        const AppSectionHeader(title: 'إجراءات سريعة'),
-        const SizedBox(height: AppSpacing.sm),
-        _quickActions(context, summary),
       ],
     );
   }
@@ -154,7 +157,7 @@ class _EmployeeHomeScreenState extends State<EmployeeHomeScreen> {
     final textTheme = Theme.of(context).textTheme;
     final jobTitle = widget.profile.jobTitleName?.trim().isNotEmpty == true
         ? widget.profile.jobTitleName!.trim()
-        : 'غير محدد';
+        : 'بدون مسمى وظيفي محدد';
     final department = widget.profile.departmentName?.trim().isNotEmpty == true
         ? widget.profile.departmentName!.trim()
         : 'بدون قسم محدد';
@@ -162,62 +165,60 @@ class _EmployeeHomeScreenState extends State<EmployeeHomeScreen> {
     return AppCard(
       elevated: true,
       padding: const EdgeInsets.all(AppSpacing.lg),
-      child: Column(
+      child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              CircleAvatar(
-                radius: 30,
-                backgroundColor: scheme.primaryContainer,
-                child: Text(
-                  _employeeInitial,
-                  style: textTheme.headlineSmall?.copyWith(
-                    color: scheme.onPrimaryContainer,
+          CircleAvatar(
+            radius: 30,
+            backgroundColor: scheme.primaryContainer,
+            child: Text(
+              _employeeInitial,
+              style: textTheme.headlineSmall?.copyWith(
+                color: scheme.onPrimaryContainer,
+              ),
+            ),
+          ),
+          const SizedBox(width: AppSpacing.md),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'مرحبًا، ${widget.profile.fullName}',
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.bold,
                   ),
                 ),
-              ),
-              const SizedBox(width: AppSpacing.md),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                const SizedBox(height: AppSpacing.xxs),
+                Text(
+                  jobTitle,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: textTheme.bodyMedium?.copyWith(
+                    color: scheme.onSurfaceVariant,
+                  ),
+                ),
+                const SizedBox(height: AppSpacing.sm),
+                Wrap(
+                  spacing: AppSpacing.xs,
+                  runSpacing: AppSpacing.xs,
                   children: [
-                    Text(
-                      'أهلاً، ${widget.profile.fullName}',
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: textTheme.titleMedium,
+                    AppStatusBadge(
+                      label: widget.profile.employeeNumber,
+                      color: scheme.primary,
+                      icon: Icons.badge_outlined,
                     ),
-                    const SizedBox(height: AppSpacing.xxs),
-                    Text(
-                      jobTitle,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: textTheme.bodyMedium?.copyWith(
-                        color: scheme.onSurfaceVariant,
-                      ),
+                    AppStatusBadge(
+                      label: department,
+                      color: scheme.secondary,
+                      icon: Icons.apartment_outlined,
                     ),
                   ],
                 ),
-              ),
-            ],
-          ),
-          const SizedBox(height: AppSpacing.md),
-          Wrap(
-            spacing: AppSpacing.xs,
-            runSpacing: AppSpacing.xs,
-            children: [
-              AppStatusBadge(
-                label: 'رقم الموظف: ${widget.profile.employeeNumber}',
-                color: AppColors.primary,
-                icon: Icons.badge_outlined,
-              ),
-              AppStatusBadge(
-                label: department,
-                color: AppColors.primary,
-                icon: Icons.apartment_outlined,
-              ),
-            ],
+              ],
+            ),
           ),
         ],
       ),
@@ -229,24 +230,24 @@ class _EmployeeHomeScreenState extends State<EmployeeHomeScreen> {
     _AttendanceSummary attendance,
   ) {
     if (!attendance.hasRecords) {
-      return const AppEmptyState(
+      return AppEmptyState(
         title: 'لا توجد سجلات دوام بعد',
         message: 'ستظهر حالة الحضور والانصراف هنا بعد تسجيل أول حركة.',
         icon: Icons.event_available_outlined,
+        actionLabel: 'فتح سجل الدوام',
+        onAction: _openAttendanceDetails,
       );
     }
 
-    final textTheme = Theme.of(context).textTheme;
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
     final statusColor = _statusSemanticColor(attendance.latestStatus);
 
     return AppCard(
       elevated: true,
       padding: const EdgeInsets.all(AppSpacing.lg),
-      backgroundColor: Colors.white,
-      borderColor: AppColors.border,
-      borderWidth: 1.2,
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Row(
             children: [
@@ -254,15 +255,12 @@ class _EmployeeHomeScreenState extends State<EmployeeHomeScreen> {
                 width: 48,
                 height: 48,
                 decoration: BoxDecoration(
-                  color: AppColors.primary.withValues(alpha: .08),
+                  color: scheme.primaryContainer,
                   borderRadius: BorderRadius.circular(AppRadius.lg),
-                  border: Border.all(
-                    color: AppColors.primary.withValues(alpha: .15),
-                  ),
                 ),
-                child: const Icon(
+                child: Icon(
                   Icons.fingerprint,
-                  color: AppColors.primary,
+                  color: scheme.onPrimaryContainer,
                   size: 28,
                 ),
               ),
@@ -272,17 +270,16 @@ class _EmployeeHomeScreenState extends State<EmployeeHomeScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'حالة الدوام',
-                      style: textTheme.titleMedium?.copyWith(
-                        
-                        color: AppColors.textPrimary,
+                      'آخر حالة مسجلة',
+                      style: theme.textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.bold,
                       ),
                     ),
                     const SizedBox(height: AppSpacing.xxs),
                     Text(
-                      'آخر تحديث: ${attendance.latestWorkDateText}',
-                      style: textTheme.bodySmall?.copyWith(
-                        color: AppColors.textSecondary,
+                      attendance.latestWorkDateText,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: scheme.onSurfaceVariant,
                       ),
                     ),
                   ],
@@ -295,38 +292,116 @@ class _EmployeeHomeScreenState extends State<EmployeeHomeScreen> {
             ],
           ),
           const SizedBox(height: AppSpacing.lg),
-          Row(
-            children: [
-              Expanded(
-                child: _MiniMetric(
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final compact = constraints.maxWidth < 430;
+              final items = [
+                _MiniMetric(
                   label: 'آخر حضور',
                   value: attendance.latestCheckInText,
                   icon: Icons.login,
                 ),
-              ),
-              const SizedBox(width: AppSpacing.sm),
-              Expanded(
-                child: _MiniMetric(
+                _MiniMetric(
                   label: 'آخر انصراف',
                   value: attendance.latestCheckOutText,
                   icon: Icons.logout,
                 ),
-              ),
+              ];
+              if (compact) {
+                return Column(
+                  children: [
+                    items[0],
+                    const SizedBox(height: AppSpacing.sm),
+                    items[1],
+                  ],
+                );
+              }
+              return Row(
+                children: [
+                  Expanded(child: items[0]),
+                  const SizedBox(width: AppSpacing.sm),
+                  Expanded(child: items[1]),
+                ],
+              );
+            },
+          ),
+          const SizedBox(height: AppSpacing.md),
+          Wrap(
+            spacing: AppSpacing.xs,
+            runSpacing: AppSpacing.xs,
+            children: [
+              Chip(label: Text('أيام الدوام: ${attendance.workDays}')),
+              if (attendance.absentDays > 0)
+                Chip(label: Text('غياب: ${attendance.absentDays}')),
+              if (attendance.reviewDays > 0)
+                Chip(label: Text('تحتاج مراجعة: ${attendance.reviewDays}')),
             ],
           ),
           const SizedBox(height: AppSpacing.md),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.end,
-            children: [
-              Expanded(
-                child: AppLoadingButton(
-                  onPressed: _openAttendanceDetails,
-                  icon: Icons.timeline,
-                  text: 'عرض سجل الدوام الكامل',
-                ),
-              ),
-            ],
+          SizedBox(
+            width: double.infinity,
+            child: FilledButton.tonalIcon(
+              onPressed: _openAttendanceDetails,
+              icon: const Icon(Icons.timeline_outlined),
+              label: const Text('فتح سجل الدوام'),
+            ),
           ),
+        ],
+      ),
+    );
+  }
+
+  Widget _attentionCard(
+    BuildContext context,
+    _HomeSummary summary,
+    _AttendanceSummary attendance,
+  ) {
+    final rows = <Widget>[];
+
+    if (attendance.reviewDays > 0) {
+      rows.add(
+        _AttentionRow(
+          icon: Icons.fact_check_outlined,
+          title: '${attendance.reviewDays} يوم يحتاج مراجعة',
+          subtitle: 'راجع تفاصيل الحضور والانصراف والحالة المسجلة.',
+          onTap: _openAttendanceDetails,
+        ),
+      );
+    }
+    if (attendance.absentDays > 0) {
+      rows.add(
+        _AttentionRow(
+          icon: Icons.event_busy_outlined,
+          title: '${attendance.absentDays} يوم غياب في الفترة الحالية',
+          subtitle: 'افتح سجل الدوام لمراجعة الأيام والتفاصيل.',
+          onTap: _openAttendanceDetails,
+        ),
+      );
+    }
+    if (summary.balance.penaltiesCount > 0) {
+      rows.add(
+        _AttentionRow(
+          icon: Icons.gavel_outlined,
+          title: '${summary.balance.penaltiesCount} جزاء مسجل',
+          subtitle:
+              'إجمالي القيمة ${Formatters.money(summary.balance.penaltiesAmount)}',
+          onTap: () => Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => const PenaltiesScreen(showAppBar: true),
+            ),
+          ),
+        ),
+      );
+    }
+
+    return AppCard(
+      child: Column(
+        children: [
+          for (var index = 0; index < rows.length; index++) ...[
+            if (index > 0) const Divider(height: 1),
+            rows[index],
+          ],
         ],
       ),
     );
@@ -335,8 +410,9 @@ class _EmployeeHomeScreenState extends State<EmployeeHomeScreen> {
   Widget _periodGrid(BuildContext context, _HomeSummary summary) {
     final items = [
       _DashboardItem(
-        title: 'الرصيد المتاح للسلفة',
+        title: 'رصيد السلفة المتاح',
         value: Formatters.money(summary.balance.availableBalance),
+        subtitle: 'تفاصيل الاستحقاق والسلف',
         icon: Icons.account_balance_wallet_outlined,
         color: AppColors.secondary,
         isActive: summary.balance.availableBalance > 0,
@@ -348,8 +424,9 @@ class _EmployeeHomeScreenState extends State<EmployeeHomeScreen> {
         ),
       ),
       _DashboardItem(
-        title: 'الإجازات',
+        title: 'طلبات الإجازة',
         value: summary.leavesCount.toString(),
+        subtitle: 'عرض الطلبات أو إنشاء طلب',
         icon: Icons.event_available_outlined,
         color: AppColors.primary,
         isActive: summary.leavesCount > 0,
@@ -364,7 +441,7 @@ class _EmployeeHomeScreenState extends State<EmployeeHomeScreen> {
         subtitle: Formatters.money(summary.balance.penaltiesAmount),
         icon: Icons.gavel_outlined,
         color: AppColors.tertiary,
-        isActive: summary.balance.penaltiesCount > 0 || summary.balance.penaltiesAmount > 0,
+        isActive: summary.balance.penaltiesCount > 0,
         onTap: () => Navigator.push(
           context,
           MaterialPageRoute(
@@ -375,6 +452,7 @@ class _EmployeeHomeScreenState extends State<EmployeeHomeScreen> {
       _DashboardItem(
         title: 'توقفات المصنع',
         value: summary.stoppagesCount.toString(),
+        subtitle: 'الحالات المسجلة',
         icon: Icons.factory_outlined,
         color: AppColors.tertiary,
         isActive: summary.stoppagesCount > 0,
@@ -386,8 +464,8 @@ class _EmployeeHomeScreenState extends State<EmployeeHomeScreen> {
     ];
 
     return _ResponsiveGrid(
-      minItemWidth: 156,
-      itemHeight: 156,
+      minItemWidth: 165,
+      itemHeight: 164,
       children: [
         for (final item in items)
           AppStatCard(
@@ -403,95 +481,8 @@ class _EmployeeHomeScreenState extends State<EmployeeHomeScreen> {
     );
   }
 
-  Widget _attendanceMetrics(
-    BuildContext context,
-    _AttendanceSummary attendance,
-  ) {
-    if (!attendance.hasRecords) {
-      return const AppEmptyState(
-        title: 'لا توجد مؤشرات',
-        message: 'لم يتم العثور على بيانات كافية لحساب مؤشرات الدوام.',
-        icon: Icons.query_stats_outlined,
-      );
-    }
-
-    final items = [
-      _DashboardItem(
-        title: 'أيام الدوام',
-        value: attendance.workDays.toString(),
-        icon: Icons.calendar_today,
-        color: AppColors.primary,
-        isActive: attendance.workDays > 0,
-        onTap: _openAttendanceDetails,
-      ),
-      _DashboardItem(
-        title: 'تحتاج مراجعة',
-        value: attendance.reviewDays.toString(),
-        icon: Icons.report_outlined,
-        color: AppColors.tertiary,
-        isActive: attendance.reviewDays > 0,
-        onTap: _openAttendanceDetails,
-      ),
-      _DashboardItem(
-        title: 'الغياب',
-        value: attendance.absentDays.toString(),
-        icon: Icons.event_busy_outlined,
-        color: AppColors.tertiary,
-        isActive: attendance.absentDays > 0,
-        onTap: _openAttendanceDetails,
-      ),
-    ];
-
-    return _ResponsiveGrid(
-      minItemWidth: 156,
-      itemHeight: 156,
-      children: [
-        for (final item in items)
-          AppStatCard(
-            title: item.title,
-            value: item.value,
-            icon: item.icon,
-            color: item.color,
-            isActive: item.isActive,
-            onTap: item.onTap,
-          ),
-      ],
-    );
-  }
-
-  Widget _quickActions(BuildContext context, _HomeSummary summary) {
-    return Column(
-      children: [
-        AppActionCard(
-          title: 'تفاصيل رصيد السلفة',
-          subtitle:
-              'متاح الآن ${Formatters.money(summary.balance.availableBalance)}',
-          icon: Icons.account_balance_wallet_outlined,
-          color: AppColors.primary,
-          onTap: () => Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (_) => const AdvanceBalanceDetailsScreen(),
-            ),
-          ),
-        ),
-        const SizedBox(height: AppSpacing.sm),
-        AppActionCard(
-          title: 'سجل الدوام',
-          subtitle: 'مراجعة الحضور والانصراف والحالات التي تحتاج متابعة',
-          icon: Icons.timeline,
-          color: AppColors.primary,
-          onTap: _openAttendanceDetails,
-        ),
-      ],
-    );
-  }
-
   void _openAttendanceDetails() {
-    Navigator.push(
-      context,
-      MaterialPageRoute(builder: (_) => const AttendanceTimelineScreen()),
-    );
+    EmployeeTabNavigation.openAttendance();
   }
 
   String get _employeeInitial {
@@ -550,6 +541,32 @@ class _EmployeeHomeScreenState extends State<EmployeeHomeScreen> {
   }
 }
 
+class _AttentionRow extends StatelessWidget {
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final VoidCallback onTap;
+
+  const _AttentionRow({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return ListTile(
+      contentPadding: EdgeInsets.zero,
+      leading: CircleAvatar(child: Icon(icon)),
+      title: Text(title),
+      subtitle: Text(subtitle),
+      trailing: const Icon(Icons.chevron_left),
+      onTap: onTap,
+    );
+  }
+}
+
 class _MiniMetric extends StatelessWidget {
   final String label;
   final String value;
@@ -563,34 +580,40 @@ class _MiniMetric extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final textTheme = Theme.of(context).textTheme;
+    final theme = Theme.of(context);
+    final colors = theme.colorScheme;
 
     return Container(
       padding: const EdgeInsets.all(AppSpacing.sm),
       decoration: BoxDecoration(
-        color: AppColors.surfaceContainerLow,
+        color: colors.surfaceContainer,
         borderRadius: BorderRadius.circular(AppRadius.md),
-        border: Border.all(color: AppColors.border),
+        border: Border.all(color: colors.outlineVariant),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      child: Row(
         children: [
-          Icon(icon, size: 18, color: AppColors.primary),
-          const SizedBox(height: AppSpacing.xs),
-          Text(
-            label,
-            style: textTheme.bodySmall?.copyWith(
-              color: AppColors.textSecondary,
-            ),
-          ),
-          const SizedBox(height: AppSpacing.xxs),
-          Text(
-            value,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: textTheme.titleSmall?.copyWith(
-              color: AppColors.textSecondary,
-              fontWeight: FontWeight.normal,
+          Icon(icon, size: 20, color: colors.primary),
+          const SizedBox(width: AppSpacing.sm),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label,
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: colors.onSurfaceVariant,
+                  ),
+                ),
+                const SizedBox(height: AppSpacing.xxs),
+                Text(
+                  value,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.titleSmall?.copyWith(
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ],
             ),
           ),
         ],
@@ -660,7 +683,6 @@ class _AttendanceSummary {
   final String latestWorkDateText;
   final String latestCheckInText;
   final String latestCheckOutText;
-  final String latestPunchText;
 
   const _AttendanceSummary({
     required this.hasRecords,
@@ -671,7 +693,6 @@ class _AttendanceSummary {
     required this.latestWorkDateText,
     required this.latestCheckInText,
     required this.latestCheckOutText,
-    required this.latestPunchText,
   });
 
   factory _AttendanceSummary.from(List<AttendanceRecordModel> records) {
@@ -686,7 +707,6 @@ class _AttendanceSummary {
         latestWorkDateText: '-',
         latestCheckInText: '-',
         latestCheckOutText: '-',
-        latestPunchText: '-',
       );
     }
 
@@ -716,16 +736,16 @@ class _AttendanceSummary {
       latestWorkDateText: Formatters.date(latest.workDate),
       latestCheckInText: displayTime(latest.checkIn),
       latestCheckOutText: displayTime(latest.checkOut),
-      latestPunchText: _latestPunchText(visibleRecords),
     );
   }
 
   static List<AttendanceRecordModel> _deduplicateAttendance(
     List<AttendanceRecordModel> items,
   ) {
+    final sorted = [...items]..sort((a, b) => b.workDate.compareTo(a.workDate));
     final seen = <String>{};
     final result = <AttendanceRecordModel>[];
-    for (final item in items) {
+    for (final item in sorted) {
       final key = [
         Formatters.date(item.workDate),
         item.checkIn?.toIso8601String() ?? '',
@@ -742,18 +762,6 @@ class _AttendanceSummary {
   ) {
     return records.map((item) => Formatters.date(item.workDate)).toSet();
   }
-
-  static String _latestPunchText(List<AttendanceRecordModel> records) {
-    final punches = <DateTime>[];
-    for (final item in records) {
-      if (item.checkIn != null) punches.add(item.checkIn!);
-      if (item.checkOut != null) punches.add(item.checkOut!);
-    }
-    if (punches.isEmpty) return '-';
-    punches.sort((a, b) => b.compareTo(a));
-    final latest = punches.first;
-    return '${Formatters.date(latest)} ${displayTime(latest)}';
-  }
 }
 
 class _HomeSummary {
@@ -769,5 +777,3 @@ class _HomeSummary {
     required this.attendance,
   });
 }
-
-
