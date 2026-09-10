@@ -11,6 +11,7 @@ import '../../models/profile_model.dart';
 import '../../services/employee_report_service.dart';
 import '../../services/report_pdf_service.dart';
 import '../../widgets/common/app_scaffold.dart';
+import '../../widgets/common/employee_picker_field.dart';
 
 class EmployeeFullReportScreen extends StatefulWidget {
   final ProfileModel currentProfile;
@@ -29,29 +30,26 @@ class _EmployeeFullReportScreenState extends State<EmployeeFullReportScreen> {
   String? _selectedEmployeeId;
   DateTime? _from;
   DateTime? _to;
+  _PeriodPreset? _selectedPreset;
   bool _exporting = false;
 
   @override
   void initState() {
     super.initState();
-    _employeesFuture = _loadEmployees();
-  }
-
-  Future<List<ProfileModel>> _loadEmployees() async {
-    final employees = await _service.getEmployees();
-    if (employees.isNotEmpty && _selectedEmployeeId == null) {
-      _selectedEmployeeId = employees.first.id;
-    }
-    return employees;
+    _employeesFuture = _service.getEmployees(limit: 500);
   }
 
   void _loadReport() {
     final employeeId = _selectedEmployeeId;
-    if (employeeId == null) return;
+    if (employeeId == null) {
+      _showMessage('اختر الموظف أولًا.');
+      return;
+    }
     if (_from != null && _to != null && _from!.isAfter(_to!)) {
       _showMessage('تاريخ البداية يجب أن يسبق تاريخ النهاية.');
       return;
     }
+
     setState(() {
       _reportFuture = _service.getEmployeeFullReport(
         employeeId: employeeId,
@@ -70,6 +68,8 @@ class _EmployeeFullReportScreenState extends State<EmployeeFullReportScreen> {
     );
     if (picked == null) return;
     setState(() {
+      _selectedPreset = null;
+      _reportFuture = null;
       if (isFrom) {
         _from = picked;
       } else {
@@ -78,11 +78,55 @@ class _EmployeeFullReportScreenState extends State<EmployeeFullReportScreen> {
     });
   }
 
+  void _applyPreset(_PeriodPreset preset) {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    late DateTime from;
+    late DateTime to;
+    switch (preset) {
+      case _PeriodPreset.thisMonth:
+        from = DateTime(today.year, today.month, 1);
+        to = today;
+      case _PeriodPreset.lastMonth:
+        from = DateTime(today.year, today.month - 1, 1);
+        to = DateTime(today.year, today.month, 0);
+      case _PeriodPreset.last30Days:
+        from = today.subtract(const Duration(days: 29));
+        to = today;
+      case _PeriodPreset.thisYear:
+        from = DateTime(today.year, 1, 1);
+        to = today;
+    }
+    setState(() {
+      _selectedPreset = preset;
+      _from = from;
+      _to = to;
+      _reportFuture = null;
+    });
+  }
+
+  void _clearFilters() {
+    setState(() {
+      _selectedEmployeeId = null;
+      _from = null;
+      _to = null;
+      _selectedPreset = null;
+      _reportFuture = null;
+    });
+  }
+
   String _date(DateTime? value) {
     if (value == null) return '-';
     final month = value.month.toString().padLeft(2, '0');
     final day = value.day.toString().padLeft(2, '0');
     return '${value.year}-$month-$day';
+  }
+
+  String _dateTime(DateTime? value) {
+    if (value == null) return '-';
+    final hour = value.hour.toString().padLeft(2, '0');
+    final minute = value.minute.toString().padLeft(2, '0');
+    return '${_date(value)} $hour:$minute';
   }
 
   String _money(num value) =>
@@ -101,14 +145,13 @@ class _EmployeeFullReportScreenState extends State<EmployeeFullReportScreen> {
       final report = await future;
       final payload = _buildPdfPayload(report);
       final timestamp = DateTime.now().millisecondsSinceEpoch;
-      switch (action) {
-        case _ExportAction.pdf:
-          await ReportPdfService.share(
-            payload: payload,
-            fileName: 'employee_full_report_$timestamp.pdf',
-          );
-        case _ExportAction.print:
-          await ReportPdfService.printReport(payload);
+      if (action == _ExportAction.pdf) {
+        await ReportPdfService.share(
+          payload: payload,
+          fileName: 'employee_full_report_$timestamp.pdf',
+        );
+      } else {
+        await ReportPdfService.printReport(payload);
       }
     } catch (error) {
       _showMessage('تعذر تجهيز التقرير: $error');
@@ -119,9 +162,32 @@ class _EmployeeFullReportScreenState extends State<EmployeeFullReportScreen> {
 
   void _showMessage(String message) {
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message)),
-    );
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+  }
+
+  String _status(String value) {
+    switch (value) {
+      case 'present':
+        return 'حاضر';
+      case 'absent':
+        return 'غائب';
+      case 'late':
+        return 'متأخر';
+      case 'approved':
+        return 'معتمد';
+      case 'rejected':
+        return 'مرفوض';
+      case 'pending':
+        return 'قيد المراجعة';
+      case 'paid':
+        return 'مدفوع';
+      case 'unpaid':
+        return 'غير مدفوع';
+      case 'draft':
+        return 'مسودة';
+      default:
+        return value;
+    }
   }
 
   ReportPdfPayload _buildPdfPayload(EmployeeFullReport report) {
@@ -134,38 +200,14 @@ class _EmployeeFullReportScreenState extends State<EmployeeFullReportScreen> {
       subtitle: '${employee.fullName} - ${employee.employeeNumber}',
       filterSummary: period,
       metrics: [
-        ReportPdfMetric(
-          label: 'أيام الحضور',
-          value: report.presentDays.toString(),
-        ),
-        ReportPdfMetric(
-          label: 'أيام الغياب',
-          value: report.absentDays.toString(),
-        ),
-        ReportPdfMetric(
-          label: 'مرات التأخير',
-          value: report.lateCount.toString(),
-        ),
-        ReportPdfMetric(
-          label: 'إجمالي الرواتب',
-          value: _money(report.totalPayroll),
-        ),
-        ReportPdfMetric(
-          label: 'إجمالي السلف',
-          value: _money(report.totalAdvances),
-        ),
-        ReportPdfMetric(
-          label: 'السلف المتبقية',
-          value: _money(report.remainingAdvances),
-        ),
-        ReportPdfMetric(
-          label: 'إجمالي الجزاءات',
-          value: _money(report.totalPenalties),
-        ),
-        ReportPdfMetric(
-          label: 'إجمالي الإضافي',
-          value: _money(report.totalOvertime),
-        ),
+        ReportPdfMetric(label: 'أيام الحضور', value: report.presentDays.toString()),
+        ReportPdfMetric(label: 'أيام الغياب', value: report.absentDays.toString()),
+        ReportPdfMetric(label: 'مرات التأخير', value: report.lateCount.toString()),
+        ReportPdfMetric(label: 'إجمالي الرواتب', value: _money(report.totalPayroll)),
+        ReportPdfMetric(label: 'إجمالي السلف', value: _money(report.totalAdvances)),
+        ReportPdfMetric(label: 'السلف المتبقية', value: _money(report.remainingAdvances)),
+        ReportPdfMetric(label: 'إجمالي الجزاءات', value: _money(report.totalPenalties)),
+        ReportPdfMetric(label: 'إجمالي الإضافي', value: _money(report.totalOvertime)),
       ],
       sections: [
         ReportPdfSection(
@@ -174,18 +216,8 @@ class _EmployeeFullReportScreenState extends State<EmployeeFullReportScreen> {
             ReportPdfLine(
               title: 'الاسم: ${employee.fullName}',
               subtitle:
-                  'الرقم الوظيفي: ${employee.employeeNumber} | الدور: ${employee.roleLabel}',
-            ),
-            ReportPdfLine(
-              title: 'القسم: ${employee.departmentName ?? '-'}',
-              subtitle:
-                  'المسمى الوظيفي: ${employee.jobTitleName ?? '-'} | الهاتف: ${employee.phone ?? '-'}',
-            ),
-            ReportPdfLine(
-              title: 'تاريخ التعيين: ${_date(employee.hireDate)}',
-              subtitle:
-                  'الراتب الأساسي: ${_money(employee.baseSalary)} | المكافأة الشهرية: ${_money(employee.monthlyBonus)}',
-              trailing: employee.active ? 'نشط' : 'غير نشط',
+                  'الرقم الوظيفي: ${employee.employeeNumber} | القسم: ${employee.departmentName ?? '-'} | المسمى: ${employee.jobTitleName ?? '-'}',
+              trailing: employee.active ? 'نشط' : 'موقوف',
             ),
           ],
         ),
@@ -197,7 +229,7 @@ class _EmployeeFullReportScreenState extends State<EmployeeFullReportScreen> {
                   title: _date(row.workDate),
                   subtitle:
                       'دخول: ${_dateTime(row.checkIn)} | خروج: ${_dateTime(row.checkOut)} | ساعات: ${(row.workedMinutes / 60).toStringAsFixed(1)}',
-                  trailing: row.status,
+                  trailing: _status(row.status),
                 ),
               )
               .toList(),
@@ -210,7 +242,7 @@ class _EmployeeFullReportScreenState extends State<EmployeeFullReportScreen> {
                   title: 'صافي الراتب: ${_money(row.netSalary)}',
                   subtitle:
                       'أساسي: ${_money(row.baseSalary)} | إضافات: ${_money(row.allowances + row.bonuses + row.overtimeAmount)} | خصومات: ${_money(row.absenceDeductions + row.lateDeductions + row.penaltiesAmount + row.advanceInstallments + row.otherDeductions)}',
-                  trailing: row.status,
+                  trailing: _status(row.status),
                 ),
               )
               .toList(),
@@ -222,8 +254,8 @@ class _EmployeeFullReportScreenState extends State<EmployeeFullReportScreen> {
                 (row) => ReportPdfLine(
                   title: 'السلفة: ${_money(row.principalAmount)}',
                   subtitle:
-                      'التاريخ: ${_date(row.requestDate)} | المتبقي: ${_money(row.remainingAmount)}',
-                  trailing: row.status,
+                      'التاريخ: ${_date(row.requestDate)} | القسط: ${_money(row.installmentAmount)} | المتبقي: ${_money(row.remainingAmount)}',
+                  trailing: _status(row.status),
                 ),
               )
               .toList(),
@@ -246,9 +278,8 @@ class _EmployeeFullReportScreenState extends State<EmployeeFullReportScreen> {
               .map(
                 (row) => ReportPdfLine(
                   title: row.leaveType,
-                  subtitle:
-                      '${_date(row.startDate)} إلى ${_date(row.endDate)}',
-                  trailing: row.status,
+                  subtitle: '${_date(row.startDate)} إلى ${_date(row.endDate)}',
+                  trailing: _status(row.status),
                 ),
               )
               .toList(),
@@ -258,11 +289,11 @@ class _EmployeeFullReportScreenState extends State<EmployeeFullReportScreen> {
           lines: report.overtime
               .map(
                 (row) => ReportPdfLine(
-                  title:
-                      '${(row.overtimeMinutes / 60).toStringAsFixed(1)} ساعة',
-                  subtitle: _date(row.workDate),
+                  title: '${(row.overtimeMinutes / 60).toStringAsFixed(1)} ساعة',
+                  subtitle:
+                      '${_date(row.workDate)} | الدفع: ${_status(row.paymentStatus)}',
                   trailing: row.overtimeAmount == null
-                      ? row.approvalStatus
+                      ? _status(row.approvalStatus)
                       : _money(row.overtimeAmount!),
                 ),
               )
@@ -275,8 +306,7 @@ class _EmployeeFullReportScreenState extends State<EmployeeFullReportScreen> {
                 (row) => ReportPdfLine(
                   title:
                       '${row.data['title'] ?? row.data['document_type'] ?? row.$id}',
-                  subtitle:
-                      '${row.data['file_name'] ?? row.data['notes'] ?? ''}',
+                  subtitle: '${row.data['file_name'] ?? row.data['notes'] ?? ''}',
                 ),
               )
               .toList(),
@@ -329,7 +359,7 @@ class _EmployeeFullReportScreenState extends State<EmployeeFullReportScreen> {
       body: FutureBuilder<List<ProfileModel>>(
         future: _employeesFuture,
         builder: (context, snapshot) {
-          if (snapshot.connectionState != ConnectionState.done) {
+          if (!snapshot.hasData && !snapshot.hasError) {
             return const Center(child: CircularProgressIndicator());
           }
           if (snapshot.hasError) {
@@ -339,6 +369,7 @@ class _EmployeeFullReportScreenState extends State<EmployeeFullReportScreen> {
               message: '${snapshot.error}',
             );
           }
+
           final employees = snapshot.data ?? const <ProfileModel>[];
           if (employees.isEmpty) {
             return const _StateMessage(
@@ -353,6 +384,7 @@ class _EmployeeFullReportScreenState extends State<EmployeeFullReportScreen> {
             child: ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: 1200),
               child: ListView(
+                keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
                 padding: EdgeInsets.all(
                   MediaQuery.sizeOf(context).width < 650 ? 10 : 16,
                 ),
@@ -361,22 +393,19 @@ class _EmployeeFullReportScreenState extends State<EmployeeFullReportScreen> {
                   const SizedBox(height: 12),
                   if (_reportFuture == null)
                     const _StateMessage(
-                      icon: Icons.analytics_outlined,
-                      title: 'اختر موظفًا',
+                      icon: Icons.person_search_outlined,
+                      title: 'اختر الموظف والفترة',
                       message:
-                          'حدد الموظف والفترة ثم اضغط عرض التقرير.',
+                          'ابحث عن الموظف بالاسم أو الرقم الوظيفي، ثم حدد الفترة واضغط عرض التقرير.',
                     )
                   else
                     FutureBuilder<EmployeeFullReport>(
                       future: _reportFuture,
                       builder: (context, reportSnapshot) {
-                        if (reportSnapshot.connectionState !=
-                            ConnectionState.done) {
+                        if (!reportSnapshot.hasData && !reportSnapshot.hasError) {
                           return const Padding(
                             padding: EdgeInsets.all(48),
-                            child: Center(
-                              child: CircularProgressIndicator(),
-                            ),
+                            child: Center(child: CircularProgressIndicator()),
                           );
                         }
                         if (reportSnapshot.hasError) {
@@ -404,74 +433,92 @@ class _EmployeeFullReportScreenState extends State<EmployeeFullReportScreen> {
         padding: const EdgeInsets.all(14),
         child: LayoutBuilder(
           builder: (context, constraints) {
-            final compact = constraints.maxWidth < 600;
-            final employeeField = DropdownButtonFormField<String>(
-              isExpanded: true,
-              initialValue: _selectedEmployeeId,
-              decoration: const InputDecoration(
-                labelText: 'اختيار الموظف',
-                border: OutlineInputBorder(),
-              ),
-              items: employees
-                  .map(
-                    (employee) => DropdownMenuItem(
-                      value: employee.id,
-                      child: Text(
-                        '${employee.fullName} - ${employee.employeeNumber}',
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                  )
-                  .toList(),
-              onChanged: (value) =>
-                  setState(() => _selectedEmployeeId = value),
+            final compact = constraints.maxWidth < 620;
+            final picker = EmployeePickerField(
+              employees: employees,
+              selectedEmployeeId: _selectedEmployeeId,
+              labelText: 'الموظف',
+              onChanged: (value) {
+                setState(() {
+                  _selectedEmployeeId = value;
+                  _reportFuture = null;
+                });
+              },
             );
-
-            final fromButton = OutlinedButton.icon(
+            final fromButton = _DateButton(
+              label: 'من تاريخ',
+              value: _from == null ? 'غير محدد' : _date(_from),
+              icon: Icons.date_range_outlined,
               onPressed: () => _pickDate(true),
-              icon: const Icon(Icons.date_range_outlined),
-              label: Text('من: ${_date(_from)}'),
             );
-            final toButton = OutlinedButton.icon(
+            final toButton = _DateButton(
+              label: 'إلى تاريخ',
+              value: _to == null ? 'غير محدد' : _date(_to),
+              icon: Icons.event_outlined,
               onPressed: () => _pickDate(false),
-              icon: const Icon(Icons.event_outlined),
-              label: Text('إلى: ${_date(_to)}'),
-            );
-            final showButton = FilledButton.icon(
-              onPressed: _loadReport,
-              icon: const Icon(Icons.search),
-              label: const Text('عرض التقرير'),
             );
 
-            if (compact) {
-              return Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  employeeField,
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Row(
+                  children: [
+                    const Icon(Icons.tune, size: 20),
+                    const SizedBox(width: 8),
+                    Text(
+                      'إعداد التقرير',
+                      style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                            fontWeight: FontWeight.bold,
+                          ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                if (compact) ...[
+                  picker,
                   const SizedBox(height: 10),
-                  Row(
+                  fromButton,
+                  const SizedBox(height: 8),
+                  toButton,
+                ] else
+                  Wrap(
+                    spacing: 10,
+                    runSpacing: 10,
                     children: [
-                      Expanded(child: fromButton),
-                      const SizedBox(width: 8),
-                      Expanded(child: toButton),
+                      SizedBox(width: 380, child: picker),
+                      SizedBox(width: 190, child: fromButton),
+                      SizedBox(width: 190, child: toButton),
                     ],
                   ),
-                  const SizedBox(height: 10),
-                  showButton,
-                ],
-              );
-            }
-
-            return Wrap(
-              spacing: 12,
-              runSpacing: 12,
-              crossAxisAlignment: WrapCrossAlignment.center,
-              children: [
-                SizedBox(width: 320, child: employeeField),
-                fromButton,
-                toButton,
-                showButton,
+                const SizedBox(height: 10),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    _presetChip(_PeriodPreset.thisMonth, 'هذا الشهر'),
+                    _presetChip(_PeriodPreset.lastMonth, 'الشهر السابق'),
+                    _presetChip(_PeriodPreset.last30Days, 'آخر 30 يومًا'),
+                    _presetChip(_PeriodPreset.thisYear, 'هذه السنة'),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    Expanded(
+                      child: FilledButton.icon(
+                        onPressed: _loadReport,
+                        icon: const Icon(Icons.analytics_outlined),
+                        label: const Text('عرض التقرير'),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    IconButton.outlined(
+                      tooltip: 'مسح الاختيارات',
+                      onPressed: _clearFilters,
+                      icon: const Icon(Icons.filter_alt_off_outlined),
+                    ),
+                  ],
+                ),
               ],
             );
           },
@@ -480,8 +527,17 @@ class _EmployeeFullReportScreenState extends State<EmployeeFullReportScreen> {
     );
   }
 
+  Widget _presetChip(_PeriodPreset preset, String label) {
+    return ChoiceChip(
+      label: Text(label),
+      selected: _selectedPreset == preset,
+      onSelected: (_) => _applyPreset(preset),
+    );
+  }
+
   Widget _report(EmployeeFullReport report) {
     return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         _employeeHeader(report.employee),
         const SizedBox(height: 12),
@@ -534,39 +590,80 @@ class _EmployeeFullReportScreenState extends State<EmployeeFullReportScreen> {
   }
 
   Widget _employeeHeader(ProfileModel employee) {
+    final details = [
+      _Info('الرقم الوظيفي', employee.employeeNumber),
+      _Info('القسم', employee.departmentName ?? '-'),
+      _Info('المسمى الوظيفي', employee.jobTitleName ?? '-'),
+      _Info('الهاتف', employee.phone ?? '-'),
+      _Info('تاريخ التعيين', _date(employee.hireDate)),
+      _Info('الراتب الأساسي', _money(employee.baseSalary)),
+      _Info('المكافأة الشهرية', _money(employee.monthlyBonus)),
+      _Info('الحالة', employee.active ? 'نشط' : 'موقوف'),
+    ];
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(16),
-        child: Row(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            CircleAvatar(
-              radius: 34,
-              child: employee.photoPath == null
-                  ? Text(
-                      employee.fullName.isNotEmpty
-                          ? employee.fullName[0]
-                          : 'م',
-                    )
-                  : const Icon(Icons.person),
+            Row(
+              children: [
+                CircleAvatar(
+                  radius: 30,
+                  child: Text(employee.fullName.isEmpty ? 'م' : employee.fullName[0]),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        employee.fullName,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                              fontWeight: FontWeight.bold,
+                            ),
+                      ),
+                      Text(employee.roleLabel),
+                    ],
+                  ),
+                ),
+              ],
             ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: Wrap(
-                spacing: 24,
-                runSpacing: 8,
-                children: [
-                  _field('الاسم', employee.fullName),
-                  _field('الرقم الوظيفي', employee.employeeNumber),
-                  _field('الدور', employee.roleLabel),
-                  _field('الهاتف', employee.phone ?? '-'),
-                  _field('القسم', employee.departmentName ?? '-'),
-                  _field('المسمى الوظيفي', employee.jobTitleName ?? '-'),
-                  _field('تاريخ التعيين', _date(employee.hireDate)),
-                  _field('الحالة', employee.active ? 'نشط' : 'غير نشط'),
-                  _field('الراتب الأساسي', _money(employee.baseSalary)),
-                  _field('المكافأة الشهرية', _money(employee.monthlyBonus)),
-                ],
-              ),
+            const Divider(height: 24),
+            LayoutBuilder(
+              builder: (context, constraints) {
+                final width = constraints.maxWidth < 520
+                    ? constraints.maxWidth
+                    : (constraints.maxWidth - 12) / 2;
+                return Wrap(
+                  spacing: 12,
+                  runSpacing: 10,
+                  children: details
+                      .map(
+                        (info) => SizedBox(
+                          width: width,
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                info.label,
+                                style: Theme.of(context).textTheme.bodySmall,
+                              ),
+                              Text(
+                                info.value,
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(fontWeight: FontWeight.w600),
+                              ),
+                            ],
+                          ),
+                        ),
+                      )
+                      .toList(),
+                );
+              },
             ),
           ],
         ),
@@ -575,93 +672,33 @@ class _EmployeeFullReportScreenState extends State<EmployeeFullReportScreen> {
   }
 
   Widget _summary(EmployeeFullReport report) {
-    final cards = [
-      _summaryCard(
-        'أيام الحضور',
-        report.presentDays.toString(),
-        Icons.check_circle_outline,
-      ),
-      _summaryCard(
-        'أيام الغياب',
-        report.absentDays.toString(),
-        Icons.cancel_outlined,
-      ),
-      _summaryCard(
-        'مرات التأخير',
-        report.lateCount.toString(),
-        Icons.schedule_outlined,
-      ),
-      _summaryCard(
-        'إجمالي الرواتب',
-        _money(report.totalPayroll),
-        Icons.payments_outlined,
-      ),
-      _summaryCard(
-        'إجمالي السلف',
-        _money(report.totalAdvances),
-        Icons.account_balance_wallet_outlined,
-      ),
-      _summaryCard(
-        'السلف المتبقية',
-        _money(report.remainingAdvances),
-        Icons.pending_actions_outlined,
-      ),
-      _summaryCard(
-        'إجمالي الجزاءات',
-        _money(report.totalPenalties),
-        Icons.gavel_outlined,
-      ),
-      _summaryCard(
-        'إجمالي الإضافي',
-        _money(report.totalOvertime),
-        Icons.timer_outlined,
-      ),
+    final items = [
+      _SummaryData('أيام الحضور', report.presentDays.toString(), Icons.check_circle_outline),
+      _SummaryData('أيام الغياب', report.absentDays.toString(), Icons.cancel_outlined),
+      _SummaryData('مرات التأخير', report.lateCount.toString(), Icons.schedule_outlined),
+      _SummaryData('إجمالي الرواتب', _money(report.totalPayroll), Icons.payments_outlined),
+      _SummaryData('إجمالي السلف', _money(report.totalAdvances), Icons.account_balance_wallet_outlined),
+      _SummaryData('السلف المتبقية', _money(report.remainingAdvances), Icons.pending_actions_outlined),
+      _SummaryData('إجمالي الجزاءات', _money(report.totalPenalties), Icons.gavel_outlined),
+      _SummaryData('إجمالي الإضافي', _money(report.totalOvertime), Icons.timer_outlined),
     ];
     return LayoutBuilder(
       builder: (context, constraints) {
-        final width = constraints.maxWidth < 520
-            ? (constraints.maxWidth - 10) / 2
-            : 190.0;
+        final columns = constraints.maxWidth < 520
+            ? 2
+            : constraints.maxWidth < 900
+                ? 3
+                : 4;
+        const gap = 10.0;
+        final width = (constraints.maxWidth - gap * (columns - 1)) / columns;
         return Wrap(
-          spacing: 10,
-          runSpacing: 10,
-          children: cards
-              .map((card) => SizedBox(width: width, child: card))
+          spacing: gap,
+          runSpacing: gap,
+          children: items
+              .map((item) => SizedBox(width: width, child: _SummaryCard(data: item)))
               .toList(),
         );
       },
-    );
-  }
-
-  Widget _summaryCard(String title, String value, IconData icon) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(12),
-        child: Row(
-          children: [
-            Icon(icon),
-            const SizedBox(width: 8),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    title,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  Text(
-                    value,
-                    style: Theme.of(context).textTheme.titleMedium,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
     );
   }
 
@@ -672,13 +709,14 @@ class _EmployeeFullReportScreenState extends State<EmployeeFullReportScreen> {
     required Widget child,
   }) {
     return Card(
+      margin: const EdgeInsets.only(bottom: 8),
       child: ExpansionTile(
         leading: Icon(icon),
         title: Text(title),
-        subtitle: Text(count == 0 ? 'لا توجد بيانات' : 'عدد السجلات: $count'),
+        subtitle: Text(count == 0 ? 'لا توجد بيانات' : '$count سجل'),
         children: [
           Padding(
-            padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+            padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
             child: child,
           ),
         ],
@@ -687,19 +725,16 @@ class _EmployeeFullReportScreenState extends State<EmployeeFullReportScreen> {
   }
 
   Widget _attendance(List<AttendanceRecordModel> rows) {
-    if (rows.isEmpty) return const Text('لا توجد سجلات حضور لهذه الفترة.');
+    if (rows.isEmpty) return const _EmptyLine('لا توجد سجلات حضور لهذه الفترة.');
     return Column(
       children: rows
           .map(
-            (row) => ListTile(
-              leading: const Icon(Icons.calendar_today_outlined),
-              title: Text(_date(row.workDate)),
-              subtitle: Text(
-                'دخول: ${_dateTime(row.checkIn)} | خروج: ${_dateTime(row.checkOut)}',
-              ),
-              trailing: Text(
-                '${(row.workedMinutes / 60).toStringAsFixed(1)} س',
-              ),
+            (row) => _RecordTile(
+              icon: Icons.calendar_today_outlined,
+              title: _date(row.workDate),
+              subtitle:
+                  'دخول: ${_dateTime(row.checkIn)}\nخروج: ${_dateTime(row.checkOut)} • ساعات: ${(row.workedMinutes / 60).toStringAsFixed(1)}',
+              trailing: _status(row.status),
             ),
           )
           .toList(),
@@ -707,17 +742,16 @@ class _EmployeeFullReportScreenState extends State<EmployeeFullReportScreen> {
   }
 
   Widget _payroll(List<PayrollRecordModel> rows) {
-    if (rows.isEmpty) return const Text('لا توجد سجلات رواتب لهذه الفترة.');
+    if (rows.isEmpty) return const _EmptyLine('لا توجد سجلات رواتب لهذه الفترة.');
     return Column(
       children: rows
           .map(
-            (row) => ListTile(
-              leading: const Icon(Icons.payments_outlined),
-              title: Text('الصافي: ${_money(row.netSalary)}'),
-              subtitle: Text(
-                'أساسي: ${_money(row.baseSalary)} | إضافات: ${_money(row.allowances + row.bonuses + row.overtimeAmount)} | خصومات: ${_money(row.absenceDeductions + row.lateDeductions + row.penaltiesAmount + row.advanceInstallments + row.otherDeductions)}',
-              ),
-              trailing: Text(row.status),
+            (row) => _RecordTile(
+              icon: Icons.payments_outlined,
+              title: 'الصافي: ${_money(row.netSalary)}',
+              subtitle:
+                  'أساسي: ${_money(row.baseSalary)} • إضافات: ${_money(row.allowances + row.bonuses + row.overtimeAmount)}\nخصومات: ${_money(row.absenceDeductions + row.lateDeductions + row.penaltiesAmount + row.advanceInstallments + row.otherDeductions)}',
+              trailing: _status(row.status),
             ),
           )
           .toList(),
@@ -725,17 +759,16 @@ class _EmployeeFullReportScreenState extends State<EmployeeFullReportScreen> {
   }
 
   Widget _advances(List<AdvanceModel> rows) {
-    if (rows.isEmpty) return const Text('لا توجد سلف لهذه الفترة.');
+    if (rows.isEmpty) return const _EmptyLine('لا توجد سلف لهذه الفترة.');
     return Column(
       children: rows
           .map(
-            (row) => ListTile(
-              leading: const Icon(Icons.account_balance_wallet_outlined),
-              title: Text('السلفة: ${_money(row.principalAmount)}'),
-              subtitle: Text(
-                'التاريخ: ${_date(row.requestDate)} | المتبقي: ${_money(row.remainingAmount)}',
-              ),
-              trailing: Text(row.status),
+            (row) => _RecordTile(
+              icon: Icons.account_balance_wallet_outlined,
+              title: 'السلفة: ${_money(row.principalAmount)}',
+              subtitle:
+                  'التاريخ: ${_date(row.requestDate)} • القسط: ${_money(row.installmentAmount)}\nالمتبقي: ${_money(row.remainingAmount)}',
+              trailing: _status(row.status),
             ),
           )
           .toList(),
@@ -743,15 +776,15 @@ class _EmployeeFullReportScreenState extends State<EmployeeFullReportScreen> {
   }
 
   Widget _penalties(List<PenaltyModel> rows) {
-    if (rows.isEmpty) return const Text('لا توجد جزاءات لهذه الفترة.');
+    if (rows.isEmpty) return const _EmptyLine('لا توجد جزاءات لهذه الفترة.');
     return Column(
       children: rows
           .map(
-            (row) => ListTile(
-              leading: const Icon(Icons.gavel_outlined),
-              title: Text(row.category),
-              subtitle: Text('${_date(row.penaltyDate)} | ${row.reason}'),
-              trailing: Text(_money(row.amount)),
+            (row) => _RecordTile(
+              icon: Icons.gavel_outlined,
+              title: row.category,
+              subtitle: '${_date(row.penaltyDate)}\n${row.reason}',
+              trailing: _money(row.amount),
             ),
           )
           .toList(),
@@ -759,17 +792,16 @@ class _EmployeeFullReportScreenState extends State<EmployeeFullReportScreen> {
   }
 
   Widget _leaves(List<LeaveModel> rows) {
-    if (rows.isEmpty) return const Text('لا توجد إجازات لهذه الفترة.');
+    if (rows.isEmpty) return const _EmptyLine('لا توجد إجازات لهذه الفترة.');
     return Column(
       children: rows
           .map(
-            (row) => ListTile(
-              leading: const Icon(Icons.event_available_outlined),
-              title: Text(row.leaveType),
-              subtitle: Text(
-                '${_date(row.startDate)} إلى ${_date(row.endDate)}',
-              ),
-              trailing: Text(row.status),
+            (row) => _RecordTile(
+              icon: Icons.event_available_outlined,
+              title: row.leaveType,
+              subtitle:
+                  '${_date(row.startDate)} إلى ${_date(row.endDate)}${row.reason?.trim().isNotEmpty == true ? '\n${row.reason}' : ''}',
+              trailing: _status(row.status),
             ),
           )
           .toList(),
@@ -777,23 +809,18 @@ class _EmployeeFullReportScreenState extends State<EmployeeFullReportScreen> {
   }
 
   Widget _overtime(List<OvertimeRecordModel> rows) {
-    if (rows.isEmpty) {
-      return const Text('لا توجد سجلات عمل إضافي لهذه الفترة.');
-    }
+    if (rows.isEmpty) return const _EmptyLine('لا توجد سجلات عمل إضافي لهذه الفترة.');
     return Column(
       children: rows
           .map(
-            (row) => ListTile(
-              leading: const Icon(Icons.timer_outlined),
-              title: Text(
-                '${(row.overtimeMinutes / 60).toStringAsFixed(1)} ساعة',
-              ),
-              subtitle: Text(_date(row.workDate)),
-              trailing: Text(
-                row.overtimeAmount == null
-                    ? row.approvalStatus
-                    : _money(row.overtimeAmount!),
-              ),
+            (row) => _RecordTile(
+              icon: Icons.timer_outlined,
+              title: '${(row.overtimeMinutes / 60).toStringAsFixed(1)} ساعة',
+              subtitle:
+                  '${_date(row.workDate)} • الدفع: ${_status(row.paymentStatus)}',
+              trailing: row.overtimeAmount == null
+                  ? _status(row.approvalStatus)
+                  : _money(row.overtimeAmount!),
             ),
           )
           .toList(),
@@ -802,47 +829,146 @@ class _EmployeeFullReportScreenState extends State<EmployeeFullReportScreen> {
 
   Widget _documents(EmployeeFullReport report) {
     if (report.documents.isEmpty) {
-      return const Text('لا توجد مستندات لهذا الموظف.');
+      return const _EmptyLine('لا توجد مستندات لهذا الموظف.');
     }
     return Column(
       children: report.documents
           .map(
-            (row) => ListTile(
-              leading: const Icon(Icons.description_outlined),
-              title: Text(
-                '${row.data['title'] ?? row.data['document_type'] ?? row.$id}',
-              ),
-              subtitle: Text(
-                '${row.data['file_name'] ?? row.data['notes'] ?? ''}',
-              ),
+            (row) => _RecordTile(
+              icon: Icons.description_outlined,
+              title: '${row.data['title'] ?? row.data['document_type'] ?? row.$id}',
+              subtitle: '${row.data['file_name'] ?? row.data['notes'] ?? ''}',
             ),
           )
           .toList(),
     );
   }
+}
 
-  Widget _field(String title, String value) {
-    return SizedBox(
-      width: 180,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+class _DateButton extends StatelessWidget {
+  final String label;
+  final String value;
+  final IconData icon;
+  final VoidCallback onPressed;
+
+  const _DateButton({
+    required this.label,
+    required this.value,
+    required this.icon,
+    required this.onPressed,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return OutlinedButton(
+      onPressed: onPressed,
+      style: OutlinedButton.styleFrom(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      ),
+      child: Row(
         children: [
-          Text(title, style: Theme.of(context).textTheme.bodySmall),
-          Text(value, maxLines: 2, overflow: TextOverflow.ellipsis),
+          Icon(icon, size: 18),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(label, style: Theme.of(context).textTheme.labelSmall),
+                Text(value, maxLines: 1, overflow: TextOverflow.ellipsis),
+              ],
+            ),
+          ),
         ],
       ),
     );
   }
+}
 
-  String _dateTime(DateTime? value) {
-    if (value == null) return '-';
-    final hour = value.hour.toString().padLeft(2, '0');
-    final minute = value.minute.toString().padLeft(2, '0');
-    return '${_date(value)} $hour:$minute';
+class _SummaryCard extends StatelessWidget {
+  final _SummaryData data;
+
+  const _SummaryCard({required this.data});
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Icon(data.icon, size: 21),
+            const SizedBox(height: 7),
+            Text(
+              data.value,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.bold,
+                  ),
+            ),
+            const SizedBox(height: 2),
+            Text(
+              data.title,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }
 
-enum _ExportAction { pdf, print }
+class _RecordTile extends StatelessWidget {
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final String? trailing;
+
+  const _RecordTile({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    this.trailing,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return ListTile(
+      contentPadding: const EdgeInsets.symmetric(horizontal: 4),
+      leading: CircleAvatar(child: Icon(icon, size: 19)),
+      title: Text(title, maxLines: 2, overflow: TextOverflow.ellipsis),
+      subtitle: Text(subtitle, maxLines: 3, overflow: TextOverflow.ellipsis),
+      trailing: trailing == null
+          ? null
+          : ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 90),
+              child: Text(
+                trailing!,
+                textAlign: TextAlign.end,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+    );
+  }
+}
+
+class _EmptyLine extends StatelessWidget {
+  final String message;
+
+  const _EmptyLine(this.message);
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.all(16),
+      child: Text(message, textAlign: TextAlign.center),
+    );
+  }
+}
 
 class _StateMessage extends StatelessWidget {
   final IconData icon;
@@ -857,20 +983,40 @@ class _StateMessage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.all(32),
-      child: Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(icon, size: 52),
-            const SizedBox(height: 12),
-            Text(title, style: Theme.of(context).textTheme.titleMedium),
-            const SizedBox(height: 6),
-            Text(message, textAlign: TextAlign.center),
-          ],
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 42),
+        child: Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(icon, size: 48),
+              const SizedBox(height: 12),
+              Text(title, style: Theme.of(context).textTheme.titleMedium),
+              const SizedBox(height: 6),
+              Text(message, textAlign: TextAlign.center),
+            ],
+          ),
         ),
       ),
     );
   }
 }
+
+class _SummaryData {
+  final String title;
+  final String value;
+  final IconData icon;
+
+  const _SummaryData(this.title, this.value, this.icon);
+}
+
+class _Info {
+  final String label;
+  final String value;
+
+  const _Info(this.label, this.value);
+}
+
+enum _PeriodPreset { thisMonth, lastMonth, last30Days, thisYear }
+enum _ExportAction { pdf, print }
