@@ -76,6 +76,13 @@ class _ReportListScreenState extends State<ReportListScreen> {
   };
 
   void _loadRows() {
+    if (_from != null && _to != null && _from!.isAfter(_to!)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('تاريخ البداية يجب أن يسبق تاريخ النهاية.')),
+      );
+      return;
+    }
+
     setState(() {
       _rowsFuture = switch (widget.kind) {
         ReportKind.attendance => _service.getAttendanceReport(
@@ -113,6 +120,15 @@ class _ReportListScreenState extends State<ReportListScreen> {
         ),
       };
     });
+  }
+
+  void _clearFilters() {
+    setState(() {
+      _selectedEmployeeId = null;
+      _from = null;
+      _to = null;
+    });
+    _loadRows();
   }
 
   Future<void> _pickDate(bool isFrom) async {
@@ -153,23 +169,43 @@ class _ReportListScreenState extends State<ReportListScreen> {
   @override
   Widget build(BuildContext context) {
     final meta = _meta;
+    final compact = MediaQuery.sizeOf(context).width < 600;
+
     return AppScaffold(
       title: meta.title,
       actions: [
-        IconButton(
-          tooltip: 'تصدير PDF',
-          onPressed: null,
-          icon: const Icon(Icons.picture_as_pdf_outlined),
-        ),
-        IconButton(
-          tooltip: 'تصدير Excel',
-          onPressed: null,
-          icon: const Icon(Icons.table_chart_outlined),
-        ),
-        IconButton(
-          tooltip: 'طباعة',
-          onPressed: null,
-          icon: const Icon(Icons.print_outlined),
+        PopupMenuButton<String>(
+          tooltip: 'خيارات التصدير',
+          icon: const Icon(Icons.more_vert),
+          itemBuilder: (context) => const [
+            PopupMenuItem<String>(
+              enabled: false,
+              value: 'pdf',
+              child: ListTile(
+                leading: Icon(Icons.picture_as_pdf_outlined),
+                title: Text('تصدير PDF'),
+                dense: true,
+              ),
+            ),
+            PopupMenuItem<String>(
+              enabled: false,
+              value: 'excel',
+              child: ListTile(
+                leading: Icon(Icons.table_chart_outlined),
+                title: Text('تصدير Excel'),
+                dense: true,
+              ),
+            ),
+            PopupMenuItem<String>(
+              enabled: false,
+              value: 'print',
+              child: ListTile(
+                leading: Icon(Icons.print_outlined),
+                title: Text('طباعة'),
+                dense: true,
+              ),
+            ),
+          ],
         ),
       ],
       body: FutureBuilder<List<ProfileModel>>(
@@ -190,7 +226,7 @@ class _ReportListScreenState extends State<ReportListScreen> {
             for (final employee in employees) employee.id: employee.fullName,
           };
           return ListView(
-            padding: const EdgeInsets.all(16),
+            padding: EdgeInsets.all(compact ? 10 : 16),
             children: [
               _filters(employees),
               const SizedBox(height: 12),
@@ -238,57 +274,104 @@ class _ReportListScreenState extends State<ReportListScreen> {
   Widget _filters(List<ProfileModel> employees) {
     return Card(
       child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Wrap(
-          spacing: 12,
-          runSpacing: 12,
-          crossAxisAlignment: WrapCrossAlignment.center,
-          children: [
-            SizedBox(
-              width: 320,
-              child: DropdownButtonFormField<String?>(
-                initialValue: _selectedEmployeeId,
-                decoration: const InputDecoration(
-                  labelText: 'الموظف',
-                  border: OutlineInputBorder(),
+        padding: const EdgeInsets.all(14),
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final compact = constraints.maxWidth < 560;
+
+            final employeeField = DropdownButtonFormField<String?>(
+              initialValue: _selectedEmployeeId,
+              isExpanded: true,
+              decoration: const InputDecoration(
+                labelText: 'الموظف',
+                border: OutlineInputBorder(),
+              ),
+              items: [
+                const DropdownMenuItem<String?>(
+                  value: null,
+                  child: Text('كل الموظفين'),
                 ),
-                items: [
-                  const DropdownMenuItem<String?>(
-                    value: null,
-                    child: Text('كل الموظفين'),
-                  ),
-                  ...employees.map(
-                    (employee) => DropdownMenuItem<String?>(
-                      value: employee.id,
-                      child: Text(
-                        '${employee.fullName} - ${employee.employeeNumber}',
-                        overflow: TextOverflow.ellipsis,
-                      ),
+                ...employees.map(
+                  (employee) => DropdownMenuItem<String?>(
+                    value: employee.id,
+                    child: Text(
+                      '${employee.fullName} - ${employee.employeeNumber}',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                     ),
                   ),
-                ],
-                onChanged: (value) =>
-                    setState(() => _selectedEmployeeId = value),
+                ),
+              ],
+              onChanged: (value) => setState(() => _selectedEmployeeId = value),
+            );
+
+            final fromButton = OutlinedButton.icon(
+              onPressed: () => _pickDate(true),
+              icon: const Icon(Icons.date_range_outlined, size: 18),
+              label: Text(
+                'من: ${_date(_from)}',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
               ),
-            ),
-            if (widget.kind != ReportKind.documents) ...[
-              OutlinedButton.icon(
-                onPressed: () => _pickDate(true),
-                icon: const Icon(Icons.date_range_outlined),
-                label: Text('من: ${_date(_from)}'),
+            );
+            final toButton = OutlinedButton.icon(
+              onPressed: () => _pickDate(false),
+              icon: const Icon(Icons.event_outlined, size: 18),
+              label: Text(
+                'إلى: ${_date(_to)}',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
               ),
-              OutlinedButton.icon(
-                onPressed: () => _pickDate(false),
-                icon: const Icon(Icons.event_outlined),
-                label: Text('إلى: ${_date(_to)}'),
-              ),
-            ],
-            FilledButton.icon(
+            );
+            final showButton = FilledButton.icon(
               onPressed: _loadRows,
               icon: const Icon(Icons.search),
               label: const Text('عرض التقرير'),
-            ),
-          ],
+            );
+            final clearButton = TextButton.icon(
+              onPressed: _clearFilters,
+              icon: const Icon(Icons.filter_alt_off_outlined),
+              label: const Text('مسح الفلاتر'),
+            );
+
+            if (compact) {
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  employeeField,
+                  if (widget.kind != ReportKind.documents) ...[
+                    const SizedBox(height: 10),
+                    Row(
+                      children: [
+                        Expanded(child: fromButton),
+                        const SizedBox(width: 8),
+                        Expanded(child: toButton),
+                      ],
+                    ),
+                  ],
+                  const SizedBox(height: 10),
+                  showButton,
+                  const SizedBox(height: 4),
+                  clearButton,
+                ],
+              );
+            }
+
+            return Wrap(
+              spacing: 12,
+              runSpacing: 12,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              children: [
+                SizedBox(width: 320, child: employeeField),
+                if (widget.kind != ReportKind.documents) ...[
+                  fromButton,
+                  toButton,
+                ],
+                showButton,
+                clearButton,
+              ],
+            );
+          },
         ),
       ),
     );
@@ -297,11 +380,7 @@ class _ReportListScreenState extends State<ReportListScreen> {
   Widget _summary(List<models.Row> rows) {
     final cards = switch (widget.kind) {
       ReportKind.attendance => [
-        _summaryCard(
-          'السجلات',
-          rows.length.toString(),
-          Icons.list_alt_outlined,
-        ),
+        _summaryCard('السجلات', rows.length.toString(), Icons.list_alt_outlined),
         _summaryCard(
           'الحضور',
           rows
@@ -329,16 +408,10 @@ class _ReportListScreenState extends State<ReportListScreen> {
         ),
       ],
       ReportKind.payroll => [
-        _summaryCard(
-          'السجلات',
-          rows.length.toString(),
-          Icons.list_alt_outlined,
-        ),
+        _summaryCard('السجلات', rows.length.toString(), Icons.list_alt_outlined),
         _summaryCard(
           'صافي الرواتب',
-          _money(
-            rows.fold<num>(0, (sum, row) => sum + _num(row.data, 'net_salary')),
-          ),
+          _money(rows.fold<num>(0, (sum, row) => sum + _num(row.data, 'net_salary'))),
           Icons.payments_outlined,
         ),
         _summaryCard(
@@ -373,112 +446,62 @@ class _ReportListScreenState extends State<ReportListScreen> {
         ),
       ],
       ReportKind.advances => [
-        _summaryCard(
-          'السجلات',
-          rows.length.toString(),
-          Icons.list_alt_outlined,
-        ),
+        _summaryCard('السجلات', rows.length.toString(), Icons.list_alt_outlined),
         _summaryCard(
           'إجمالي السلف',
-          _money(
-            rows.fold<num>(
-              0,
-              (sum, row) => sum + _num(row.data, 'principal_amount'),
-            ),
-          ),
+          _money(rows.fold<num>(0, (sum, row) => sum + _num(row.data, 'principal_amount'))),
           Icons.account_balance_wallet_outlined,
         ),
         _summaryCard(
           'المتبقي',
-          _money(
-            rows.fold<num>(
-              0,
-              (sum, row) => sum + _num(row.data, 'remaining_amount'),
-            ),
-          ),
+          _money(rows.fold<num>(0, (sum, row) => sum + _num(row.data, 'remaining_amount'))),
           Icons.pending_actions_outlined,
         ),
       ],
       ReportKind.penalties => [
-        _summaryCard(
-          'السجلات',
-          rows.length.toString(),
-          Icons.list_alt_outlined,
-        ),
+        _summaryCard('السجلات', rows.length.toString(), Icons.list_alt_outlined),
         _summaryCard(
           'إجمالي الجزاءات',
-          _money(
-            rows.fold<num>(0, (sum, row) => sum + _num(row.data, 'amount')),
-          ),
+          _money(rows.fold<num>(0, (sum, row) => sum + _num(row.data, 'amount'))),
           Icons.gavel_outlined,
         ),
         _summaryCard(
           'دقائق الخصم',
           rows
-              .fold<num>(
-                0,
-                (sum, row) => sum + _num(row.data, 'minutes_deducted'),
-              )
+              .fold<num>(0, (sum, row) => sum + _num(row.data, 'minutes_deducted'))
               .toString(),
           Icons.timer_off_outlined,
         ),
       ],
       ReportKind.leaves => [
-        _summaryCard(
-          'الطلبات',
-          rows.length.toString(),
-          Icons.event_available_outlined,
-        ),
+        _summaryCard('الطلبات', rows.length.toString(), Icons.event_available_outlined),
         _summaryCard(
           'المعتمدة',
-          rows
-              .where((row) => row.data['status'] == 'approved')
-              .length
-              .toString(),
+          rows.where((row) => row.data['status'] == 'approved').length.toString(),
           Icons.check_circle_outline,
         ),
         _summaryCard(
           'المعلقة',
-          rows
-              .where((row) => row.data['status'] == 'pending')
-              .length
-              .toString(),
+          rows.where((row) => row.data['status'] == 'pending').length.toString(),
           Icons.pending_actions_outlined,
         ),
       ],
       ReportKind.overtime => [
-        _summaryCard(
-          'السجلات',
-          rows.length.toString(),
-          Icons.list_alt_outlined,
-        ),
+        _summaryCard('السجلات', rows.length.toString(), Icons.list_alt_outlined),
         _summaryCard(
           'الساعات',
-          (rows.fold<num>(
-                    0,
-                    (sum, row) => sum + _num(row.data, 'overtime_minutes'),
-                  ) /
-                  60)
+          (rows.fold<num>(0, (sum, row) => sum + _num(row.data, 'overtime_minutes')) / 60)
               .toStringAsFixed(1),
           Icons.timer_outlined,
         ),
         _summaryCard(
           'القيمة',
-          _money(
-            rows.fold<num>(
-              0,
-              (sum, row) => sum + _num(row.data, 'overtime_amount'),
-            ),
-          ),
+          _money(rows.fold<num>(0, (sum, row) => sum + _num(row.data, 'overtime_amount'))),
           Icons.payments_outlined,
         ),
       ],
       ReportKind.documents => [
-        _summaryCard(
-          'المستندات',
-          rows.length.toString(),
-          Icons.folder_copy_outlined,
-        ),
+        _summaryCard('المستندات', rows.length.toString(), Icons.folder_copy_outlined),
         _summaryCard(
           'لها ملف',
           rows.where((row) => row.data['file_id'] != null).length.toString(),
@@ -486,30 +509,43 @@ class _ReportListScreenState extends State<ReportListScreen> {
         ),
       ],
     };
-    return Wrap(spacing: 12, runSpacing: 12, children: cards);
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final compact = constraints.maxWidth < 460;
+        return Wrap(
+          spacing: 10,
+          runSpacing: 10,
+          children: cards
+              .map(
+                (card) => SizedBox(
+                  width: compact ? constraints.maxWidth : 190,
+                  child: card,
+                ),
+              )
+              .toList(),
+        );
+      },
+    );
   }
 
   Widget _summaryCard(String title, String value, IconData icon) {
-    return SizedBox(
-      width: 190,
-      child: Card(
-        child: Padding(
-          padding: const EdgeInsets.all(14),
-          child: Row(
-            children: [
-              Icon(icon),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(title, maxLines: 1, overflow: TextOverflow.ellipsis),
-                    Text(value, style: Theme.of(context).textTheme.titleMedium),
-                  ],
-                ),
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(14),
+        child: Row(
+          children: [
+            Icon(icon),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(title, maxLines: 1, overflow: TextOverflow.ellipsis),
+                  Text(value, style: Theme.of(context).textTheme.titleMedium),
+                ],
               ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
@@ -517,15 +553,26 @@ class _ReportListScreenState extends State<ReportListScreen> {
 
   Widget _rowTile(models.Row row, Map<String, String> employeeNames) {
     final data = row.data;
-    final employee =
-        employeeNames[data['employee_id']] ?? data['employee_id'] ?? '-';
+    final employee = employeeNames[data['employee_id']] ?? data['employee_id'] ?? '-';
     return Card(
       child: ListTile(
         leading: Icon(_meta.icon),
-        title: Text(_title(data)),
-        subtitle: Text('الموظف: $employee\n${_subtitle(data)}'),
+        title: Text(_title(data), maxLines: 2, overflow: TextOverflow.ellipsis),
+        subtitle: Text(
+          'الموظف: $employee\n${_subtitle(data)}',
+          maxLines: 4,
+          overflow: TextOverflow.ellipsis,
+        ),
         isThreeLine: true,
-        trailing: Text(_trailing(data)),
+        trailing: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 74),
+          child: Text(
+            _trailing(data),
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            textAlign: TextAlign.center,
+          ),
+        ),
       ),
     );
   }
