@@ -2,13 +2,16 @@ import 'package:flutter/material.dart';
 
 import '../../models/advance_model.dart';
 import '../../services/employee_service.dart';
-import '../../utils/formatters.dart';
 import '../../theme/app_colors.dart';
+import '../../utils/formatters.dart';
 import '../../widgets/common/app_card.dart';
+import '../../widgets/common/app_empty_state.dart';
+import '../../widgets/common/app_error_state.dart';
 import '../../widgets/common/app_form_dialog.dart';
 import '../../widgets/common/app_form_field.dart';
-import '../../widgets/common/app_status_pill.dart';
 import '../../widgets/common/app_list_item.dart';
+import '../../widgets/common/app_loading_state.dart';
+import '../../widgets/common/app_status_pill.dart';
 
 class AdvancesScreen extends StatefulWidget {
   const AdvancesScreen({super.key});
@@ -20,6 +23,7 @@ class AdvancesScreen extends StatefulWidget {
 class _AdvancesScreenState extends State<AdvancesScreen> {
   final _service = EmployeeService();
   late Future<List<AdvanceModel>> _future;
+  bool _loadingRequestForm = false;
 
   @override
   void initState() {
@@ -30,119 +34,153 @@ class _AdvancesScreenState extends State<AdvancesScreen> {
   void _reload() => setState(() => _future = _service.getMyAdvances());
 
   Future<void> _showRequestDialog() async {
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (_) => const Center(child: CircularProgressIndicator()),
-    );
+    if (_loadingRequestForm) return;
+    setState(() => _loadingRequestForm = true);
 
     try {
       final balance = await _service.getAdvanceBalance();
       if (!mounted) return;
-      Navigator.pop(context); // Close loading
 
       final amount = TextEditingController();
       final reason = TextEditingController();
-
-      await AppFormDialog.show(
-        context,
-        title: 'طلب سلفة',
-        submitText: 'إرسال',
-        builder: (context, setDialogState) {
-          return Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              AppCard(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'الفترة: ${Formatters.date(balance.periodStart)} - ${Formatters.date(balance.periodEnd)}',
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      'أيام الحضور: ${balance.attendanceDays} من ${balance.workingDaysInPeriod} يوم عمل',
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      'المستحق حتى اليوم: ${Formatters.money(balance.accruedSalary)}',
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      'السلف السابقة: ${Formatters.money(balance.previousAdvances)}',
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      'إجمالي الجزاءات: ${Formatters.money(balance.penaltiesAmount)}',
-                    ),
-                    const Divider(),
-                    Text(
-                      'الرصيد المتاح للسلفة: ${Formatters.money(balance.availableBalance)}',
-                      style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        color: balance.availableBalance > 0
+      try {
+        await AppFormDialog.show(
+          context,
+          title: 'طلب سلفة',
+          submitText: 'إرسال الطلب',
+          builder: (context, setDialogState) {
+            return Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                AppCard(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Text(
+                        'ملخص الرصيد الحالي',
+                        style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                              fontWeight: FontWeight.bold,
+                            ),
+                      ),
+                      const SizedBox(height: 10),
+                      _SummaryLine(
+                        'الفترة',
+                        '${Formatters.date(balance.periodStart)} — ${Formatters.date(balance.periodEnd)}',
+                      ),
+                      _SummaryLine(
+                        'الحضور',
+                        '${balance.attendanceDays} من ${balance.workingDaysInPeriod} يوم عمل',
+                      ),
+                      _SummaryLine(
+                        'المستحق حتى اليوم',
+                        Formatters.money(balance.accruedSalary),
+                      ),
+                      _SummaryLine(
+                        'السلف السابقة',
+                        Formatters.money(balance.previousAdvances),
+                      ),
+                      _SummaryLine(
+                        'الجزاءات',
+                        Formatters.money(balance.penaltiesAmount),
+                      ),
+                      const Divider(height: 20),
+                      _SummaryLine(
+                        'الرصيد المتاح',
+                        Formatters.money(balance.availableBalance),
+                        strong: true,
+                        valueColor: balance.availableBalance > 0
                             ? AppColors.success
                             : AppColors.danger,
                       ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 16),
-              if (balance.availableBalance <= 0)
-                const Text(
-                  'لا يوجد رصيد متاح للسلفة حاليًا.',
-                  style: TextStyle(
-                    color: AppColors.danger,
+                    ],
                   ),
-                )
-              else ...[
-                AppFormField(
-                  controller: amount,
-                  keyboardType: TextInputType.number,
-                  labelText: 'المبلغ المطلوب',
-                  validator: (val) {
-                    if (val == null || val.trim().isEmpty) return 'يرجى إدخال المبلغ';
-                    final v = num.tryParse(val.trim());
-                    if (v == null || v <= 0) return 'مبلغ غير صحيح';
-                    if (v > balance.availableBalance) return 'المبلغ أكبر من الرصيد المتاح';
-                    return null;
-                  },
                 ),
-                const SizedBox(height: 12),
-                AppFormField(
-                  controller: reason,
-                  labelText: 'السبب (اختياري)',
-                ),
+                const SizedBox(height: 16),
+                if (balance.availableBalance <= 0)
+                  AppCard(
+                    borderColor:
+                        Theme.of(context).colorScheme.error.withValues(alpha: .3),
+                    child: const Text(
+                      'لا يوجد رصيد متاح للسلفة حاليًا. لا يمكن إرسال طلب جديد.',
+                      textAlign: TextAlign.center,
+                    ),
+                  )
+                else ...[
+                  AppFormField(
+                    controller: amount,
+                    keyboardType: const TextInputType.numberWithOptions(
+                      decimal: true,
+                    ),
+                    labelText: 'المبلغ المطلوب',
+                    prefixIcon: Icons.payments_outlined,
+                    validator: (value) {
+                      if (value == null || value.trim().isEmpty) {
+                        return 'أدخل المبلغ المطلوب';
+                      }
+                      final parsed = num.tryParse(value.trim());
+                      if (parsed == null || parsed <= 0) {
+                        return 'أدخل مبلغًا صحيحًا أكبر من الصفر';
+                      }
+                      if (parsed > balance.availableBalance) {
+                        return 'المبلغ أكبر من الرصيد المتاح';
+                      }
+                      return null;
+                    },
+                  ),
+                  const SizedBox(height: 12),
+                  AppFormField(
+                    controller: reason,
+                    labelText: 'سبب السلفة (اختياري)',
+                    prefixIcon: Icons.notes_outlined,
+                    maxLines: 3,
+                  ),
+                ],
               ],
-            ],
-          );
-        },
-        onSubmit: () async {
-          if (balance.availableBalance <= 0) return false;
-          final valAmount = num.tryParse(amount.text.trim());
-          if (valAmount == null || valAmount <= 0) return false;
-
-          await _service.requestAdvance(
-            amount: valAmount,
-            reason: reason.text.trim(),
-          );
-          
-          if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('تم إرسال طلب السلفة للإدارة.')),
             );
-            _reload();
-          }
-          return true;
-        },
-      );
-    } catch (e) {
-      if (!mounted) return;
-      Navigator.pop(context); // Close loading if error
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('خطأ: $e')));
+          },
+          onSubmit: () async {
+            if (balance.availableBalance <= 0) return false;
+            final requested = num.tryParse(amount.text.trim());
+            if (requested == null ||
+                requested <= 0 ||
+                requested > balance.availableBalance) {
+              return false;
+            }
+            try {
+              await _service.requestAdvance(
+                amount: requested,
+                reason: reason.text.trim(),
+              );
+              if (mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('تم إرسال طلب السلفة للإدارة.')),
+                );
+                _reload();
+              }
+              return true;
+            } catch (error) {
+              if (mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text('تعذر إرسال طلب السلفة: $error')),
+                );
+              }
+              return false;
+            }
+          },
+        );
+      } finally {
+        amount.dispose();
+        reason.dispose();
+      }
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('تعذر حساب الرصيد المتاح: $error')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _loadingRequestForm = false);
     }
   }
 
@@ -151,44 +189,126 @@ class _AdvancesScreenState extends State<AdvancesScreen> {
     return Scaffold(
       backgroundColor: Colors.transparent,
       floatingActionButton: FloatingActionButton.extended(
-        onPressed: _showRequestDialog,
-        icon: const Icon(Icons.add),
-        label: const Text('طلب سلفة'),
+        onPressed: _loadingRequestForm ? null : _showRequestDialog,
+        icon: _loadingRequestForm
+            ? const SizedBox(
+                width: 18,
+                height: 18,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              )
+            : const Icon(Icons.add),
+        label: Text(_loadingRequestForm ? 'جاري التحقق...' : 'طلب سلفة'),
       ),
       body: FutureBuilder<List<AdvanceModel>>(
         future: _future,
         builder: (context, snapshot) {
-          if (!snapshot.hasData) {
-            return const Center(child: CircularProgressIndicator());
+          if (snapshot.connectionState != ConnectionState.done) {
+            return const AppLoadingState(label: 'جاري تحميل السلف');
           }
-          final items = snapshot.data!;
-          if (items.isEmpty) return const Center(child: Text('لا توجد سلف.'));
-          return ListView.builder(
-            padding: const EdgeInsets.all(16),
-            itemCount: items.length,
-            itemBuilder: (_, i) {
-              final a = items[i];
-              return AppListItem(
-                title: Text('سلفة ${Formatters.date(a.requestDate)}'),
-                subtitle: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text('المبلغ: ${Formatters.money(a.principalAmount)}'),
-                    if (a.reason != null && a.reason!.isNotEmpty)
-                      Text('السبب: ${a.reason}'),
-                  ],
+          if (snapshot.hasError) {
+            return AppErrorState(
+              title: 'تعذر تحميل السلف',
+              message: '${snapshot.error}',
+              onRetry: _reload,
+            );
+          }
+
+          final items = snapshot.data ?? const <AdvanceModel>[];
+          if (items.isEmpty) {
+            return AppEmptyState(
+              title: 'لا توجد سلف',
+              message: 'لم ترسل أي طلب سلفة حتى الآن.',
+              icon: Icons.account_balance_wallet_outlined,
+              actionLabel: 'طلب سلفة',
+              onAction: _showRequestDialog,
+            );
+          }
+
+          return RefreshIndicator(
+            onRefresh: () async => _reload(),
+            child: Align(
+              alignment: Alignment.topCenter,
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 760),
+                child: ListView.builder(
+                  padding: const EdgeInsets.fromLTRB(16, 16, 16, 96),
+                  itemCount: items.length,
+                  itemBuilder: (_, index) {
+                    final advance = items[index];
+                    return AppListItem(
+                      title: Text(
+                        'سلفة ${Formatters.money(advance.principalAmount)}',
+                      ),
+                      subtitle: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'تاريخ الطلب: ${Formatters.date(advance.requestDate)}',
+                          ),
+                          if (advance.remainingAmount > 0)
+                            Text(
+                              'المتبقي: ${Formatters.money(advance.remainingAmount)}',
+                            ),
+                          if (advance.reason?.trim().isNotEmpty == true)
+                            Text('السبب: ${advance.reason}'),
+                        ],
+                      ),
+                      trailing: _status(advance.status),
+                    );
+                  },
                 ),
-                trailing: AppStatusPill(
-                  label: a.status == 'approved' ? 'موافق عليها' : a.status == 'rejected' ? 'مرفوضة' : 'قيد المراجعة',
-                  color: a.status == 'approved' ? AppColors.success : a.status == 'rejected' ? AppColors.danger : AppColors.warning,
-                ),
-              );
-            },
+              ),
+            ),
           );
         },
       ),
     );
   }
+
+  Widget _status(String status) {
+    return switch (status) {
+      'approved' => AppStatusPill.success('معتمدة'),
+      'paid' => AppStatusPill.success('مصروفة'),
+      'rejected' => AppStatusPill.danger('مرفوضة'),
+      _ => AppStatusPill.warning('قيد المراجعة'),
+    };
+  }
 }
 
+class _SummaryLine extends StatelessWidget {
+  final String label;
+  final String value;
+  final bool strong;
+  final Color? valueColor;
 
+  const _SummaryLine(
+    this.label,
+    this.value, {
+    this.strong = false,
+    this.valueColor,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 3),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Expanded(child: Text(label)),
+          const SizedBox(width: 12),
+          Flexible(
+            child: Text(
+              value,
+              textAlign: TextAlign.end,
+              style: TextStyle(
+                fontWeight: strong ? FontWeight.bold : null,
+                color: valueColor,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
