@@ -88,10 +88,8 @@ class _EmployeeShellState extends State<EmployeeShell> {
 
         final authenticated = await localAuth.authenticate(
           localizedReason: 'تحقق من هويتك لفتح نظام إدارة موظفي المصنع',
-          options: const AuthenticationOptions(
-            biometricOnly: true,
-            stickyAuth: true,
-          ),
+          biometricOnly: true,
+          persistAcrossBackgrounding: true,
         );
 
         if (!authenticated) {
@@ -103,6 +101,21 @@ class _EmployeeShellState extends State<EmployeeShell> {
           });
           return;
         }
+      } on LocalAuthException catch (error) {
+        if (!mounted) return;
+        setState(() {
+          _isAuthenticated = false;
+          _isAuthenticating = false;
+          _authenticationMessage = switch (error.code) {
+            LocalAuthExceptionCode.userCanceled => 'تم إلغاء التحقق من البصمة.',
+            LocalAuthExceptionCode.temporaryLockout =>
+              'تم إيقاف البصمة مؤقتًا بسبب محاولات متكررة. حاول لاحقًا.',
+            LocalAuthExceptionCode.biometricLockout =>
+              'البصمة مقفلة على الجهاز. افتح الجهاز بالطريقة الأساسية ثم أعد المحاولة.',
+            _ => 'تعذر التحقق من البصمة. لم يتم تجاوز حماية التطبيق.',
+          };
+        });
+        return;
       } catch (_) {
         if (!mounted) return;
         setState(() {
