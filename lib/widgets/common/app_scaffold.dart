@@ -34,6 +34,8 @@ class AppScaffold extends StatelessWidget {
       appBar: AppBar(
         title: Text(
           title,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
           style: const TextStyle(
             fontWeight: FontWeight.bold,
             color: AppColors.textPrimary,
