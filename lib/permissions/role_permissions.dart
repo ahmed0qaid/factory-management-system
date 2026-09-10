@@ -60,6 +60,7 @@ class AppRoles {
   static bool canViewAuditLogs(String role) => isHr(role);
   static bool canManageFunds(String role) =>
       isHr(role) || isFinancialManager(role);
+
   static bool canViewReports(String role) => isManagement(role);
   static bool canViewEmployeeFullReport(String role) => isHr(role);
   static bool canViewAttendanceReports(String role) => canViewAttendance(role);
@@ -72,152 +73,217 @@ class AppRoles {
 
   static List<AdminModule> modulesFor(String role) {
     final modules = <AdminModule>[];
+
     if (canViewEmployees(role)) {
       modules.add(
         AdminModule(
+          type: AdminModuleType.employees,
+          category: AdminModuleCategory.people,
           title: 'الموظفون',
-          description: isHr(role)
-              ? 'إضافة وتعديل وتعطيل الحسابات'
-              : 'عرض بيانات الموظفين الأساسية',
+          description: canEditEmployees(role)
+              ? 'إضافة وتعديل وتعطيل حسابات الموظفين'
+              : 'استعراض دليل الموظفين وبياناتهم الأساسية',
           iconName: 'people',
+          manageMode: canEditEmployees(role),
         ),
       );
-      if (isHr(role)) {
-        modules.add(
-          const AdminModule(
-            title: 'المسميات الوظيفية',
-            description: 'إدارة المسميات الوظيفية في النظام',
-            iconName: 'work',
-          ),
-        );
-      }
     }
-    if (canViewAttendance(role)) {
-      modules.add(
-        AdminModule(
-          title: 'سياسات الدوام',
-          description: 'إعداد فترات السماح وقواعد الاحتساب',
-          iconName: 'calendar',
-        ),
-      );
 
-      if (canManageAttendance(role)) {
-        modules.add(
-          const AdminModule(
-            title: 'إدارة الورديات',
-            description: 'إضافة وتعديل الورديات وأوقات العمل',
-            iconName: 'schedule',
-          ),
-        );
-        modules.add(
-          const AdminModule(
-            title: 'تعيين دوام الموظفين',
-            description: 'ربط الموظفين بالورديات الثابتة أو المتغيرة',
-            iconName: 'assignment_ind',
-          ),
-        );
-        modules.add(
-          const AdminModule(
-            title: 'توليد الجداول',
-            description: 'توليد جدول الدوام الشهري الفعلي لكل موظف',
-            iconName: 'calendar_month',
-          ),
-        );
-        modules.add(
-          const AdminModule(
-            title: 'استيراد البصمة',
-            description: 'استيراد ملفات الدخول والخروج من الجهاز',
-            iconName: 'fingerprint',
-          ),
-        );
-        modules.add(
-          const AdminModule(
-            title: 'إدارة الوقت الإضافي',
-            description: 'مراجعة واعتماد أو رفض الساعات الإضافية',
-            iconName: 'timer',
-          ),
-        );
-      }
-    }
-    if (canViewPenalties(role)) {
-      modules.add(
-        AdminModule(
-          title: 'الجزاءات',
-          description: canManagePenalties(role)
-              ? 'إضافة واعتماد الجزاءات'
-              : 'عرض الجزاءات والتأثير المالي',
-          iconName: 'gavel',
-        ),
-      );
-    }
-    if (canViewPayroll(role)) {
-      modules.add(
-        AdminModule(
-          title: 'الرواتب',
-          description: canManagePayroll(role)
-              ? 'احتساب واعتماد مسير الرواتب'
-              : 'عرض تقارير الرواتب',
-          iconName: 'payments',
-        ),
-      );
-    }
-    if (canViewAdvances(role)) {
-      modules.add(
-        AdminModule(
-          title: 'السلف',
-          description: canManageAdvances(role)
-              ? 'اعتماد السلف والأقساط'
-              : 'عرض السلف',
-          iconName: 'wallet',
-        ),
-      );
-    }
-    if (canManageFunds(role)) {
+    if (isHr(role)) {
       modules.add(
         const AdminModule(
-          title: 'الصندوق',
-          description: 'إدارة الصناديق والحركات المالية وتصفيتها',
-          iconName: 'account_balance',
+          type: AdminModuleType.jobTitles,
+          category: AdminModuleCategory.people,
+          title: 'المسميات الوظيفية',
+          description: 'إدارة المسميات الوظيفية المستخدمة داخل النظام',
+          iconName: 'work',
+          manageMode: true,
         ),
       );
     }
+
+    if (canManageAttendance(role)) {
+      modules.addAll(const [
+        AdminModule(
+          type: AdminModuleType.attendancePolicy,
+          category: AdminModuleCategory.attendance,
+          title: 'سياسات الدوام',
+          description: 'إعداد فترات السماح وقواعد احتساب الحضور والتأخير',
+          iconName: 'calendar',
+          manageMode: true,
+        ),
+        AdminModule(
+          type: AdminModuleType.shifts,
+          category: AdminModuleCategory.attendance,
+          title: 'الورديات',
+          description: 'إضافة وتعديل الورديات وأوقات العمل',
+          iconName: 'schedule',
+          manageMode: true,
+        ),
+        AdminModule(
+          type: AdminModuleType.shiftAssignments,
+          category: AdminModuleCategory.attendance,
+          title: 'تعيين دوام الموظفين',
+          description: 'ربط الموظفين بالورديات الثابتة أو المتغيرة',
+          iconName: 'assignment_ind',
+          manageMode: true,
+        ),
+        AdminModule(
+          type: AdminModuleType.monthlySchedules,
+          category: AdminModuleCategory.attendance,
+          title: 'الجداول الشهرية',
+          description: 'توليد جدول الدوام الشهري الفعلي لكل موظف',
+          iconName: 'calendar_month',
+          manageMode: true,
+        ),
+        AdminModule(
+          type: AdminModuleType.biometricImport,
+          category: AdminModuleCategory.attendance,
+          title: 'استيراد البصمة',
+          description: 'استيراد حركات الدخول والخروج من جهاز البصمة',
+          iconName: 'fingerprint',
+          manageMode: true,
+        ),
+        AdminModule(
+          type: AdminModuleType.overtime,
+          category: AdminModuleCategory.attendance,
+          title: 'الوقت الإضافي',
+          description: 'مراجعة واعتماد أو رفض الساعات الإضافية',
+          iconName: 'timer',
+          manageMode: true,
+        ),
+      ]);
+    }
+
     if (canManageLeaveRequests(role)) {
       modules.add(
         const AdminModule(
+          type: AdminModuleType.leaves,
+          category: AdminModuleCategory.approvals,
           title: 'الإجازات والاستئذان',
-          description: 'مراجعة واعتماد طلبات الموظفين',
+          description: 'مراجعة طلبات الإجازات واعتمادها أو رفضها',
           iconName: 'event_available',
+          manageMode: true,
         ),
       );
     }
+
+    if (canManagePenalties(role)) {
+      modules.add(
+        const AdminModule(
+          type: AdminModuleType.penalties,
+          category: AdminModuleCategory.approvals,
+          title: 'الجزاءات',
+          description: 'إضافة ومراجعة الجزاءات وتأثيرها المالي',
+          iconName: 'gavel',
+          manageMode: true,
+        ),
+      );
+    }
+
+    if (canManagePayroll(role)) {
+      modules.add(
+        const AdminModule(
+          type: AdminModuleType.payroll,
+          category: AdminModuleCategory.finance,
+          title: 'الرواتب',
+          description: 'احتساب ومراجعة واعتماد مسير الرواتب',
+          iconName: 'payments',
+          manageMode: true,
+        ),
+      );
+    }
+
+    if (canManageAdvances(role)) {
+      modules.add(
+        const AdminModule(
+          type: AdminModuleType.advances,
+          category: AdminModuleCategory.finance,
+          title: 'السلف',
+          description: 'مراجعة السلف والأقساط واعتماد عمليات الصرف',
+          iconName: 'wallet',
+          manageMode: true,
+        ),
+      );
+    }
+
+    if (canManageFunds(role)) {
+      modules.add(
+        const AdminModule(
+          type: AdminModuleType.funds,
+          category: AdminModuleCategory.finance,
+          title: 'الصندوق',
+          description: 'إدارة الصناديق والحركات المالية المرتبطة بها',
+          iconName: 'account_balance',
+          manageMode: true,
+        ),
+      );
+    }
+
     if (canManageDocuments(role)) {
       modules.add(
         const AdminModule(
+          type: AdminModuleType.documents,
+          category: AdminModuleCategory.system,
           title: 'مستندات الموظفين',
-          description: 'العقود والهوية والشهادات والملفات',
+          description: 'إدارة العقود والهويات والشهادات والملفات',
           iconName: 'folder',
-        ),
-      );
-      modules.add(
-        const AdminModule(
-          title: 'الصلاحيات وسجل النظام',
-          description: 'إدارة الأدوار ومراجعة العمليات الحساسة',
-          iconName: 'security',
+          manageMode: true,
         ),
       );
     }
+
+    if (canViewAuditLogs(role)) {
+      modules.add(
+        const AdminModule(
+          type: AdminModuleType.audit,
+          category: AdminModuleCategory.system,
+          title: 'الصلاحيات وسجل النظام',
+          description: 'مراجعة العمليات الحساسة وصلاحيات النظام',
+          iconName: 'security',
+          manageMode: true,
+        ),
+      );
+    }
+
     return modules;
   }
 }
 
+enum AdminModuleType {
+  employees,
+  jobTitles,
+  attendancePolicy,
+  shifts,
+  shiftAssignments,
+  monthlySchedules,
+  biometricImport,
+  overtime,
+  leaves,
+  penalties,
+  payroll,
+  advances,
+  funds,
+  documents,
+  audit,
+}
+
+enum AdminModuleCategory { people, attendance, approvals, finance, system }
+
 class AdminModule {
+  final AdminModuleType type;
+  final AdminModuleCategory category;
   final String title;
   final String description;
   final String iconName;
+  final bool manageMode;
 
   const AdminModule({
+    required this.type,
+    required this.category,
     required this.title,
     required this.description,
     required this.iconName,
+    required this.manageMode,
   });
 }
