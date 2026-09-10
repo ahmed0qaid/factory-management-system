@@ -11,15 +11,15 @@ import '../../widgets/common/app_scaffold.dart';
 import '../admin/admin_dashboard_screen.dart';
 import '../auth/force_password_change_screen.dart';
 import '../auth/login_screen.dart';
-import '../reports/employee_full_report_screen.dart';
-import '../reports/report_list_screen.dart';
 import '../reports/reports_dashboard_screen.dart';
 import 'advances_screen.dart';
 import 'attendance_screen.dart';
 import 'employee_home_screen.dart';
+import 'leave_requests_screen.dart';
 import 'payroll_screen.dart';
 import 'penalties_screen.dart';
 import 'profile_screen.dart';
+import 'settings_screen.dart';
 
 class EmployeeShell extends StatefulWidget {
   const EmployeeShell({super.key});
@@ -31,10 +31,12 @@ class EmployeeShell extends StatefulWidget {
 class _EmployeeShellState extends State<EmployeeShell> {
   final _service = EmployeeService();
   final _auth = AuthService();
+
   int _index = 0;
   late Future<ProfileModel> _profileFuture;
   bool _isAuthenticated = false;
   bool _isAuthenticating = true;
+  String? _authenticationMessage;
 
   @override
   void initState() {
@@ -43,35 +45,68 @@ class _EmployeeShellState extends State<EmployeeShell> {
   }
 
   Future<void> _checkBiometricsAndLoad() async {
+    if (mounted) {
+      setState(() {
+        _isAuthenticating = true;
+        _authenticationMessage = null;
+      });
+    }
+
     final prefs = await SharedPreferences.getInstance();
     final enabled = prefs.getBool('biometrics_enabled') ?? false;
 
     if (enabled) {
       final localAuth = LocalAuthentication();
       try {
-        final authenticated = await localAuth.authenticate(
-          localizedReason: 'الرجاء التحقق من هويتك للمتابعة',
-        );
-        if (authenticated) {
-          if (mounted) setState(() => _isAuthenticated = true);
-        } else {
-          // If failed or canceled, stay locked or exit.
+        final supported = await localAuth.isDeviceSupported();
+        final canCheck = await localAuth.canCheckBiometrics;
+        if (!supported || !canCheck) {
+          if (!mounted) return;
+          setState(() {
+            _isAuthenticated = false;
+            _isAuthenticating = false;
+            _authenticationMessage =
+                'تعذر استخدام البصمة على هذا الجهاز. يمكنك إعادة المحاولة أو تسجيل الخروج.';
+          });
           return;
         }
-      } catch (e) {
-        // Fallback if error
-        if (mounted) setState(() => _isAuthenticated = true);
+
+        final authenticated = await localAuth.authenticate(
+          localizedReason: 'تحقق من هويتك لفتح نظام إدارة موظفي المصنع',
+          options: const AuthenticationOptions(
+            biometricOnly: true,
+            stickyAuth: true,
+          ),
+        );
+
+        if (!authenticated) {
+          if (!mounted) return;
+          setState(() {
+            _isAuthenticated = false;
+            _isAuthenticating = false;
+            _authenticationMessage = 'لم يتم التحقق من البصمة.';
+          });
+          return;
+        }
+      } catch (_) {
+        if (!mounted) return;
+        setState(() {
+          _isAuthenticated = false;
+          _isAuthenticating = false;
+          _authenticationMessage =
+              'حدث خطأ أثناء التحقق من البصمة. لم يتم تجاوز حماية التطبيق.';
+        });
+        return;
       }
-    } else {
-      if (mounted) setState(() => _isAuthenticated = true);
     }
 
-    if (mounted) {
-      setState(() {
-        _isAuthenticating = false;
-        _profileFuture = _service.getMyProfile();
-      });
-    }
+    if (!mounted) return;
+    setState(() {
+      _isAuthenticated = true;
+      _isAuthenticating = false;
+      _authenticationMessage = null;
+      _profileFuture = _service.getMyProfile();
+    });
   }
 
   void _reloadProfile() {
@@ -79,6 +114,16 @@ class _EmployeeShellState extends State<EmployeeShell> {
       _index = 0;
       _profileFuture = _service.getMyProfile();
     });
+  }
+
+  Future<void> _signOut() async {
+    final navigator = Navigator.of(context);
+    await _auth.signOut();
+    if (!mounted) return;
+    navigator.pushAndRemoveUntil(
+      MaterialPageRoute(builder: (_) => const LoginScreen()),
+      (_) => false,
+    );
   }
 
   @override
@@ -89,43 +134,50 @@ class _EmployeeShellState extends State<EmployeeShell> {
         body: Center(child: CircularProgressIndicator()),
       );
     }
+
     if (!_isAuthenticated) {
       return AppScaffold(
         title: 'قفل التطبيق',
         body: Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(
-                Icons.lock,
-                size: 64,
-                color: Theme.of(context).colorScheme.onSurfaceVariant,
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 420),
+            child: Padding(
+              padding: const EdgeInsets.all(24),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.lock_outline, size: 64),
+                  const SizedBox(height: 16),
+                  Text(
+                    'التطبيق مقفل',
+                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                          fontWeight: FontWeight.bold,
+                        ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    _authenticationMessage ??
+                        'استخدم البصمة المفعلة على جهازك للمتابعة.',
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 20),
+                  SizedBox(
+                    width: double.infinity,
+                    child: AppLoadingButton(
+                      onPressed: _checkBiometricsAndLoad,
+                      icon: Icons.fingerprint,
+                      text: 'إعادة محاولة البصمة',
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  TextButton.icon(
+                    onPressed: _signOut,
+                    icon: const Icon(Icons.logout),
+                    label: const Text('تسجيل الخروج'),
+                  ),
+                ],
               ),
-              const SizedBox(height: 16),
-              Text(
-                'التطبيق مقفل',
-                style: Theme.of(context).textTheme.titleLarge,
-              ),
-              const SizedBox(height: 16),
-              AppLoadingButton(
-                onPressed: _checkBiometricsAndLoad,
-                icon: Icons.fingerprint,
-                text: 'افتح باستخدام البصمة',
-              ),
-              const SizedBox(height: 8),
-              TextButton(
-                onPressed: () async {
-                  await _auth.signOut();
-                  if (context.mounted) {
-                    Navigator.pushReplacement(
-                      context,
-                      MaterialPageRoute(builder: (_) => const LoginScreen()),
-                    );
-                  }
-                },
-                child: const Text('تسجيل خروج'),
-              ),
-            ],
+            ),
           ),
         ),
       );
@@ -136,93 +188,88 @@ class _EmployeeShellState extends State<EmployeeShell> {
       builder: (context, snapshot) {
         if (snapshot.connectionState != ConnectionState.done) {
           return const AppScaffold(
-            title: 'تحميل',
+            title: 'تحميل الحساب',
             body: Center(child: CircularProgressIndicator()),
           );
         }
         if (snapshot.hasError) {
           return AppScaffold(
-            title: 'خطأ',
-            body: Center(child: Text('خطأ في تحميل الحساب: ${snapshot.error}')),
+            title: 'تعذر تحميل الحساب',
+            body: Center(
+              child: Padding(
+                padding: const EdgeInsets.all(24),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(Icons.error_outline, size: 52),
+                    const SizedBox(height: 12),
+                    Text(
+                      'خطأ في تحميل الحساب: ${snapshot.error}',
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 16),
+                    FilledButton.icon(
+                      onPressed: _reloadProfile,
+                      icon: const Icon(Icons.refresh),
+                      label: const Text('إعادة المحاولة'),
+                    ),
+                  ],
+                ),
+              ),
+            ),
           );
         }
-        final profile = snapshot.data!;
 
+        final profile = snapshot.data!;
         if (profile.mustChangePassword) {
           return ForcePasswordChangeScreen(onPasswordChanged: _reloadProfile);
         }
 
-        final pages = [
+        final pages = <Widget>[
           EmployeeHomeScreen(profile: profile),
           const AttendanceScreen(),
-          const PenaltiesScreen(),
           const PayrollScreen(),
           const AdvancesScreen(),
           ProfileScreen(profile: profile),
-          if (profile.isManagement) AdminDashboardScreen(profile: profile),
         ];
-        final destinations = <NavigationDestination>[
-          const NavigationDestination(
+
+        const destinations = <NavigationDestination>[
+          NavigationDestination(
             icon: Icon(Icons.home_outlined),
             selectedIcon: Icon(Icons.home),
             label: 'الرئيسية',
           ),
-          const NavigationDestination(
+          NavigationDestination(
             icon: Icon(Icons.calendar_month_outlined),
             selectedIcon: Icon(Icons.calendar_month),
             label: 'الدوام',
           ),
-          const NavigationDestination(
-            icon: Icon(Icons.gavel_outlined),
-            selectedIcon: Icon(Icons.gavel),
-            label: 'الجزاءات',
-          ),
-          const NavigationDestination(
+          NavigationDestination(
             icon: Icon(Icons.payments_outlined),
             selectedIcon: Icon(Icons.payments),
             label: 'الراتب',
           ),
-          const NavigationDestination(
+          NavigationDestination(
             icon: Icon(Icons.account_balance_wallet_outlined),
             selectedIcon: Icon(Icons.account_balance_wallet),
             label: 'السلف',
           ),
-          const NavigationDestination(
-            icon: Icon(Icons.badge_outlined),
-            selectedIcon: Icon(Icons.badge),
-            label: 'بياناتي',
+          NavigationDestination(
+            icon: Icon(Icons.person_outline),
+            selectedIcon: Icon(Icons.person),
+            label: 'حسابي',
           ),
-          if (profile.isManagement)
-            NavigationDestination(
-              icon: const Icon(Icons.admin_panel_settings_outlined),
-              selectedIcon: const Icon(Icons.admin_panel_settings),
-              label: profile.roleLabel,
-            ),
         ];
 
         if (_index >= pages.length) _index = 0;
 
         return AppScaffold(
           title: destinations[_index].label,
-          drawer: _buildDrawer(profile, destinations),
-          actions: [
-            IconButton(
-              tooltip: 'تسجيل خروج',
-              onPressed: () async {
-                final navigator = Navigator.of(context);
-                await _auth.signOut();
-                if (!mounted) return;
-                navigator.pushReplacement(
-                  MaterialPageRoute(builder: (_) => const LoginScreen()),
-                );
-              },
-              icon: const Icon(Icons.logout),
-            ),
-          ],
-          body: pages[_index],
+          drawer: _buildDrawer(profile),
+          body: IndexedStack(index: _index, children: pages),
           bottomNavigationBar: NavigationBar(
             selectedIndex: _index,
-            onDestinationSelected: (i) => setState(() => _index = i),
+            onDestinationSelected: (index) => setState(() => _index = index),
             destinations: destinations,
           ),
         );
@@ -230,40 +277,14 @@ class _EmployeeShellState extends State<EmployeeShell> {
     );
   }
 
-  Widget _buildDrawer(
-    ProfileModel profile,
-    List<NavigationDestination> destinations,
-  ) {
-    void selectDestination(int index) {
+  Widget _buildDrawer(ProfileModel profile) {
+    void closeThen(VoidCallback action) {
       Navigator.of(context).pop();
-      setState(() => _index = index);
+      action();
     }
 
-    void openReportsDashboard() {
-      Navigator.of(context).pop();
-      Navigator.of(context).push(
-        MaterialPageRoute(
-          builder: (_) => ReportsDashboardScreen(currentProfile: profile),
-        ),
-      );
-    }
-
-    void openEmployeeFullReport() {
-      Navigator.of(context).pop();
-      Navigator.of(context).push(
-        MaterialPageRoute(
-          builder: (_) => EmployeeFullReportScreen(currentProfile: profile),
-        ),
-      );
-    }
-
-    void openReportList(ReportKind kind) {
-      Navigator.of(context).pop();
-      Navigator.of(context).push(
-        MaterialPageRoute(
-          builder: (_) => ReportListScreen(currentProfile: profile, kind: kind),
-        ),
-      );
+    void open(Widget page) {
+      Navigator.of(context).push(MaterialPageRoute(builder: (_) => page));
     }
 
     return Drawer(
@@ -276,13 +297,9 @@ class _EmployeeShellState extends State<EmployeeShell> {
                 children: [
                   CircleAvatar(
                     radius: 28,
-                    child: profile.photoPath == null
-                        ? Text(
-                            profile.fullName.isNotEmpty
-                                ? profile.fullName[0]
-                                : 'م',
-                          )
-                        : const Icon(Icons.person),
+                    child: Text(
+                      profile.fullName.isNotEmpty ? profile.fullName[0] : 'م',
+                    ),
                   ),
                   const SizedBox(width: 12),
                   Expanded(
@@ -290,10 +307,14 @@ class _EmployeeShellState extends State<EmployeeShell> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'HR Employee System',
-                          style: Theme.of(context).textTheme.titleMedium,
+                          'نظام إدارة موظفي المصنع',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                                fontWeight: FontWeight.bold,
+                              ),
                         ),
-                        const SizedBox(height: 4),
+                        const SizedBox(height: 3),
                         Text(
                           profile.fullName,
                           maxLines: 1,
@@ -312,111 +333,60 @@ class _EmployeeShellState extends State<EmployeeShell> {
             const Divider(height: 1),
             Expanded(
               child: ListView(
-                padding: EdgeInsets.zero,
+                padding: const EdgeInsets.symmetric(vertical: 8),
                 children: [
-                  for (var i = 0; i < destinations.length; i++)
+                  if (profile.isManagement)
                     ListTile(
-                      leading: _index == i
-                          ? destinations[i].selectedIcon ?? destinations[i].icon
-                          : destinations[i].icon,
-                      title: Text(destinations[i].label),
-                      selected: _index == i,
-                      onTap: () => selectDestination(i),
+                      leading: const Icon(Icons.admin_panel_settings_outlined),
+                      title: const Text('لوحة الإدارة'),
+                      subtitle: const Text('إدارة الموظفين والدوام والمالية'),
+                      onTap: () => closeThen(
+                        () => open(AdminDashboardScreen(profile: profile)),
+                      ),
                     ),
-                  if (AppRoles.canViewReports(profile.role)) ...[
-                    const Divider(),
-                    ExpansionTile(
+                  if (AppRoles.canViewReports(profile.role))
+                    ListTile(
                       leading: const Icon(Icons.analytics_outlined),
                       title: const Text('التقارير'),
-                      childrenPadding: const EdgeInsetsDirectional.only(
-                        start: 16,
+                      subtitle: const Text('مركز التقارير والتصدير والطباعة'),
+                      onTap: () => closeThen(
+                        () => open(
+                          ReportsDashboardScreen(currentProfile: profile),
+                        ),
                       ),
-                      children: [
-                        ListTile(
-                          leading: const Icon(Icons.dashboard_outlined),
-                          title: const Text('لوحة التقارير'),
-                          onTap: openReportsDashboard,
-                        ),
-                        if (AppRoles.canViewEmployeeFullReport(profile.role))
-                          ListTile(
-                            leading: const Icon(Icons.badge_outlined),
-                            title: const Text('التقرير الشامل للموظف'),
-                            onTap: openEmployeeFullReport,
-                          ),
-                        ListTile(
-                          leading: const Icon(Icons.calendar_month_outlined),
-                          title: const Text('تقارير الحضور والانصراف'),
-                          onTap: AppRoles.canViewAttendanceReports(profile.role)
-                              ? () => openReportList(ReportKind.attendance)
-                              : null,
-                        ),
-                        ListTile(
-                          leading: const Icon(Icons.payments_outlined),
-                          title: const Text('تقارير الرواتب'),
-                          onTap: AppRoles.canViewPayrollReports(profile.role)
-                              ? () => openReportList(ReportKind.payroll)
-                              : null,
-                        ),
-                        ListTile(
-                          leading: const Icon(
-                            Icons.account_balance_wallet_outlined,
-                          ),
-                          title: const Text('تقارير السلف'),
-                          onTap: AppRoles.canViewAdvancesReports(profile.role)
-                              ? () => openReportList(ReportKind.advances)
-                              : null,
-                        ),
-                        ListTile(
-                          leading: const Icon(Icons.gavel_outlined),
-                          title: const Text('تقارير الجزاءات'),
-                          onTap: AppRoles.canViewPenaltiesReports(profile.role)
-                              ? () => openReportList(ReportKind.penalties)
-                              : null,
-                        ),
-                        ListTile(
-                          leading: const Icon(Icons.event_available_outlined),
-                          title: const Text('تقارير الإجازات'),
-                          onTap: AppRoles.canViewLeavesReports(profile.role)
-                              ? () => openReportList(ReportKind.leaves)
-                              : null,
-                        ),
-                        ListTile(
-                          leading: const Icon(Icons.timer_outlined),
-                          title: const Text('تقارير العمل الإضافي'),
-                          onTap: AppRoles.canViewOvertimeReports(profile.role)
-                              ? () => openReportList(ReportKind.overtime)
-                              : null,
-                        ),
-                        ListTile(
-                          leading: const Icon(Icons.folder_copy_outlined),
-                          title: const Text('تقارير مستندات الموظفين'),
-                          onTap: AppRoles.canViewDocumentReports(profile.role)
-                              ? () => openReportList(ReportKind.documents)
-                              : null,
-                        ),
-                      ],
                     ),
-                  ],
+                  if (profile.isManagement) const Divider(),
+                  ListTile(
+                    leading: const Icon(Icons.event_available_outlined),
+                    title: const Text('الإجازات والاستئذان'),
+                    onTap: () => closeThen(
+                      () => open(const LeaveRequestsScreen()),
+                    ),
+                  ),
+                  ListTile(
+                    leading: const Icon(Icons.gavel_outlined),
+                    title: const Text('الجزاءات'),
+                    onTap: () => closeThen(
+                      () => open(const PenaltiesScreen(showAppBar: true)),
+                    ),
+                  ),
+                  const Divider(),
+                  ListTile(
+                    leading: const Icon(Icons.settings_outlined),
+                    title: const Text('الإعدادات'),
+                    subtitle: const Text('الأمان والبصمة وإعدادات التطبيق'),
+                    onTap: () => closeThen(
+                      () => open(const SettingsScreen()),
+                    ),
+                  ),
                 ],
               ),
             ),
             const Divider(height: 1),
             ListTile(
-              leading: const Icon(Icons.settings_outlined),
-              title: const Text('الإعدادات'),
-              onTap: () => selectDestination(destinations.length >= 6 ? 5 : 0),
-            ),
-            ListTile(
               leading: const Icon(Icons.logout),
               title: const Text('تسجيل الخروج'),
-              onTap: () async {
-                final navigator = Navigator.of(context);
-                await _auth.signOut();
-                if (!mounted) return;
-                navigator.pushReplacement(
-                  MaterialPageRoute(builder: (_) => const LoginScreen()),
-                );
-              },
+              onTap: _signOut,
             ),
           ],
         ),
