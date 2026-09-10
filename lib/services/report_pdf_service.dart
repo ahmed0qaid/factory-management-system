@@ -61,9 +61,7 @@ class ReportPdfService {
 
   static Future<Uint8List> build(ReportPdfPayload payload) async {
     final font = await _loadFont();
-    final document = pw.Document(
-      theme: pw.ThemeData.withFont(base: font, bold: font),
-    );
+    final document = pw.Document();
 
     final generatedAt = DateTime.now();
     final date =
@@ -72,6 +70,7 @@ class ReportPdfService {
     document.addPage(
       pw.MultiPage(
         pageFormat: PdfPageFormat.a4,
+        theme: pw.ThemeData.withFont(base: font, bold: font),
         margin: const pw.EdgeInsets.fromLTRB(28, 30, 28, 32),
         footer: (context) => pw.Container(
           alignment: pw.Alignment.center,
