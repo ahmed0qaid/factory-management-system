@@ -57,7 +57,7 @@ class _LoginScreenState extends State<LoginScreen> {
   Widget build(BuildContext context) {
     return AppScaffold(
       title: '',
-      centerTitle: true,
+      showAppBar: false,
       body: LayoutBuilder(
         builder: (context, constraints) {
           return SingleChildScrollView(
@@ -65,11 +65,11 @@ class _LoginScreenState extends State<LoginScreen> {
             padding: EdgeInsets.only(
               left: 16,
               right: 16,
-              top: 16,
-              bottom: MediaQuery.viewInsetsOf(context).bottom + 16,
+              top: 24,
+              bottom: MediaQuery.viewInsetsOf(context).bottom + 24,
             ),
             child: ConstrainedBox(
-              constraints: BoxConstraints(minHeight: constraints.maxHeight - 32),
+              constraints: BoxConstraints(minHeight: constraints.maxHeight - 48),
               child: Center(
                 child: ConstrainedBox(
                   constraints: const BoxConstraints(maxWidth: 420),
@@ -120,7 +120,9 @@ class _LoginScreenState extends State<LoginScreen> {
                             labelText: 'كلمة المرور',
                             prefixIcon: Icons.lock_outline,
                             textInputAction: TextInputAction.done,
-                            onFieldSubmitted: (_) => _loading ? null : _login(),
+                            onFieldSubmitted: (_) {
+                              if (!_loading) _login();
+                            },
                             validator: (value) {
                               if (value == null || value.isEmpty) {
                                 return 'أدخل كلمة المرور';
