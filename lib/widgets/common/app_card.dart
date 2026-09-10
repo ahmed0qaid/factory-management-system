@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 
-import '../../theme/app_colors.dart';
 import '../../theme/app_radius.dart';
 import '../../theme/app_shadows.dart';
 import '../../theme/app_spacing.dart';
@@ -30,7 +29,8 @@ class AppCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    final effectiveBackground = backgroundColor ?? AppColors.surfaceContainerLow;
+    final effectiveBackground = backgroundColor ?? scheme.surfaceContainerLow;
+    final effectiveBorder = borderColor ?? scheme.outlineVariant;
     final radius = AppRadius.card;
 
     return Padding(
@@ -46,7 +46,7 @@ class AppCard extends StatelessWidget {
               color: effectiveBackground,
               borderRadius: radius,
               border: Border.all(
-                color: borderColor ?? AppColors.border,
+                color: effectiveBorder,
                 width: borderWidth,
               ),
               boxShadow: elevated ? AppShadows.subtle(scheme.shadow) : null,
