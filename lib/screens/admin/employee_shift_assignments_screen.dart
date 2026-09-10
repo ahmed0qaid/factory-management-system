@@ -271,7 +271,7 @@ class _EmployeeShiftAssignmentsScreenState
 
   @override
   Widget build(BuildContext context) {
-    final canEdit = AppRoles.isHr(widget.profile.role);
+    final canEdit = AppRoles.canConfigureAttendance(widget.profile.role);
 
     return AppScaffold(
       title: 'تعيين دوام الموظفين',
@@ -329,29 +329,32 @@ class _EmployeeShiftAssignmentsScreenState
                               title: 'نوع الدوام',
                               icon: Icons.category_outlined,
                             ),
-                            RadioListTile<String>(
-                              title: const Text('دوام ثابت (وردية واحدة)'),
-                              value: 'fixed',
+                            const SizedBox(height: 4),
+                            RadioGroup<String>(
                               groupValue: _assignmentType,
                               onChanged: canEdit
-                                  ? (value) => setState(
-                                        () => _assignmentType = value!,
-                                      )
-                                  : null,
-                              contentPadding: EdgeInsets.zero,
-                            ),
-                            RadioListTile<String>(
-                              title: const Text(
-                                'دوام متغير أسبوعيًا (وردتان بالتبادل)',
+                                  ? (value) {
+                                      if (value != null) {
+                                        setState(() => _assignmentType = value);
+                                      }
+                                    }
+                                  : (_) {},
+                              child: Column(
+                                children: const [
+                                  RadioListTile<String>(
+                                    title: Text('دوام ثابت (وردية واحدة)'),
+                                    value: 'fixed',
+                                    contentPadding: EdgeInsets.zero,
+                                  ),
+                                  RadioListTile<String>(
+                                    title: Text(
+                                      'دوام متغير أسبوعيًا (وردتان بالتبادل)',
+                                    ),
+                                    value: 'weekly_rotation',
+                                    contentPadding: EdgeInsets.zero,
+                                  ),
+                                ],
                               ),
-                              value: 'weekly_rotation',
-                              groupValue: _assignmentType,
-                              onChanged: canEdit
-                                  ? (value) => setState(
-                                        () => _assignmentType = value!,
-                                      )
-                                  : null,
-                              contentPadding: EdgeInsets.zero,
                             ),
                           ],
                         ),
