@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart';
 
 import '../../models/notification_model.dart';
 import '../../services/appwrite_service.dart';
 import '../../services/notification_service.dart';
-import '../../theme/app_colors.dart';
+import '../../utils/formatters.dart';
 import '../../widgets/common/app_empty_state.dart';
+import '../../widgets/common/app_error_state.dart';
 import '../../widgets/common/app_list_item.dart';
 import '../../widgets/common/app_loading_state.dart';
 import '../../widgets/common/app_scaffold.dart';
@@ -19,80 +19,124 @@ class NotificationsScreen extends StatefulWidget {
 
 class _NotificationsScreenState extends State<NotificationsScreen> {
   final _service = NotificationService();
-  List<NotificationModel>? _notifications;
+  late Future<List<NotificationModel>> _future;
 
   @override
   void initState() {
     super.initState();
-    _load();
+    _future = _load();
   }
 
-  Future<void> _load() async {
-    final uid = (await AppwriteService.account.get()).$id;
-    final data = await _service.getEmployeeNotifications(uid);
-    if (mounted) setState(() => _notifications = data);
+  Future<List<NotificationModel>> _load() async {
+    final user = await AppwriteService.account.get();
+    return _service.getEmployeeNotifications(user.$id);
   }
 
-  void _markAsRead(NotificationModel notification) async {
+  void _reload() => setState(() => _future = _load());
+
+  Future<void> _markAsRead(NotificationModel notification) async {
     if (notification.isRead) return;
-    await _service.markAsRead(notification.id);
-    _load();
+    try {
+      await _service.markAsRead(notification.id);
+      if (mounted) _reload();
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('تعذر تحديث الإشعار: $error')),
+        );
+      }
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     return AppScaffold(
       title: 'الإشعارات',
-      body: _notifications == null
-          ? const AppLoadingState(label: 'جاري تحميل الإشعارات')
-          : _notifications!.isEmpty
-          ? const AppEmptyState(
+      body: FutureBuilder<List<NotificationModel>>(
+        future: _future,
+        builder: (context, snapshot) {
+          if (snapshot.connectionState != ConnectionState.done) {
+            return const AppLoadingState(label: 'جاري تحميل الإشعارات');
+          }
+          if (snapshot.hasError) {
+            return AppErrorState(
+              title: 'تعذر تحميل الإشعارات',
+              message: '${snapshot.error}',
+              onRetry: _reload,
+            );
+          }
+
+          final notifications = snapshot.data ?? const <NotificationModel>[];
+          if (notifications.isEmpty) {
+            return const AppEmptyState(
               title: 'لا توجد إشعارات',
-              message: 'ليس لديك أي إشعارات جديدة في الوقت الحالي.',
-              icon: Icons.notifications_none,
-            )
-          : ListView.builder(
-              padding: const EdgeInsets.all(16.0),
-              itemCount: _notifications!.length,
-              itemBuilder: (context, index) {
-                final n = _notifications![index];
-                return Padding(
-                  padding: const EdgeInsets.only(bottom: 12.0),
-                  child: AppListItem(
-                    leading: CircleAvatar(
-                      backgroundColor: n.isRead ? AppColors.surfaceContainerHigh : AppColors.primaryContainer,
-                      child: Icon(
-                        Icons.notifications_active,
-                        color: n.isRead ? AppColors.textSecondary : AppColors.primary,
-                      ),
-                    ),
-                    title: Text(
-                      n.title,
-                      style: TextStyle(
-                        fontWeight: n.isRead ? FontWeight.normal : FontWeight.bold,
-                        color: n.isRead ? AppColors.textSecondary : AppColors.textPrimary,
-                      ),
-                    ),
-                    subtitle: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(n.body),
-                        const SizedBox(height: 4),
-                        Text(
-                          DateFormat('yyyy/MM/dd HH:mm').format(n.createdAt),
-                          style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
+              message: 'لا توجد تحديثات أو إجراءات جديدة تحتاج إلى انتباهك.',
+              icon: Icons.notifications_none_outlined,
+            );
+          }
+
+          return RefreshIndicator(
+            onRefresh: () async => _reload(),
+            child: Align(
+              alignment: Alignment.topCenter,
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 760),
+                child: ListView.builder(
+                  padding: const EdgeInsets.all(16),
+                  itemCount: notifications.length,
+                  itemBuilder: (context, index) {
+                    final notification = notifications[index];
+                    final colors = Theme.of(context).colorScheme;
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: 10),
+                      child: AppListItem(
+                        leading: CircleAvatar(
+                          backgroundColor: notification.isRead
+                              ? colors.surfaceContainerHighest
+                              : colors.primaryContainer,
+                          child: Icon(
+                            notification.isRead
+                                ? Icons.notifications_none_outlined
+                                : Icons.notifications_active_outlined,
+                            color: notification.isRead
+                                ? colors.onSurfaceVariant
+                                : colors.onPrimaryContainer,
+                          ),
                         ),
-                      ],
-                    ),
-                    trailing: n.isRead
-                        ? null
-                        : const Icon(Icons.circle, color: AppColors.secondary, size: 12),
-                    onTap: () => _markAsRead(n),
-                  ),
-                );
-              },
+                        title: Text(
+                          notification.title,
+                          style: TextStyle(
+                            fontWeight: notification.isRead
+                                ? FontWeight.normal
+                                : FontWeight.bold,
+                          ),
+                        ),
+                        subtitle: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(notification.body),
+                            const SizedBox(height: 5),
+                            Text(
+                              '${Formatters.date(notification.createdAt)} • ${Formatters.time(notification.createdAt)}',
+                              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                    color: colors.onSurfaceVariant,
+                                  ),
+                            ),
+                          ],
+                        ),
+                        trailing: notification.isRead
+                            ? null
+                            : Icon(Icons.circle, color: colors.primary, size: 10),
+                        onTap: () => _markAsRead(notification),
+                      ),
+                    );
+                  },
+                ),
+              ),
             ),
+          );
+        },
+      ),
     );
   }
 }
-
