@@ -1,152 +1,132 @@
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../models/profile_model.dart';
 import '../../utils/formatters.dart';
 import '../../widgets/common/app_card.dart';
 
-class ProfileScreen extends StatefulWidget {
+class ProfileScreen extends StatelessWidget {
   final ProfileModel profile;
+
   const ProfileScreen({super.key, required this.profile});
 
   @override
-  State<ProfileScreen> createState() => _ProfileScreenState();
-}
-
-class _ProfileScreenState extends State<ProfileScreen> {
-  bool _biometricsEnabled = false;
-
-  @override
-  void initState() {
-    super.initState();
-    _loadBiometricsStatus();
-  }
-
-  Future<void> _loadBiometricsStatus() async {
-    final prefs = await SharedPreferences.getInstance();
-    if (mounted) {
-      setState(() {
-        _biometricsEnabled = prefs.getBool('biometrics_enabled') ?? false;
-      });
-    }
-  }
-
-  Future<void> _toggleBiometrics(bool value) async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool('biometrics_enabled', value);
-    if (mounted) {
-      setState(() {
-        _biometricsEnabled = value;
-      });
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            value ? 'تم تفعيل حماية البصمة' : 'تم تعطيل حماية البصمة',
-          ),
-        ),
-      );
-    }
-  }
-
-  @override
   Widget build(BuildContext context) {
-    return ListView(
-      padding: const EdgeInsets.all(16),
-      children: [
-        AppCard(
-          child: Column(
-            children: [
-              CircleAvatar(
-                radius: 48,
-                child: Text(
-                  widget.profile.fullName.isNotEmpty
-                      ? widget.profile.fullName[0]
-                      : 'م',
-                  style: const TextStyle(fontSize: 32),
-                ),
+    return Align(
+      alignment: Alignment.topCenter,
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 760),
+        child: ListView(
+          padding: const EdgeInsets.all(16),
+          children: [
+            AppCard(
+              child: Column(
+                children: [
+                  CircleAvatar(
+                    radius: 48,
+                    child: Text(
+                      profile.fullName.isNotEmpty ? profile.fullName[0] : 'م',
+                      style: const TextStyle(fontSize: 32),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Text(
+                    profile.fullName,
+                    textAlign: TextAlign.center,
+                    style: Theme.of(context).textTheme.titleLarge,
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    profile.jobTitleName ?? 'بدون مسمى وظيفي',
+                    textAlign: TextAlign.center,
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
+                        ),
+                  ),
+                ],
               ),
-              const SizedBox(height: 12),
-              Text(
-                widget.profile.fullName,
-                style: Theme.of(context).textTheme.titleLarge?.copyWith(),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              'بيانات الحساب',
+              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.bold,
+                  ),
+            ),
+            const SizedBox(height: 8),
+            AppCard(
+              child: Column(
+                children: [
+                  _line(context, 'رقم الموظف', profile.employeeNumber),
+                  const Divider(),
+                  _line(context, 'القسم', profile.departmentName ?? '-'),
+                  const Divider(),
+                  _line(
+                    context,
+                    'المسمى الوظيفي',
+                    profile.jobTitleName ?? '-',
+                  ),
+                  const Divider(),
+                  _line(context, 'الدور في النظام', profile.roleLabel),
+                  const Divider(),
+                  _line(context, 'الهاتف', profile.phone ?? '-'),
+                  const Divider(),
+                  _line(
+                    context,
+                    'الراتب الأساسي',
+                    Formatters.money(profile.baseSalary),
+                  ),
+                  const Divider(),
+                  _line(
+                    context,
+                    'المكافأة الشهرية',
+                    Formatters.money(profile.monthlyBonus),
+                  ),
+                  const Divider(),
+                  _line(
+                    context,
+                    'المستحق الشهري',
+                    Formatters.money(profile.monthlyEntitlement),
+                  ),
+                  const Divider(),
+                  _line(context, 'حالة الحساب', profile.active ? 'نشط' : 'موقوف'),
+                ],
               ),
-              const SizedBox(height: 4),
-              Text(widget.profile.jobTitleName ?? 'بدون مسمى وظيفي'),
-            ],
-          ),
+            ),
+            const SizedBox(height: 12),
+            Text(
+              'يمكن تعديل إعدادات الأمان والبصمة من شاشة «الإعدادات» في القائمة الجانبية.',
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
+            ),
+          ],
         ),
-        const SizedBox(height: 16),
-        AppCard(
-          child: Column(
-            children: [
-              _line('رقم الموظف', widget.profile.employeeNumber),
-              const Divider(),
-              _line('القسم', widget.profile.departmentName ?? '-'),
-              const Divider(),
-              _line('المسمى الوظيفي', widget.profile.jobTitleName ?? '-'),
-              const Divider(),
-              _line('الدور في النظام', widget.profile.roleLabel),
-              const Divider(),
-              _line('الهاتف', widget.profile.phone ?? '-'),
-              const Divider(),
-              _line(
-                'الراتب الأساسي',
-                Formatters.money(widget.profile.baseSalary),
-              ),
-              const Divider(),
-              _line(
-                'المكافأة الشهرية',
-                Formatters.money(widget.profile.monthlyBonus),
-              ),
-              const Divider(),
-              _line(
-                'المستحق الشهري',
-                Formatters.money(widget.profile.monthlyEntitlement),
-              ),
-              const Divider(),
-              _line('حالة الحساب', widget.profile.active ? 'نشط' : 'موقوف'),
-            ],
-          ),
-        ),
-        const SizedBox(height: 16),
-        AppCard(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'إعدادات الأمان',
-                style: Theme.of(context).textTheme.titleMedium,
-              ),
-              const SizedBox(height: 8),
-              SwitchListTile(
-                title: const Text('تفعيل حماية التطبيق بالبصمة'),
-                subtitle: const Text('سيطلب التطبيق البصمة عند الدخول'),
-                value: _biometricsEnabled,
-                onChanged: _toggleBiometrics,
-                contentPadding: EdgeInsets.zero,
-              ),
-            ],
-          ),
-        ),
-      ],
+      ),
     );
   }
 
-  Widget _line(String title, String value) => Padding(
-    padding: const EdgeInsets.symmetric(vertical: 8),
-    child: Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        Text(title),
-        Flexible(
-          child: Text(
-            value,
-            style: const TextStyle(fontWeight: FontWeight.bold),
-          ),
+  Widget _line(BuildContext context, String title, String value) => Padding(
+        padding: const EdgeInsets.symmetric(vertical: 8),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(
+              child: Text(
+                title,
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    ),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Flexible(
+              child: Text(
+                value,
+                textAlign: TextAlign.end,
+                style: const TextStyle(fontWeight: FontWeight.bold),
+              ),
+            ),
+          ],
         ),
-      ],
-    ),
-  );
+      );
 }
-
-
