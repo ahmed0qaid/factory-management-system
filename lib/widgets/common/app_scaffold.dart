@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import '../../theme/app_colors.dart';
 
 class AppScaffold extends StatelessWidget {
   final String title;
@@ -29,24 +28,32 @@ class AppScaffold extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colors = theme.colorScheme;
+
     return Scaffold(
-      backgroundColor: backgroundColor ?? AppColors.background,
+      backgroundColor: backgroundColor ?? theme.scaffoldBackgroundColor,
       appBar: AppBar(
         title: Text(
           title,
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
-          style: const TextStyle(
-            fontWeight: FontWeight.bold,
-            color: AppColors.textPrimary,
-          ),
+          style: theme.appBarTheme.titleTextStyle ??
+              theme.textTheme.titleLarge?.copyWith(
+                fontWeight: FontWeight.bold,
+                color: colors.onSurface,
+              ),
         ),
         centerTitle: centerTitle,
-        backgroundColor: AppColors.surface,
+        backgroundColor: theme.appBarTheme.backgroundColor ?? colors.surface,
+        foregroundColor: theme.appBarTheme.foregroundColor ?? colors.onSurface,
         elevation: 0,
         scrolledUnderElevation: 1,
-        shadowColor: AppColors.border,
-        iconTheme: const IconThemeData(color: AppColors.secondary),
+        shadowColor: colors.outlineVariant,
+        iconTheme: theme.appBarTheme.iconTheme ??
+            IconThemeData(color: colors.onSurfaceVariant),
+        actionsIconTheme: theme.appBarTheme.actionsIconTheme ??
+            IconThemeData(color: colors.onSurfaceVariant),
         actions: actions,
         bottom: bottom,
       ),
