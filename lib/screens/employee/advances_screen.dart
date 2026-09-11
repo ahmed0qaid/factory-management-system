@@ -32,6 +32,20 @@ class _AdvancesScreenState extends State<AdvancesScreen> {
 
   void _reload() => setState(() => _future = _service.getMyAdvances());
 
+  Future<void> _refresh() async {
+    try {
+      final items = await _service.getMyAdvances();
+      if (!mounted) return;
+      setState(() => _future = Future.value(items));
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('تعذر تحديث السلف: $error')),
+        );
+      }
+    }
+  }
+
   Future<void> _showRequestDialog() async {
     if (_loadingRequestForm) return;
     setState(() => _loadingRequestForm = true);
@@ -170,7 +184,7 @@ class _AdvancesScreenState extends State<AdvancesScreen> {
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(content: Text('تم إرسال طلب السلفة للإدارة.')),
                 );
-                _reload();
+                await _refresh();
               }
               return true;
             } catch (error) {
@@ -226,17 +240,19 @@ class _AdvancesScreenState extends State<AdvancesScreen> {
         }
 
         return RefreshIndicator(
-          onRefresh: () async => _reload(),
+          onRefresh: _refresh,
           child: Align(
             alignment: Alignment.topCenter,
             child: ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: 760),
               child: ListView(
+                physics: const AlwaysScrollableScrollPhysics(),
                 padding: const EdgeInsets.fromLTRB(16, 12, 16, 84),
                 children: [
                   _buildHeader(context, items.length),
                   const SizedBox(height: 12),
-                  for (final advance in items) _buildAdvanceCard(context, advance),
+                  for (final advance in items)
+                    _buildAdvanceCard(context, advance),
                 ],
               ),
             ),
