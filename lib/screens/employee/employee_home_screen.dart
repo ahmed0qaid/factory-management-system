@@ -88,7 +88,10 @@ class _EmployeeHomeScreenState extends State<EmployeeHomeScreen> {
   @override
   Widget build(BuildContext context) {
     return RefreshIndicator(
-      onRefresh: () async => setState(_loadData),
+      onRefresh: () async {
+        setState(_loadData);
+        await _summaryFuture;
+      },
       child: FutureBuilder<_HomeSummary>(
         future: _summaryFuture,
         builder: (context, snapshot) {
@@ -121,9 +124,6 @@ class _EmployeeHomeScreenState extends State<EmployeeHomeScreen> {
 
   Widget _summaryContent(BuildContext context, _HomeSummary summary) {
     final attendance = _AttendanceSummary.from(summary.attendance);
-    final needsAttention = attendance.reviewDays > 0 ||
-        attendance.absentDays > 0 ||
-        summary.balance.penaltiesCount > 0;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -131,15 +131,6 @@ class _EmployeeHomeScreenState extends State<EmployeeHomeScreen> {
         const AppSectionHeader(title: 'حالة الدوام'),
         const SizedBox(height: AppSpacing.xs),
         _attendanceOverviewCard(context, attendance),
-        if (needsAttention) ...[
-          const SizedBox(height: AppSpacing.lg),
-          const AppSectionHeader(
-            title: 'بحاجة إلى انتباه',
-            icon: Icons.notification_important_outlined,
-          ),
-          const SizedBox(height: AppSpacing.xs),
-          _attentionCard(context, summary, attendance),
-        ],
         const SizedBox(height: AppSpacing.lg),
         const AppSectionHeader(
           title: 'ملخص الفترة الحالية',
@@ -147,6 +138,13 @@ class _EmployeeHomeScreenState extends State<EmployeeHomeScreen> {
         ),
         const SizedBox(height: AppSpacing.xs),
         _periodGrid(context, summary),
+        const SizedBox(height: AppSpacing.lg),
+        const AppSectionHeader(
+          title: 'مؤشرات الدوام',
+          icon: Icons.query_stats_outlined,
+        ),
+        const SizedBox(height: AppSpacing.xs),
+        _attendanceMetrics(context, attendance),
       ],
     );
   }
@@ -154,9 +152,12 @@ class _EmployeeHomeScreenState extends State<EmployeeHomeScreen> {
   Widget _employeeHeader(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     final textTheme = Theme.of(context).textTheme;
+    final name = widget.profile.fullName.trim().isNotEmpty
+        ? widget.profile.fullName.trim()
+        : widget.profile.employeeNumber;
     final jobTitle = widget.profile.jobTitleName?.trim().isNotEmpty == true
         ? widget.profile.jobTitleName!.trim()
-        : 'بدون مسمى';
+        : widget.profile.roleLabel;
     final department = widget.profile.departmentName?.trim().isNotEmpty == true
         ? widget.profile.departmentName!.trim()
         : 'بدون قسم';
@@ -170,7 +171,7 @@ class _EmployeeHomeScreenState extends State<EmployeeHomeScreen> {
       child: Row(
         children: [
           CircleAvatar(
-            radius: 22,
+            radius: 21,
             backgroundColor: scheme.primaryContainer,
             child: Text(
               _employeeInitial,
@@ -189,7 +190,7 @@ class _EmployeeHomeScreenState extends State<EmployeeHomeScreen> {
                   children: [
                     Expanded(
                       child: Text(
-                        widget.profile.fullName,
+                        name,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: textTheme.titleSmall?.copyWith(
@@ -197,7 +198,7 @@ class _EmployeeHomeScreenState extends State<EmployeeHomeScreen> {
                         ),
                       ),
                     ),
-                    const SizedBox(width: AppSpacing.xs),
+                    const SizedBox(width: AppSpacing.sm),
                     Flexible(
                       child: Text(
                         jobTitle,
@@ -205,7 +206,7 @@ class _EmployeeHomeScreenState extends State<EmployeeHomeScreen> {
                         overflow: TextOverflow.ellipsis,
                         textAlign: TextAlign.end,
                         style: textTheme.bodySmall?.copyWith(
-                          color: scheme.onSurfaceVariant,
+                          color: scheme.primary,
                           fontWeight: FontWeight.w600,
                         ),
                       ),
@@ -215,15 +216,13 @@ class _EmployeeHomeScreenState extends State<EmployeeHomeScreen> {
                 const SizedBox(height: AppSpacing.xxs),
                 Row(
                   children: [
-                    Flexible(
-                      child: Text(
-                        widget.profile.employeeNumber,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: textTheme.bodySmall?.copyWith(
-                          color: scheme.primary,
-                          fontWeight: FontWeight.w700,
-                        ),
+                    Text(
+                      widget.profile.employeeNumber,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: textTheme.bodySmall?.copyWith(
+                        color: scheme.onSurfaceVariant,
+                        fontWeight: FontWeight.w600,
                       ),
                     ),
                     Padding(
@@ -284,8 +283,8 @@ class _EmployeeHomeScreenState extends State<EmployeeHomeScreen> {
           Row(
             children: [
               Container(
-                width: 36,
-                height: 36,
+                width: 34,
+                height: 34,
                 decoration: BoxDecoration(
                   color: scheme.primaryContainer,
                   borderRadius: BorderRadius.circular(AppRadius.md),
@@ -293,7 +292,7 @@ class _EmployeeHomeScreenState extends State<EmployeeHomeScreen> {
                 child: Icon(
                   Icons.fingerprint,
                   color: scheme.onPrimaryContainer,
-                  size: 20,
+                  size: 19,
                 ),
               ),
               const SizedBox(width: AppSpacing.sm),
@@ -302,7 +301,7 @@ class _EmployeeHomeScreenState extends State<EmployeeHomeScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'آخر حالة مسجلة',
+                      'آخر دوام',
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: theme.textTheme.titleSmall?.copyWith(
@@ -329,7 +328,6 @@ class _EmployeeHomeScreenState extends State<EmployeeHomeScreen> {
           ),
           const SizedBox(height: AppSpacing.sm),
           Row(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               Expanded(
                 child: _MiniMetric(
@@ -349,84 +347,14 @@ class _EmployeeHomeScreenState extends State<EmployeeHomeScreen> {
             ],
           ),
           const SizedBox(height: AppSpacing.sm),
-          Wrap(
-            spacing: AppSpacing.xs,
-            runSpacing: AppSpacing.xxs,
-            children: [
-              _CompactInfoChip(label: 'دوام ${attendance.workDays}'),
-              if (attendance.absentDays > 0)
-                _CompactInfoChip(label: 'غياب ${attendance.absentDays}'),
-              if (attendance.reviewDays > 0)
-                _CompactInfoChip(label: 'مراجعة ${attendance.reviewDays}'),
-            ],
-          ),
-          const SizedBox(height: AppSpacing.sm),
           SizedBox(
-            height: 38,
-            width: double.infinity,
+            height: 36,
             child: FilledButton.tonalIcon(
               onPressed: _openAttendanceDetails,
-              icon: const Icon(Icons.timeline_outlined, size: 18),
-              label: const Text('فتح سجل الدوام'),
+              icon: const Icon(Icons.timeline_outlined, size: 17),
+              label: const Text('عرض سجل الدوام'),
             ),
           ),
-        ],
-      ),
-    );
-  }
-
-  Widget _attentionCard(
-    BuildContext context,
-    _HomeSummary summary,
-    _AttendanceSummary attendance,
-  ) {
-    final rows = <Widget>[];
-
-    if (attendance.reviewDays > 0) {
-      rows.add(
-        _AttentionRow(
-          icon: Icons.fact_check_outlined,
-          title: '${attendance.reviewDays} يوم يحتاج مراجعة',
-          subtitle: 'راجع تفاصيل الحضور والانصراف والحالة المسجلة.',
-          onTap: _openAttendanceDetails,
-        ),
-      );
-    }
-    if (attendance.absentDays > 0) {
-      rows.add(
-        _AttentionRow(
-          icon: Icons.event_busy_outlined,
-          title: '${attendance.absentDays} يوم غياب في الفترة الحالية',
-          subtitle: 'افتح سجل الدوام لمراجعة الأيام والتفاصيل.',
-          onTap: _openAttendanceDetails,
-        ),
-      );
-    }
-    if (summary.balance.penaltiesCount > 0) {
-      rows.add(
-        _AttentionRow(
-          icon: Icons.gavel_outlined,
-          title: '${summary.balance.penaltiesCount} جزاء مسجل',
-          subtitle:
-              'إجمالي القيمة ${Formatters.money(summary.balance.penaltiesAmount)}',
-          onTap: () => Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (_) => const PenaltiesScreen(showAppBar: true),
-            ),
-          ),
-        ),
-      );
-    }
-
-    return AppCard(
-      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm),
-      child: Column(
-        children: [
-          for (var index = 0; index < rows.length; index++) ...[
-            if (index > 0) const Divider(height: 1),
-            rows[index],
-          ],
         ],
       ),
     );
@@ -446,6 +374,18 @@ class _EmployeeHomeScreenState extends State<EmployeeHomeScreen> {
           MaterialPageRoute(
             builder: (_) => const AdvanceBalanceDetailsScreen(),
           ),
+        ),
+      ),
+      _DashboardItem(
+        title: 'توقفات المصنع',
+        value: summary.stoppagesCount.toString(),
+        subtitle: 'الحالات المسجلة',
+        icon: Icons.factory_outlined,
+        color: AppColors.tertiary,
+        isActive: summary.stoppagesCount > 0,
+        onTap: () => Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => const FactoryStoppagesScreen()),
         ),
       ),
       _DashboardItem(
@@ -474,41 +414,63 @@ class _EmployeeHomeScreenState extends State<EmployeeHomeScreen> {
           ),
         ),
       ),
+    ];
+
+    return _CompactGrid(items: items);
+  }
+
+  Widget _attendanceMetrics(
+    BuildContext context,
+    _AttendanceSummary attendance,
+  ) {
+    if (!attendance.hasRecords) {
+      return const AppEmptyState(
+        title: 'لا توجد مؤشرات دوام',
+        message: 'لم يتم العثور على بيانات كافية لحساب مؤشرات الدوام.',
+        icon: Icons.query_stats_outlined,
+      );
+    }
+
+    final items = [
       _DashboardItem(
-        title: 'توقفات المصنع',
-        value: summary.stoppagesCount.toString(),
-        subtitle: 'الحالات المسجلة',
-        icon: Icons.factory_outlined,
-        color: AppColors.tertiary,
-        isActive: summary.stoppagesCount > 0,
-        onTap: () => Navigator.push(
-          context,
-          MaterialPageRoute(builder: (_) => const FactoryStoppagesScreen()),
-        ),
+        title: 'أيام الدوام',
+        value: attendance.workDays.toString(),
+        subtitle: 'في الفترة الحالية',
+        icon: Icons.calendar_today_outlined,
+        color: AppColors.primary,
+        isActive: attendance.workDays > 0,
+        onTap: _openAttendanceDetails,
+      ),
+      _DashboardItem(
+        title: 'الغياب',
+        value: attendance.absentDays.toString(),
+        subtitle: 'أيام الغياب',
+        icon: Icons.event_busy_outlined,
+        color: AppColors.danger,
+        isActive: attendance.absentDays > 0,
+        onTap: _openAttendanceDetails,
+      ),
+      _DashboardItem(
+        title: 'مراجعات البصمة',
+        value: attendance.reviewDays.toString(),
+        subtitle: 'تحتاج مراجعة',
+        icon: Icons.fact_check_outlined,
+        color: AppColors.warning,
+        isActive: attendance.reviewDays > 0,
+        onTap: _openAttendanceDetails,
+      ),
+      _DashboardItem(
+        title: 'آخر دوام',
+        value: attendance.latestWorkDateText,
+        subtitle: _localizedStatusLabel(attendance.latestStatus),
+        icon: Icons.history_toggle_off_outlined,
+        color: AppColors.secondary,
+        isActive: true,
+        onTap: _openAttendanceDetails,
       ),
     ];
 
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final columns = constraints.maxWidth >= 760 ? 4 : 2;
-        final itemWidth =
-            (constraints.maxWidth - (AppSpacing.sm * (columns - 1))) / columns;
-        const itemHeight = 118.0;
-
-        return GridView.builder(
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          itemCount: items.length,
-          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: columns,
-            mainAxisSpacing: AppSpacing.sm,
-            crossAxisSpacing: AppSpacing.sm,
-            childAspectRatio: itemWidth / itemHeight,
-          ),
-          itemBuilder: (context, index) => _HomeSummaryCard(item: items[index]),
-        );
-      },
-    );
+    return _CompactGrid(items: items);
   }
 
   void _openAttendanceDetails() {
@@ -517,7 +479,9 @@ class _EmployeeHomeScreenState extends State<EmployeeHomeScreen> {
 
   String get _employeeInitial {
     final name = widget.profile.fullName.trim();
-    return name.isEmpty ? 'م' : name.substring(0, 1);
+    if (name.isNotEmpty) return name.substring(0, 1);
+    final employeeNumber = widget.profile.employeeNumber.trim();
+    return employeeNumber.isNotEmpty ? employeeNumber.substring(0, 1) : 'م';
   }
 
   Color _statusSemanticColor(String status) {
@@ -571,43 +535,6 @@ class _EmployeeHomeScreenState extends State<EmployeeHomeScreen> {
   }
 }
 
-class _AttentionRow extends StatelessWidget {
-  final IconData icon;
-  final String title;
-  final String subtitle;
-  final VoidCallback onTap;
-
-  const _AttentionRow({
-    required this.icon,
-    required this.title,
-    required this.subtitle,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = Theme.of(context).colorScheme;
-    return ListTile(
-      dense: true,
-      visualDensity: const VisualDensity(vertical: -2),
-      contentPadding: EdgeInsets.zero,
-      leading: Container(
-        width: 30,
-        height: 30,
-        decoration: BoxDecoration(
-          color: colors.surfaceContainerHighest,
-          borderRadius: BorderRadius.circular(AppRadius.md),
-        ),
-        child: Icon(icon, size: 17, color: colors.primary),
-      ),
-      title: Text(title, maxLines: 1, overflow: TextOverflow.ellipsis),
-      subtitle: Text(subtitle, maxLines: 1, overflow: TextOverflow.ellipsis),
-      trailing: const Icon(Icons.chevron_left, size: 18),
-      onTap: onTap,
-    );
-  }
-}
-
 class _MiniMetric extends StatelessWidget {
   final String label;
   final String value;
@@ -625,7 +552,7 @@ class _MiniMetric extends StatelessWidget {
     final colors = theme.colorScheme;
 
     return Container(
-      constraints: const BoxConstraints(minHeight: 58),
+      constraints: const BoxConstraints(minHeight: 54),
       padding: const EdgeInsets.symmetric(
         horizontal: AppSpacing.sm,
         vertical: AppSpacing.xs,
@@ -671,24 +598,33 @@ class _MiniMetric extends StatelessWidget {
   }
 }
 
-class _CompactInfoChip extends StatelessWidget {
-  final String label;
+class _CompactGrid extends StatelessWidget {
+  final List<_DashboardItem> items;
 
-  const _CompactInfoChip({required this.label});
+  const _CompactGrid({required this.items});
 
   @override
   Widget build(BuildContext context) {
-    final colors = Theme.of(context).colorScheme;
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-      decoration: BoxDecoration(
-        color: colors.surfaceContainer,
-        borderRadius: BorderRadius.circular(999),
-      ),
-      child: Text(
-        label,
-        style: Theme.of(context).textTheme.bodySmall?.copyWith(fontSize: 11),
-      ),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final columns = constraints.maxWidth >= 760 ? 4 : 2;
+        final itemWidth =
+            (constraints.maxWidth - (AppSpacing.sm * (columns - 1))) / columns;
+        const itemHeight = 112.0;
+
+        return GridView.builder(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          itemCount: items.length,
+          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: columns,
+            mainAxisSpacing: AppSpacing.sm,
+            crossAxisSpacing: AppSpacing.sm,
+            childAspectRatio: itemWidth / itemHeight,
+          ),
+          itemBuilder: (context, index) => _HomeSummaryCard(item: items[index]),
+        );
+      },
     );
   }
 }
@@ -718,13 +654,13 @@ class _HomeSummaryCard extends StatelessWidget {
           Row(
             children: [
               Container(
-                width: 28,
-                height: 28,
+                width: 27,
+                height: 27,
                 decoration: BoxDecoration(
                   color: item.color.withValues(alpha: .09),
                   borderRadius: BorderRadius.circular(AppRadius.sm),
                 ),
-                child: Icon(item.icon, size: 17, color: item.color),
+                child: Icon(item.icon, size: 16, color: item.color),
               ),
               const SizedBox(width: AppSpacing.xs),
               Expanded(
@@ -747,7 +683,7 @@ class _HomeSummaryCard extends StatelessWidget {
             style: theme.textTheme.titleMedium?.copyWith(
               color: valueColor,
               fontWeight: FontWeight.bold,
-              fontSize: 17,
+              fontSize: 16,
             ),
           ),
           if (item.subtitle != null) ...[
