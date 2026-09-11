@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 
 import '../../models/leave_model.dart';
 import '../../services/employee_service.dart';
-import '../../theme/app_colors.dart';
 import '../../utils/formatters.dart';
 import '../../widgets/common/app_dropdown_field.dart';
 import '../../widgets/common/app_empty_state.dart';
@@ -236,7 +235,7 @@ class _LeaveRequestsScreenState extends State<LeaveRequestsScreen> {
                   itemBuilder: (_, index) {
                     final request = LeaveModel.fromMap(items[index].data);
                     return AppListItem(
-                      title: Text('${request.leaveType}'),
+                      title: Text(request.leaveType),
                       subtitle: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
