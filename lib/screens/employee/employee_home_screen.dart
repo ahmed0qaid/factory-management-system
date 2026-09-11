@@ -15,7 +15,6 @@ import '../../widgets/common/app_empty_state.dart';
 import '../../widgets/common/app_error_state.dart';
 import '../../widgets/common/app_loading_state.dart';
 import '../../widgets/common/app_section_header.dart';
-import '../../widgets/common/app_stat_card.dart';
 import '../../widgets/common/app_status_badge.dart';
 import 'advance_balance_details_screen.dart';
 import 'factory_stoppages_screen.dart';
@@ -102,7 +101,7 @@ class _EmployeeHomeScreenState extends State<EmployeeHomeScreen> {
             ),
             children: [
               _employeeHeader(context),
-              const SizedBox(height: AppSpacing.lg),
+              const SizedBox(height: AppSpacing.md),
               if (snapshot.connectionState != ConnectionState.done)
                 const AppLoadingState(label: 'جاري تحميل ملخص الموظف')
               else if (snapshot.hasError)
@@ -130,23 +129,23 @@ class _EmployeeHomeScreenState extends State<EmployeeHomeScreen> {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         const AppSectionHeader(title: 'حالة الدوام'),
-        const SizedBox(height: AppSpacing.sm),
+        const SizedBox(height: AppSpacing.xs),
         _attendanceOverviewCard(context, attendance),
         if (needsAttention) ...[
-          const SizedBox(height: AppSpacing.xl),
+          const SizedBox(height: AppSpacing.lg),
           const AppSectionHeader(
             title: 'بحاجة إلى انتباه',
             icon: Icons.notification_important_outlined,
           ),
-          const SizedBox(height: AppSpacing.sm),
+          const SizedBox(height: AppSpacing.xs),
           _attentionCard(context, summary, attendance),
         ],
-        const SizedBox(height: AppSpacing.xl),
+        const SizedBox(height: AppSpacing.lg),
         const AppSectionHeader(
           title: 'ملخص الفترة الحالية',
           icon: Icons.dashboard_outlined,
         ),
-        const SizedBox(height: AppSpacing.sm),
+        const SizedBox(height: AppSpacing.xs),
         _periodGrid(context, summary),
       ],
     );
@@ -157,63 +156,96 @@ class _EmployeeHomeScreenState extends State<EmployeeHomeScreen> {
     final textTheme = Theme.of(context).textTheme;
     final jobTitle = widget.profile.jobTitleName?.trim().isNotEmpty == true
         ? widget.profile.jobTitleName!.trim()
-        : 'بدون مسمى وظيفي محدد';
+        : 'بدون مسمى';
     final department = widget.profile.departmentName?.trim().isNotEmpty == true
         ? widget.profile.departmentName!.trim()
-        : 'بدون قسم محدد';
+        : 'بدون قسم';
 
     return AppCard(
       elevated: true,
-      padding: const EdgeInsets.all(AppSpacing.lg),
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.md,
+        vertical: AppSpacing.sm,
+      ),
       child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           CircleAvatar(
-            radius: 30,
+            radius: 22,
             backgroundColor: scheme.primaryContainer,
             child: Text(
               _employeeInitial,
-              style: textTheme.headlineSmall?.copyWith(
+              style: textTheme.titleMedium?.copyWith(
                 color: scheme.onPrimaryContainer,
+                fontWeight: FontWeight.bold,
               ),
             ),
           ),
-          const SizedBox(width: AppSpacing.md),
+          const SizedBox(width: AppSpacing.sm),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  'مرحبًا، ${widget.profile.fullName}',
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.bold,
-                  ),
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        widget.profile.fullName,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: textTheme.titleSmall?.copyWith(
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: AppSpacing.xs),
+                    Flexible(
+                      child: Text(
+                        jobTitle,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        textAlign: TextAlign.end,
+                        style: textTheme.bodySmall?.copyWith(
+                          color: scheme.onSurfaceVariant,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
                 const SizedBox(height: AppSpacing.xxs),
-                Text(
-                  jobTitle,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: textTheme.bodyMedium?.copyWith(
-                    color: scheme.onSurfaceVariant,
-                  ),
-                ),
-                const SizedBox(height: AppSpacing.sm),
-                Wrap(
-                  spacing: AppSpacing.xs,
-                  runSpacing: AppSpacing.xs,
+                Row(
                   children: [
-                    AppStatusBadge(
-                      label: widget.profile.employeeNumber,
-                      color: scheme.primary,
-                      icon: Icons.badge_outlined,
+                    Flexible(
+                      child: Text(
+                        widget.profile.employeeNumber,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: textTheme.bodySmall?.copyWith(
+                          color: scheme.primary,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
                     ),
-                    AppStatusBadge(
-                      label: department,
-                      color: scheme.secondary,
-                      icon: Icons.apartment_outlined,
+                    Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: AppSpacing.xs,
+                      ),
+                      child: Text(
+                        '•',
+                        style: textTheme.bodySmall?.copyWith(
+                          color: scheme.outline,
+                        ),
+                      ),
+                    ),
+                    Expanded(
+                      child: Text(
+                        department,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: textTheme.bodySmall?.copyWith(
+                          color: scheme.onSurfaceVariant,
+                        ),
+                      ),
                     ),
                   ],
                 ),
@@ -245,39 +277,42 @@ class _EmployeeHomeScreenState extends State<EmployeeHomeScreen> {
 
     return AppCard(
       elevated: true,
-      padding: const EdgeInsets.all(AppSpacing.lg),
+      padding: const EdgeInsets.all(AppSpacing.md),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Row(
             children: [
               Container(
-                width: 48,
-                height: 48,
+                width: 36,
+                height: 36,
                 decoration: BoxDecoration(
                   color: scheme.primaryContainer,
-                  borderRadius: BorderRadius.circular(AppRadius.lg),
+                  borderRadius: BorderRadius.circular(AppRadius.md),
                 ),
                 child: Icon(
                   Icons.fingerprint,
                   color: scheme.onPrimaryContainer,
-                  size: 28,
+                  size: 20,
                 ),
               ),
-              const SizedBox(width: AppSpacing.md),
+              const SizedBox(width: AppSpacing.sm),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
                       'آخر حالة مسجلة',
-                      style: theme.textTheme.titleMedium?.copyWith(
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.titleSmall?.copyWith(
                         fontWeight: FontWeight.bold,
                       ),
                     ),
-                    const SizedBox(height: AppSpacing.xxs),
                     Text(
                       attendance.latestWorkDateText,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                       style: theme.textTheme.bodySmall?.copyWith(
                         color: scheme.onSurfaceVariant,
                       ),
@@ -285,64 +320,53 @@ class _EmployeeHomeScreenState extends State<EmployeeHomeScreen> {
                   ],
                 ),
               ),
+              const SizedBox(width: AppSpacing.xs),
               AppStatusBadge(
                 label: _localizedStatusLabel(attendance.latestStatus),
                 color: statusColor,
               ),
             ],
           ),
-          const SizedBox(height: AppSpacing.lg),
-          LayoutBuilder(
-            builder: (context, constraints) {
-              final compact = constraints.maxWidth < 430;
-              final items = [
-                _MiniMetric(
+          const SizedBox(height: AppSpacing.sm),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Expanded(
+                child: _MiniMetric(
                   label: 'آخر حضور',
                   value: attendance.latestCheckInText,
                   icon: Icons.login,
                 ),
-                _MiniMetric(
+              ),
+              const SizedBox(width: AppSpacing.xs),
+              Expanded(
+                child: _MiniMetric(
                   label: 'آخر انصراف',
                   value: attendance.latestCheckOutText,
                   icon: Icons.logout,
                 ),
-              ];
-              if (compact) {
-                return Column(
-                  children: [
-                    items[0],
-                    const SizedBox(height: AppSpacing.sm),
-                    items[1],
-                  ],
-                );
-              }
-              return Row(
-                children: [
-                  Expanded(child: items[0]),
-                  const SizedBox(width: AppSpacing.sm),
-                  Expanded(child: items[1]),
-                ],
-              );
-            },
-          ),
-          const SizedBox(height: AppSpacing.md),
-          Wrap(
-            spacing: AppSpacing.xs,
-            runSpacing: AppSpacing.xs,
-            children: [
-              Chip(label: Text('أيام الدوام: ${attendance.workDays}')),
-              if (attendance.absentDays > 0)
-                Chip(label: Text('غياب: ${attendance.absentDays}')),
-              if (attendance.reviewDays > 0)
-                Chip(label: Text('تحتاج مراجعة: ${attendance.reviewDays}')),
+              ),
             ],
           ),
-          const SizedBox(height: AppSpacing.md),
+          const SizedBox(height: AppSpacing.sm),
+          Wrap(
+            spacing: AppSpacing.xs,
+            runSpacing: AppSpacing.xxs,
+            children: [
+              _CompactInfoChip(label: 'دوام ${attendance.workDays}'),
+              if (attendance.absentDays > 0)
+                _CompactInfoChip(label: 'غياب ${attendance.absentDays}'),
+              if (attendance.reviewDays > 0)
+                _CompactInfoChip(label: 'مراجعة ${attendance.reviewDays}'),
+            ],
+          ),
+          const SizedBox(height: AppSpacing.sm),
           SizedBox(
+            height: 38,
             width: double.infinity,
             child: FilledButton.tonalIcon(
               onPressed: _openAttendanceDetails,
-              icon: const Icon(Icons.timeline_outlined),
+              icon: const Icon(Icons.timeline_outlined, size: 18),
               label: const Text('فتح سجل الدوام'),
             ),
           ),
@@ -396,6 +420,7 @@ class _EmployeeHomeScreenState extends State<EmployeeHomeScreen> {
     }
 
     return AppCard(
+      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm),
       child: Column(
         children: [
           for (var index = 0; index < rows.length; index++) ...[
@@ -410,9 +435,9 @@ class _EmployeeHomeScreenState extends State<EmployeeHomeScreen> {
   Widget _periodGrid(BuildContext context, _HomeSummary summary) {
     final items = [
       _DashboardItem(
-        title: 'رصيد السلفة المتاح',
+        title: 'رصيد السلفة',
         value: Formatters.money(summary.balance.availableBalance),
-        subtitle: 'تفاصيل الاستحقاق والسلف',
+        subtitle: 'المتاح حاليًا',
         icon: Icons.account_balance_wallet_outlined,
         color: AppColors.secondary,
         isActive: summary.balance.availableBalance > 0,
@@ -426,7 +451,7 @@ class _EmployeeHomeScreenState extends State<EmployeeHomeScreen> {
       _DashboardItem(
         title: 'طلبات الإجازة',
         value: summary.leavesCount.toString(),
-        subtitle: 'عرض الطلبات أو إنشاء طلب',
+        subtitle: 'الطلبات المسجلة',
         icon: Icons.event_available_outlined,
         color: AppColors.primary,
         isActive: summary.leavesCount > 0,
@@ -463,21 +488,26 @@ class _EmployeeHomeScreenState extends State<EmployeeHomeScreen> {
       ),
     ];
 
-    return _ResponsiveGrid(
-      minItemWidth: 165,
-      itemHeight: 164,
-      children: [
-        for (final item in items)
-          AppStatCard(
-            title: item.title,
-            value: item.value,
-            subtitle: item.subtitle,
-            icon: item.icon,
-            color: item.color,
-            isActive: item.isActive,
-            onTap: item.onTap,
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final columns = constraints.maxWidth >= 760 ? 4 : 2;
+        final itemWidth =
+            (constraints.maxWidth - (AppSpacing.sm * (columns - 1))) / columns;
+        const itemHeight = 118.0;
+
+        return GridView.builder(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          itemCount: items.length,
+          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: columns,
+            mainAxisSpacing: AppSpacing.sm,
+            crossAxisSpacing: AppSpacing.sm,
+            childAspectRatio: itemWidth / itemHeight,
           ),
-      ],
+          itemBuilder: (context, index) => _HomeSummaryCard(item: items[index]),
+        );
+      },
     );
   }
 
@@ -487,7 +517,7 @@ class _EmployeeHomeScreenState extends State<EmployeeHomeScreen> {
 
   String get _employeeInitial {
     final name = widget.profile.fullName.trim();
-    return name.isEmpty ? 'م' : name.characters.first;
+    return name.isEmpty ? 'م' : name.substring(0, 1);
   }
 
   Color _statusSemanticColor(String status) {
@@ -556,12 +586,23 @@ class _AttentionRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
     return ListTile(
+      dense: true,
+      visualDensity: const VisualDensity(vertical: -2),
       contentPadding: EdgeInsets.zero,
-      leading: CircleAvatar(child: Icon(icon)),
-      title: Text(title),
-      subtitle: Text(subtitle),
-      trailing: const Icon(Icons.chevron_left),
+      leading: Container(
+        width: 30,
+        height: 30,
+        decoration: BoxDecoration(
+          color: colors.surfaceContainerHighest,
+          borderRadius: BorderRadius.circular(AppRadius.md),
+        ),
+        child: Icon(icon, size: 17, color: colors.primary),
+      ),
+      title: Text(title, maxLines: 1, overflow: TextOverflow.ellipsis),
+      subtitle: Text(subtitle, maxLines: 1, overflow: TextOverflow.ellipsis),
+      trailing: const Icon(Icons.chevron_left, size: 18),
       onTap: onTap,
     );
   }
@@ -584,7 +625,11 @@ class _MiniMetric extends StatelessWidget {
     final colors = theme.colorScheme;
 
     return Container(
-      padding: const EdgeInsets.all(AppSpacing.sm),
+      constraints: const BoxConstraints(minHeight: 58),
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.sm,
+        vertical: AppSpacing.xs,
+      ),
       decoration: BoxDecoration(
         color: colors.surfaceContainer,
         borderRadius: BorderRadius.circular(AppRadius.md),
@@ -592,25 +637,29 @@ class _MiniMetric extends StatelessWidget {
       ),
       child: Row(
         children: [
-          Icon(icon, size: 20, color: colors.primary),
-          const SizedBox(width: AppSpacing.sm),
+          Icon(icon, size: 16, color: colors.primary),
+          const SizedBox(width: AppSpacing.xs),
           Expanded(
             child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
                   label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                   style: theme.textTheme.bodySmall?.copyWith(
                     color: colors.onSurfaceVariant,
+                    fontSize: 11,
                   ),
                 ),
-                const SizedBox(height: AppSpacing.xxs),
                 Text(
                   value,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: theme.textTheme.titleSmall?.copyWith(
                     fontWeight: FontWeight.bold,
+                    fontSize: 13,
                   ),
                 ),
               ],
@@ -622,34 +671,99 @@ class _MiniMetric extends StatelessWidget {
   }
 }
 
-class _ResponsiveGrid extends StatelessWidget {
-  final List<Widget> children;
-  final double minItemWidth;
-  final double itemHeight;
+class _CompactInfoChip extends StatelessWidget {
+  final String label;
 
-  const _ResponsiveGrid({
-    required this.children,
-    required this.minItemWidth,
-    required this.itemHeight,
-  });
+  const _CompactInfoChip({required this.label});
 
   @override
   Widget build(BuildContext context) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final width = constraints.maxWidth;
-        final count = (width / minItemWidth).floor().clamp(1, 4).toInt();
+    final colors = Theme.of(context).colorScheme;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: colors.surfaceContainer,
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Text(
+        label,
+        style: Theme.of(context).textTheme.bodySmall?.copyWith(fontSize: 11),
+      ),
+    );
+  }
+}
 
-        return GridView.count(
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          crossAxisCount: count,
-          mainAxisSpacing: AppSpacing.sm,
-          crossAxisSpacing: AppSpacing.sm,
-          childAspectRatio: (width / count) / itemHeight,
-          children: children,
-        );
-      },
+class _HomeSummaryCard extends StatelessWidget {
+  final _DashboardItem item;
+
+  const _HomeSummaryCard({required this.item});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colors = theme.colorScheme;
+    final borderColor = item.isActive
+        ? item.color.withValues(alpha: .30)
+        : colors.outlineVariant;
+    final valueColor = item.isActive ? item.color : colors.onSurfaceVariant;
+
+    return AppCard(
+      onTap: item.onTap,
+      padding: const EdgeInsets.all(AppSpacing.sm),
+      borderColor: borderColor,
+      elevated: item.isActive,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 28,
+                height: 28,
+                decoration: BoxDecoration(
+                  color: item.color.withValues(alpha: .09),
+                  borderRadius: BorderRadius.circular(AppRadius.sm),
+                ),
+                child: Icon(item.icon, size: 17, color: item.color),
+              ),
+              const SizedBox(width: AppSpacing.xs),
+              Expanded(
+                child: Text(
+                  item.title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const Spacer(),
+          Text(
+            item.value,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: theme.textTheme.titleMedium?.copyWith(
+              color: valueColor,
+              fontWeight: FontWeight.bold,
+              fontSize: 17,
+            ),
+          ),
+          if (item.subtitle != null) ...[
+            const SizedBox(height: 2),
+            Text(
+              item.subtitle!,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: colors.onSurfaceVariant,
+                fontSize: 10.5,
+              ),
+            ),
+          ],
+        ],
+      ),
     );
   }
 }
