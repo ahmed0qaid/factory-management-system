@@ -9,6 +9,7 @@ import '../../widgets/common/app_empty_state.dart';
 import '../../widgets/common/app_form_dialog.dart';
 import '../../widgets/common/app_form_field.dart';
 import '../../widgets/common/app_list_item.dart';
+import '../../widgets/common/app_loading_state.dart';
 import '../../widgets/common/app_scaffold.dart';
 import '../../widgets/common/app_status_pill.dart';
 
@@ -120,7 +121,8 @@ class _JobTitlesScreenState extends State<JobTitlesScreen> {
     final confirmed = await AppConfirmDialog.show(
       context,
       title: 'تعطيل المسمى الوظيفي',
-      content: 'هل أنت متأكد من تعطيل "${jobTitle.name}"؟ لن يظهر هذا المسمى في قوائم اختيار الموظفين الجدد.',
+      content:
+          'هل أنت متأكد من تعطيل "${jobTitle.name}"؟ لن يظهر هذا المسمى في قوائم اختيار الموظفين الجدد.',
       confirmText: 'تعطيل',
       isDestructive: true,
     );
@@ -145,7 +147,8 @@ class _JobTitlesScreenState extends State<JobTitlesScreen> {
     final confirmed = await AppConfirmDialog.show(
       context,
       title: 'حذف المسمى الوظيفي',
-      content: 'هل أنت متأكد من حذف "${jobTitle.name}" نهائياً؟ لا يمكن التراجع عن هذا الإجراء.',
+      content:
+          'هل أنت متأكد من حذف "${jobTitle.name}" نهائياً؟ لا يمكن التراجع عن هذا الإجراء.',
       confirmText: 'حذف',
       isDestructive: true,
     );
@@ -180,7 +183,7 @@ class _JobTitlesScreenState extends State<JobTitlesScreen> {
         child: const Icon(Icons.add),
       ),
       body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
+          ? const AppLoadingState(label: 'جاري تحميل المسميات الوظيفية')
           : _jobTitles.isEmpty
               ? const AppEmptyState(
                   icon: Icons.badge_outlined,
@@ -196,24 +199,33 @@ class _JobTitlesScreenState extends State<JobTitlesScreen> {
                       title: Text(
                         jobTitle.name,
                         style: TextStyle(
-                          decoration: jobTitle.active ? null : TextDecoration.lineThrough,
-                          color: jobTitle.active ? AppColors.textPrimary : Colors.grey,
+                          decoration:
+                              jobTitle.active ? null : TextDecoration.lineThrough,
+                          color: jobTitle.active
+                              ? AppColors.textPrimary
+                              : Colors.grey,
                         ),
                       ),
-                      subtitle: jobTitle.active 
-                          ? AppStatusPill.success('مفعل') 
+                      subtitle: jobTitle.active
+                          ? AppStatusPill.success('مفعل')
                           : AppStatusPill.danger('معطل'),
                       trailing: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           IconButton(
-                            icon: const Icon(Icons.edit, color: AppColors.primary),
+                            icon: const Icon(
+                              Icons.edit,
+                              color: AppColors.primary,
+                            ),
                             tooltip: 'تعديل',
                             onPressed: () => _showAddEditDialog(jobTitle),
                           ),
                           if (jobTitle.active)
                             IconButton(
-                              icon: const Icon(Icons.block, color: Colors.orange),
+                              icon: const Icon(
+                                Icons.block,
+                                color: Colors.orange,
+                              ),
                               tooltip: 'تعطيل',
                               onPressed: () => _confirmDeactivate(jobTitle),
                             ),
