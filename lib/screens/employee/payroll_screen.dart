@@ -9,7 +9,6 @@ import '../../theme/app_colors.dart';
 import '../../utils/formatters.dart';
 import '../../widgets/common/app_card.dart';
 import '../../widgets/common/app_status_pill.dart';
-import '../../widgets/common/app_list_item.dart';
 
 class PayrollScreen extends StatefulWidget {
   const PayrollScreen({super.key});
@@ -445,7 +444,7 @@ class _PayrollScreenState extends State<PayrollScreen> {
                       filename: 'payslip_${item.createdAt}.pdf',
                     );
                   } catch (e) {
-                    if (context.mounted) {
+                    if (mounted) {
                       ScaffoldMessenger.of(context).showSnackBar(
                         SnackBar(content: Text('خطأ في توليد الـ PDF: $e')),
                       );
