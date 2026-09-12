@@ -1,61 +1,42 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import 'app_colors.dart';
 import 'app_component_themes.dart';
+import 'app_semantic_colors.dart';
 import 'app_typography.dart';
 
 class AppTheme {
-  static ThemeData get light {
-    final baseScheme = ColorScheme.fromSeed(
+  const AppTheme._();
+
+  static ThemeData get light => _build(Brightness.light);
+  static ThemeData get dark => _build(Brightness.dark);
+
+  static ThemeData _build(Brightness brightness) {
+    // Flutter recommends ColorScheme.fromSeed for Material 3 so component
+    // colors are generated as a coherent tonal system instead of being picked
+    // independently per widget.
+    final colorScheme = ColorScheme.fromSeed(
       seedColor: AppColors.primary,
-      brightness: Brightness.light,
-      surface: AppColors.surface,
-      error: AppColors.danger,
+      brightness: brightness,
     );
 
-    final colorScheme = baseScheme.copyWith(
-      primary: AppColors.primary,
-      secondary: AppColors.secondary,
-      tertiary: AppColors.tertiary,
-      surfaceContainerLow: AppColors.surfaceContainerLow,
-      surfaceContainer: AppColors.surfaceContainer,
-      surfaceContainerHigh: AppColors.surfaceContainerHigh,
-    );
+    final semanticColors = brightness == Brightness.dark
+        ? AppSemanticColors.dark
+        : AppSemanticColors.light;
 
-    return _build(colorScheme, AppColors.background);
-  }
-
-  static ThemeData get dark {
-    final baseScheme = ColorScheme.fromSeed(
-      seedColor: AppColors.primary,
-      brightness: Brightness.dark,
-      surface: AppColors.darkSurface,
-      error: const Color(0xFFF87171),
-    );
-
-    final colorScheme = baseScheme.copyWith(
-      primary: AppColors.primary,
-      secondary: AppColors.secondary,
-      tertiary: AppColors.tertiary,
-    );
-
-    return _build(colorScheme, AppColors.darkBackground);
-  }
-
-  static ThemeData _build(ColorScheme colorScheme, Color background) {
-    final baseTheme = ThemeData(
-      useMaterial3: true,
-      fontFamily: 'Cairo',
+    final baseTheme = ThemeData.from(
       colorScheme: colorScheme,
-      scaffoldBackgroundColor: background,
-      visualDensity: VisualDensity.standard,
+      useMaterial3: true,
     );
     final textTheme = AppTypography.textTheme(baseTheme.textTheme);
 
     return baseTheme.copyWith(
+      extensions: <ThemeExtension<dynamic>>[semanticColors],
+      scaffoldBackgroundColor: colorScheme.surface,
+      canvasColor: colorScheme.surface,
       textTheme: textTheme,
-      primaryTextTheme: GoogleFonts.cairoTextTheme(baseTheme.primaryTextTheme),
+      primaryTextTheme: textTheme,
+      iconTheme: IconThemeData(color: colorScheme.onSurfaceVariant, size: 22),
       appBarTheme: AppComponentThemes.appBar(colorScheme, textTheme),
       cardTheme: AppComponentThemes.card(colorScheme),
       inputDecorationTheme: AppComponentThemes.input(colorScheme),
@@ -65,11 +46,30 @@ class AppTheme {
       ),
       filledButtonTheme: AppComponentThemes.filledButton(colorScheme),
       outlinedButtonTheme: AppComponentThemes.outlinedButton(colorScheme),
-      textButtonTheme: AppComponentThemes.textButton(),
+      textButtonTheme: AppComponentThemes.textButton(colorScheme),
+      floatingActionButtonTheme:
+          AppComponentThemes.floatingActionButton(colorScheme),
+      listTileTheme: AppComponentThemes.listTile(colorScheme, textTheme),
+      switchTheme: AppComponentThemes.switchTheme(colorScheme),
+      progressIndicatorTheme: ProgressIndicatorThemeData(
+        color: colorScheme.primary,
+        linearTrackColor: colorScheme.surfaceContainerHighest,
+        circularTrackColor: colorScheme.surfaceContainerHighest,
+      ),
       chipTheme: baseTheme.chipTheme.copyWith(
-        labelStyle: textTheme.labelMedium,
+        backgroundColor: colorScheme.surfaceContainerLow,
+        selectedColor: colorScheme.secondaryContainer,
+        disabledColor: colorScheme.surfaceContainerLow,
+        labelStyle: textTheme.labelMedium?.copyWith(
+          color: colorScheme.onSurfaceVariant,
+        ),
+        secondaryLabelStyle: textTheme.labelMedium?.copyWith(
+          color: colorScheme.onSecondaryContainer,
+          fontWeight: FontWeight.w700,
+        ),
         side: BorderSide(color: colorScheme.outlineVariant),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(999)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        showCheckmark: false,
       ),
       dividerTheme: DividerThemeData(
         color: colorScheme.outlineVariant,
@@ -82,23 +82,55 @@ class AppTheme {
         contentTextStyle: textTheme.bodyMedium?.copyWith(
           color: colorScheme.onInverseSurface,
         ),
+        actionTextColor: colorScheme.inversePrimary,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       ),
       bottomSheetTheme: BottomSheetThemeData(
-        backgroundColor: colorScheme.surface,
+        backgroundColor: colorScheme.surfaceContainerLow,
         surfaceTintColor: Colors.transparent,
+        modalBackgroundColor: colorScheme.surfaceContainerLow,
+        modalBarrierColor: Colors.black.withValues(alpha: .38),
         shape: const RoundedRectangleBorder(
-          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
         ),
       ),
       dialogTheme: DialogThemeData(
-        backgroundColor: colorScheme.surface,
+        backgroundColor: colorScheme.surfaceContainerLow,
         surfaceTintColor: Colors.transparent,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        titleTextStyle: textTheme.titleLarge?.copyWith(
+          color: colorScheme.onSurface,
+        ),
+        contentTextStyle: textTheme.bodyMedium?.copyWith(
+          color: colorScheme.onSurfaceVariant,
+        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+      ),
+      drawerTheme: DrawerThemeData(
+        backgroundColor: colorScheme.surfaceContainerLow,
+        surfaceTintColor: Colors.transparent,
+        shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.horizontal(left: Radius.circular(24)),
+        ),
       ),
       dataTableTheme: DataTableThemeData(
-        headingTextStyle: textTheme.titleSmall,
-        dataTextStyle: textTheme.bodyMedium,
+        headingRowColor: WidgetStatePropertyAll(colorScheme.surfaceContainerLow),
+        headingTextStyle: textTheme.titleSmall?.copyWith(
+          color: colorScheme.onSurface,
+          fontWeight: FontWeight.w700,
+        ),
+        dataTextStyle: textTheme.bodyMedium?.copyWith(
+          color: colorScheme.onSurface,
+        ),
         dividerThickness: 1,
+      ),
+      tooltipTheme: TooltipThemeData(
+        decoration: BoxDecoration(
+          color: colorScheme.inverseSurface,
+          borderRadius: BorderRadius.circular(8),
+        ),
+        textStyle: textTheme.bodySmall?.copyWith(
+          color: colorScheme.onInverseSurface,
+        ),
       ),
     );
   }
