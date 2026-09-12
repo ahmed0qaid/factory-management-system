@@ -29,8 +29,10 @@ class AppCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    final effectiveBackground = backgroundColor ?? scheme.surfaceContainerLow;
-    final effectiveBorder = borderColor ?? scheme.outlineVariant;
+    final effectiveBackground =
+        backgroundColor ?? scheme.surfaceContainerLowest;
+    final effectiveBorder = borderColor ??
+        scheme.outlineVariant.withValues(alpha: elevated ? .85 : .65);
     final radius = AppRadius.card;
 
     return Padding(
@@ -38,12 +40,12 @@ class AppCard extends StatelessWidget {
       child: Material(
         color: effectiveBackground,
         borderRadius: radius,
+        clipBehavior: Clip.antiAlias,
         child: InkWell(
           onTap: onTap,
           borderRadius: radius,
           child: DecoratedBox(
             decoration: BoxDecoration(
-              color: effectiveBackground,
               borderRadius: radius,
               border: Border.all(
                 color: effectiveBorder,
