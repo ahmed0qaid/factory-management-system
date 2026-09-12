@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../models/attendance_policy_model.dart';
 import '../../services/employee_service.dart';
-import '../../theme/app_colors.dart';
+import '../../theme/app_semantic_colors.dart';
 import '../../widgets/common/app_card.dart';
 import '../../widgets/common/app_empty_state.dart';
 import '../../widgets/common/app_loading_state.dart';
@@ -32,9 +32,9 @@ class _AttendanceRulesScreenState extends State<AttendanceRulesScreen> {
       _policy = await _employeeService.getActiveAttendancePolicy();
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('خطأ في تحميل القواعد: $e')));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('خطأ في تحميل القواعد: $e')),
+        );
       }
     } finally {
       if (mounted) setState(() => _isLoading = false);
@@ -48,41 +48,47 @@ class _AttendanceRulesScreenState extends State<AttendanceRulesScreen> {
       body: _isLoading
           ? const AppLoadingState(label: 'جاري تحميل السياسة')
           : _policy == null
-          ? const AppEmptyState(
-              title: 'لا توجد سياسة',
-              message: 'لا توجد سياسة دوام محددة حاليًا.',
-              icon: Icons.rule,
-            )
-          : ListView(
-              padding: const EdgeInsets.all(16),
-              children: [
-                _buildRuleCard(
-                  title: 'السماح بالتأخير',
-                  icon: Icons.timer_outlined,
-                  content: _buildLateRule(),
+              ? const AppEmptyState(
+                  title: 'لا توجد سياسة',
+                  message: 'لا توجد سياسة دوام محددة حاليًا.',
+                  icon: Icons.rule_outlined,
+                )
+              : Align(
+                  alignment: Alignment.topCenter,
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 760),
+                    child: ListView(
+                      padding: const EdgeInsets.all(16),
+                      children: [
+                        _buildRuleCard(
+                          title: 'السماح بالتأخير',
+                          icon: Icons.timer_outlined,
+                          content: _buildLateRule(),
+                        ),
+                        const SizedBox(height: 12),
+                        _buildRuleCard(
+                          title: 'الخروج المبكر',
+                          icon: Icons.directions_run_outlined,
+                          content: _buildEarlyLeaveRule(),
+                        ),
+                        const SizedBox(height: 12),
+                        _buildRuleCard(
+                          title: 'الوقت الإضافي',
+                          icon: Icons.more_time,
+                          content: _buildOvertimeRule(),
+                        ),
+                        const SizedBox(height: 12),
+                        _buildRuleCard(
+                          title: 'نقص البصمات',
+                          icon: Icons.fingerprint,
+                          content:
+                              'في حال فقدان بصمة الدخول أو الخروج لن يكتمل احتساب اليوم، وسيظهر لك تنبيه لمراجعة الإدارة وتصحيح البصمة.',
+                          isWarning: true,
+                        ),
+                      ],
+                    ),
+                  ),
                 ),
-                const SizedBox(height: 12),
-                _buildRuleCard(
-                  title: 'الخروج المبكر',
-                  icon: Icons.directions_run_outlined,
-                  content: _buildEarlyLeaveRule(),
-                ),
-                const SizedBox(height: 12),
-                _buildRuleCard(
-                  title: 'الوقت الإضافي',
-                  icon: Icons.more_time,
-                  content: _buildOvertimeRule(),
-                ),
-                const SizedBox(height: 12),
-                _buildRuleCard(
-                  title: 'نقص البصمات',
-                  icon: Icons.fingerprint,
-                  content:
-                      'في حال فقدان بصمة الدخول أو الخروج لن يكتمل احتساب اليوم، وسيظهر لك تنبيه لمراجعة الإدارة وتصحيح البصمة.',
-                  isWarning: true,
-                ),
-              ],
-            ),
     );
   }
 
@@ -92,37 +98,60 @@ class _AttendanceRulesScreenState extends State<AttendanceRulesScreen> {
     required String content,
     bool isWarning = false,
   }) {
-    final color = isWarning
-        ? AppColors.danger
-        : AppColors.primary;
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    final semantic = context.semanticColors;
+    final accent = isWarning ? semantic.warning : scheme.primary;
+    final iconBackground = isWarning
+        ? semantic.warningContainer
+        : scheme.primaryContainer;
+    final iconForeground = isWarning
+        ? semantic.onWarningContainer
+        : scheme.onPrimaryContainer;
+
     return AppCard(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Icon(icon, color: color, size: 26),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Text(
-                    title,
-                    softWrap: true,
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                      color: isWarning ? AppColors.danger : AppColors.textPrimary,
-                    ),
+      padding: const EdgeInsets.all(16),
+      borderColor: isWarning
+          ? semantic.warning.withValues(alpha: .28)
+          : scheme.outlineVariant,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  color: iconBackground,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Icon(icon, color: iconForeground, size: 22),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  title,
+                  softWrap: true,
+                  style: theme.textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w700,
+                    color: isWarning ? accent : scheme.onSurface,
                   ),
                 ),
-              ],
+              ),
+            ],
+          ),
+          const Divider(height: 24),
+          Text(
+            content,
+            softWrap: true,
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: scheme.onSurfaceVariant,
+              height: 1.55,
             ),
-            const Divider(height: 24),
-            Text(content, softWrap: true, style: const TextStyle(height: 1.55)),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
@@ -173,5 +202,3 @@ class _AttendanceRulesScreenState extends State<AttendanceRulesScreen> {
     return buffer.toString();
   }
 }
-
-
