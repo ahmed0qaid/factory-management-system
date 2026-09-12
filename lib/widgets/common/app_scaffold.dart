@@ -31,7 +31,6 @@ class AppScaffold extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final colors = theme.colorScheme;
 
     return Scaffold(
       backgroundColor: backgroundColor ?? theme.scaffoldBackgroundColor,
@@ -41,24 +40,8 @@ class AppScaffold extends StatelessWidget {
                 title,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: theme.appBarTheme.titleTextStyle ??
-                    theme.textTheme.titleLarge?.copyWith(
-                      fontWeight: FontWeight.bold,
-                      color: colors.onSurface,
-                    ),
               ),
               centerTitle: centerTitle,
-              backgroundColor:
-                  theme.appBarTheme.backgroundColor ?? colors.surface,
-              foregroundColor:
-                  theme.appBarTheme.foregroundColor ?? colors.onSurface,
-              elevation: 0,
-              scrolledUnderElevation: 1,
-              shadowColor: colors.outlineVariant,
-              iconTheme: theme.appBarTheme.iconTheme ??
-                  IconThemeData(color: colors.onSurfaceVariant),
-              actionsIconTheme: theme.appBarTheme.actionsIconTheme ??
-                  IconThemeData(color: colors.onSurfaceVariant),
               actions: actions,
               bottom: bottom,
             )
