@@ -5,7 +5,6 @@ import '../../services/admin_service.dart';
 import '../../services/salary_calculation_service.dart';
 import '../../theme/app_colors.dart';
 import '../../utils/formatters.dart';
-import '../../widgets/common/app_bottom_sheet.dart';
 import '../../widgets/common/app_card.dart';
 import '../../widgets/common/app_dropdown_field.dart';
 import '../../widgets/common/app_empty_state.dart';
@@ -109,6 +108,12 @@ class _ManagePayrollScreenState extends State<ManagePayrollScreen> {
         _pendingYear = now.year;
         _selectedMonth = now.month;
         _pendingMonth = now.month;
+        _selectedEmployeeId = null;
+        _pendingEmployeeId = null;
+        _selectedStatus = null;
+        _pendingStatus = null;
+        _fridayMode = FridaySalaryMode.includeFridays;
+        _pendingFridayMode = FridaySalaryMode.includeFridays;
       });
       await _calculateReports();
     } catch (error) {
@@ -127,8 +132,6 @@ class _ManagePayrollScreenState extends State<ManagePayrollScreen> {
     int year,
     int month,
   ) async {
-    // Start independent backend reads together instead of waiting for each one
-    // serially. This keeps the report responsive without flooding the backend.
     final attendanceFuture = _service.getEmployeeAttendanceForMonth(
       employeeId: employee.id,
       year: year,
@@ -221,6 +224,36 @@ class _ManagePayrollScreenState extends State<ManagePayrollScreen> {
     }
   }
 
+  Future<void> _applyPendingFilters() async {
+    if (_isCalculating) return;
+    setState(() {
+      _selectedYear = _pendingYear;
+      _selectedMonth = _pendingMonth;
+      _selectedEmployeeId = _pendingEmployeeId;
+      _selectedStatus = _pendingStatus;
+      _fridayMode = _pendingFridayMode;
+    });
+    await _calculateReports();
+  }
+
+  Future<void> _resetFilters() async {
+    if (_isCalculating) return;
+    final now = DateTime.now();
+    setState(() {
+      _selectedYear = now.year;
+      _pendingYear = now.year;
+      _selectedMonth = now.month;
+      _pendingMonth = now.month;
+      _selectedEmployeeId = null;
+      _pendingEmployeeId = null;
+      _selectedStatus = null;
+      _pendingStatus = null;
+      _fridayMode = FridaySalaryMode.includeFridays;
+      _pendingFridayMode = FridaySalaryMode.includeFridays;
+    });
+    await _calculateReports();
+  }
+
   Future<void> _approvePayroll(MonthlySalaryReport report) async {
     final status = _statusForReport(report);
     if (status == 'approved' || status == 'paid') {
@@ -289,162 +322,10 @@ class _ManagePayrollScreenState extends State<ManagePayrollScreen> {
     }
   }
 
-  void _showFiltersSheet() {
-    _pendingYear = _selectedYear;
-    _pendingMonth = _selectedMonth;
-    _pendingEmployeeId = _selectedEmployeeId;
-    _pendingStatus = _selectedStatus;
-    _pendingFridayMode = _fridayMode;
-
-    AppBottomSheet.show(
-      context,
-      title: 'فلاتر تقرير الرواتب',
-      child: StatefulBuilder(
-        builder: (context, setSheetState) {
-          return SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                _filterDropdown<int>(
-                  label: 'السنة',
-                  value: _pendingYear,
-                  allLabel: 'كل السنوات',
-                  items: _availableYears,
-                  itemLabel: (year) => year.toString(),
-                  onChanged: (value) =>
-                      setSheetState(() => _pendingYear = value),
-                ),
-                const SizedBox(height: 12),
-                _filterDropdown<int>(
-                  label: 'الشهر',
-                  value: _pendingMonth,
-                  allLabel: 'كل الأشهر',
-                  items: List<int>.generate(12, (index) => index + 1),
-                  itemLabel: (month) => _monthNames[month - 1],
-                  onChanged: (value) =>
-                      setSheetState(() => _pendingMonth = value),
-                ),
-                const SizedBox(height: 12),
-                EmployeePickerField(
-                  employees: _employees,
-                  selectedEmployeeId: _pendingEmployeeId,
-                  allowAll: true,
-                  allEmployeesLabel: 'كل الموظفين',
-                  labelText: 'الموظف',
-                  onChanged: (value) =>
-                      setSheetState(() => _pendingEmployeeId = value),
-                ),
-                const SizedBox(height: 12),
-                _filterDropdown<String>(
-                  label: 'الحالة',
-                  value: _pendingStatus,
-                  allLabel: 'كل الحالات',
-                  items: const ['pending', 'approved', 'paid'],
-                  itemLabel: _statusLabel,
-                  onChanged: (value) =>
-                      setSheetState(() => _pendingStatus = value),
-                ),
-                const SizedBox(height: 12),
-                AppDropdownField<FridaySalaryMode>(
-                  labelText: 'طريقة احتساب أيام الجمعة',
-                  value: _pendingFridayMode,
-                  items: FridaySalaryMode.values
-                      .map(
-                        (mode) => DropdownMenuItem(
-                          value: mode,
-                          child: Text(mode.label),
-                        ),
-                      )
-                      .toList(),
-                  onChanged: (value) {
-                    if (value != null) {
-                      setSheetState(() => _pendingFridayMode = value);
-                    }
-                  },
-                ),
-                const SizedBox(height: 18),
-                Row(
-                  children: [
-                    Expanded(
-                      child: OutlinedButton(
-                        onPressed: () {
-                          final now = DateTime.now();
-                          setState(() {
-                            _selectedYear = now.year;
-                            _selectedMonth = now.month;
-                            _selectedEmployeeId = null;
-                            _selectedStatus = null;
-                            _fridayMode = FridaySalaryMode.includeFridays;
-                          });
-                          Navigator.pop(context);
-                          _calculateReports();
-                        },
-                        child: const Text('إعادة تعيين'),
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: FilledButton(
-                        onPressed: () {
-                          setState(() {
-                            _selectedYear = _pendingYear;
-                            _selectedMonth = _pendingMonth;
-                            _selectedEmployeeId = _pendingEmployeeId;
-                            _selectedStatus = _pendingStatus;
-                            _fridayMode = _pendingFridayMode;
-                          });
-                          Navigator.pop(context);
-                          _calculateReports();
-                        },
-                        child: const Text('تطبيق'),
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          );
-        },
-      ),
-    );
-  }
-
-  Widget _filterDropdown<T>({
-    required String label,
-    required T? value,
-    required String allLabel,
-    required List<T> items,
-    required String Function(T item) itemLabel,
-    required ValueChanged<T?> onChanged,
-  }) {
-    return AppDropdownField<T?>(
-      labelText: label,
-      value: value,
-      items: [
-        DropdownMenuItem<T?>(value: null, child: Text(allLabel)),
-        ...items.map(
-          (item) => DropdownMenuItem<T?>(
-            value: item,
-            child: Text(itemLabel(item), overflow: TextOverflow.ellipsis),
-          ),
-        ),
-      ],
-      onChanged: onChanged,
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     return AppScaffold(
       title: 'الرواتب الشهرية',
-      actions: [
-        IconButton(
-          tooltip: 'الفلاتر',
-          icon: const Icon(Icons.tune),
-          onPressed: _isLoading ? null : _showFiltersSheet,
-        ),
-      ],
       body: _isLoading
           ? const AppLoadingState(label: 'جاري تحميل الرواتب')
           : RefreshIndicator(
@@ -454,9 +335,11 @@ class _ManagePayrollScreenState extends State<ManagePayrollScreen> {
                 child: ConstrainedBox(
                   constraints: const BoxConstraints(maxWidth: 1320),
                   child: ListView(
+                    keyboardDismissBehavior:
+                        ScrollViewKeyboardDismissBehavior.onDrag,
                     padding: const EdgeInsets.all(16),
                     children: [
-                      _summaryHeader(),
+                      _inlineFilters(),
                       const SizedBox(height: 12),
                       if (_isCalculating) ...[
                         LinearProgressIndicator(
@@ -486,45 +369,194 @@ class _ManagePayrollScreenState extends State<ManagePayrollScreen> {
     );
   }
 
-  Widget _summaryHeader() {
+  Widget _inlineFilters() {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+
     return AppCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Row(
             children: [
+              Icon(Icons.tune_rounded, color: scheme.primary),
+              const SizedBox(width: 8),
               Expanded(
-                child: Text(
-                  'الفترة والفلترة',
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.bold,
-                  ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'فلاتر تقرير الرواتب',
+                      style: theme.textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    Text(
+                      'حدّد الفترة والموظف والحالة ثم اضغط عرض النتائج.',
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: scheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
                 ),
               ),
-              TextButton.icon(
-                onPressed: _showFiltersSheet,
-                icon: const Icon(Icons.tune, size: 18),
-                label: const Text('تعديل'),
-              ),
             ],
+          ),
+          const SizedBox(height: 18),
+          Text(
+            'السنة',
+            style: theme.textTheme.titleSmall?.copyWith(
+              fontWeight: FontWeight.w700,
+            ),
           ),
           const SizedBox(height: 8),
           Wrap(
             spacing: 8,
             runSpacing: 8,
             children: [
-              Chip(
-                label: Text('السنة: ${_selectedYear?.toString() ?? 'الكل'}'),
+              ChoiceChip(
+                label: const Text('كل السنوات'),
+                selected: _pendingYear == null,
+                onSelected: _isCalculating
+                    ? null
+                    : (_) => setState(() => _pendingYear = null),
               ),
-              Chip(
-                label: Text(
-                  'الشهر: ${_selectedMonth == null ? 'الكل' : _monthNames[_selectedMonth! - 1]}',
+              ..._availableYears.map(
+                (year) => ChoiceChip(
+                  label: Text(year.toString()),
+                  selected: _pendingYear == year,
+                  onSelected: _isCalculating
+                      ? null
+                      : (_) => setState(() => _pendingYear = year),
                 ),
               ),
-              Chip(label: Text('الموظف: ${_employeeFilterLabel()}')),
-              Chip(label: Text('الحالة: ${_filterStatusLabel()}')),
-              Chip(label: Text(_fridayMode.label)),
             ],
+          ),
+          const SizedBox(height: 18),
+          Text(
+            'الشهر',
+            style: theme.textTheme.titleSmall?.copyWith(
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              ChoiceChip(
+                label: const Text('كل الأشهر'),
+                selected: _pendingMonth == null,
+                onSelected: _isCalculating
+                    ? null
+                    : (_) => setState(() => _pendingMonth = null),
+              ),
+              ...List<int>.generate(12, (index) => index + 1).map(
+                (month) => ChoiceChip(
+                  label: Text(_monthNames[month - 1]),
+                  selected: _pendingMonth == month,
+                  onSelected: _isCalculating
+                      ? null
+                      : (_) => setState(() => _pendingMonth = month),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 18),
+          EmployeePickerField(
+            employees: _employees,
+            selectedEmployeeId: _pendingEmployeeId,
+            allowAll: true,
+            allEmployeesLabel: 'كل الموظفين',
+            labelText: 'بحث الموظف',
+            enabled: !_isCalculating,
+            maxResultsHeight: 260,
+            onChanged: (value) => setState(() => _pendingEmployeeId = value),
+          ),
+          const SizedBox(height: 18),
+          Text(
+            'حالة الراتب',
+            style: theme.textTheme.titleSmall?.copyWith(
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              ChoiceChip(
+                label: const Text('كل الحالات'),
+                selected: _pendingStatus == null,
+                onSelected: _isCalculating
+                    ? null
+                    : (_) => setState(() => _pendingStatus = null),
+              ),
+              ...const ['pending', 'approved', 'paid'].map(
+                (status) => ChoiceChip(
+                  label: Text(_statusLabel(status)),
+                  selected: _pendingStatus == status,
+                  onSelected: _isCalculating
+                      ? null
+                      : (_) => setState(() => _pendingStatus = status),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 18),
+          AppDropdownField<FridaySalaryMode>(
+            labelText: 'طريقة احتساب أيام الجمعة',
+            value: _pendingFridayMode,
+            items: FridaySalaryMode.values
+                .map(
+                  (mode) => DropdownMenuItem(
+                    value: mode,
+                    child: Text(mode.label),
+                  ),
+                )
+                .toList(),
+            onChanged: _isCalculating
+                ? null
+                : (value) {
+                    if (value != null) {
+                      setState(() => _pendingFridayMode = value);
+                    }
+                  },
+          ),
+          const SizedBox(height: 20),
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final compact = constraints.maxWidth < 520;
+              final resetButton = OutlinedButton.icon(
+                onPressed: _isCalculating ? null : _resetFilters,
+                icon: const Icon(Icons.restart_alt_rounded),
+                label: const Text('إعادة تعيين'),
+              );
+              final applyButton = FilledButton.icon(
+                onPressed: _isCalculating ? null : _applyPendingFilters,
+                icon: const Icon(Icons.search_rounded),
+                label: const Text('عرض النتائج'),
+              );
+
+              if (compact) {
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    SizedBox(height: 46, child: applyButton),
+                    const SizedBox(height: 8),
+                    SizedBox(height: 46, child: resetButton),
+                  ],
+                );
+              }
+
+              return Row(
+                children: [
+                  Expanded(child: resetButton),
+                  const SizedBox(width: 12),
+                  Expanded(child: applyButton),
+                ],
+              );
+            },
           ),
         ],
       ),
@@ -910,24 +942,11 @@ class _ManagePayrollScreenState extends State<ManagePayrollScreen> {
     };
   }
 
-  String _filterStatusLabel() {
-    if (_selectedStatus == null) return 'الكل';
-    return _statusLabel(_selectedStatus);
-  }
-
   Color _statusColor(String? status) {
     return switch (status) {
       'paid' => AppColors.success,
       'approved' => AppColors.primary,
       _ => AppColors.warning,
     };
-  }
-
-  String _employeeFilterLabel() {
-    if (_selectedEmployeeId == null) return 'الكل';
-    for (final employee in _employees) {
-      if (employee.id == _selectedEmployeeId) return employee.fullName;
-    }
-    return 'موظف محدد';
   }
 }
