@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 
 import '../../services/auth_service.dart';
-import '../../theme/app_colors.dart';
 import '../../widgets/common/app_card.dart';
 import '../../widgets/common/app_form_field.dart';
 import '../../widgets/common/app_loading_button.dart';
@@ -55,6 +54,8 @@ class _LoginScreenState extends State<LoginScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+
     return AppScaffold(
       title: '',
       showAppBar: false,
@@ -74,6 +75,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 child: ConstrainedBox(
                   constraints: const BoxConstraints(maxWidth: 420),
                   child: AppCard(
+                    elevated: true,
                     padding: const EdgeInsets.all(28),
                     child: Form(
                       key: _formKey,
@@ -81,25 +83,23 @@ class _LoginScreenState extends State<LoginScreen> {
                         mainAxisSize: MainAxisSize.min,
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
-                          const Icon(
+                          Icon(
                             Icons.factory_outlined,
-                            size: 62,
-                            color: AppColors.primary,
+                            size: 58,
+                            color: scheme.primary,
                           ),
                           const SizedBox(height: 14),
                           Text(
                             'نظام إدارة موظفي المصنع',
                             textAlign: TextAlign.center,
-                            style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                                  fontWeight: FontWeight.bold,
-                                ),
+                            style: Theme.of(context).textTheme.titleLarge,
                           ),
                           const SizedBox(height: 5),
                           Text(
                             'سجّل الدخول بحسابك الوظيفي للمتابعة',
                             textAlign: TextAlign.center,
                             style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                                  color: scheme.onSurfaceVariant,
                                 ),
                           ),
                           const SizedBox(height: 28),
@@ -145,7 +145,7 @@ class _LoginScreenState extends State<LoginScreen> {
                             'يتم إنشاء الحسابات من الإدارة فقط. لا يوجد تسجيل ذاتي.',
                             textAlign: TextAlign.center,
                             style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                                  color: scheme.onSurfaceVariant,
                                 ),
                           ),
                         ],
