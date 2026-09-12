@@ -30,10 +30,11 @@ class AppStatusPill extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
     final semantic = context.semanticColors;
 
-    final effectiveColor = color ?? switch (tone) {
+    final roleColor = switch (tone) {
       AppStatusTone.success => semantic.success,
       AppStatusTone.warning => semantic.warning,
       AppStatusTone.danger => scheme.error,
@@ -41,13 +42,19 @@ class AppStatusPill extends StatelessWidget {
       AppStatusTone.neutral => scheme.onSurfaceVariant,
     };
 
+    final effectiveColor = color == null
+        ? roleColor
+        : _adaptCustomColor(color!, theme.brightness);
+
     final background = switch (tone) {
       AppStatusTone.success when color == null => semantic.successContainer,
       AppStatusTone.warning when color == null => semantic.warningContainer,
       AppStatusTone.danger when color == null => scheme.errorContainer,
       AppStatusTone.info when color == null => scheme.primaryContainer,
       AppStatusTone.neutral when color == null => scheme.surfaceContainerHighest,
-      _ => effectiveColor.withValues(alpha: .10),
+      _ => effectiveColor.withValues(
+          alpha: theme.brightness == Brightness.dark ? .18 : .10,
+        ),
     };
 
     return Container(
@@ -65,5 +72,18 @@ class AppStatusPill extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  Color _adaptCustomColor(Color source, Brightness brightness) {
+    final sourceBrightness = ThemeData.estimateBrightnessForColor(source);
+    if (brightness == Brightness.dark &&
+        sourceBrightness == Brightness.dark) {
+      return Color.lerp(source, Colors.white, .38)!;
+    }
+    if (brightness == Brightness.light &&
+        sourceBrightness == Brightness.light) {
+      return Color.lerp(source, Colors.black, .36)!;
+    }
+    return source;
   }
 }
