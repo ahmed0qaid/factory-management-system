@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
-import '../../models/job_title_model.dart';
-import '../../services/job_title_service.dart';
-import '../../theme/app_colors.dart';
 
+import '../../models/job_title_model.dart';
 import '../../models/profile_model.dart';
+import '../../services/job_title_service.dart';
+import '../../theme/app_semantic_colors.dart';
 import '../../widgets/common/app_confirm_dialog.dart';
 import '../../widgets/common/app_empty_state.dart';
 import '../../widgets/common/app_form_dialog.dart';
@@ -15,6 +15,7 @@ import '../../widgets/common/app_status_pill.dart';
 
 class JobTitlesScreen extends StatefulWidget {
   final ProfileModel currentProfile;
+
   const JobTitlesScreen({super.key, required this.currentProfile});
 
   @override
@@ -40,7 +41,7 @@ class _JobTitlesScreenState extends State<JobTitlesScreen> {
       _companyId = profile.companyId;
       _jobTitles = await _jobTitleService.getJobTitles(
         companyId: _companyId!,
-        activeOnly: false, // Show all in admin
+        activeOnly: false,
       );
     } catch (e) {
       if (mounted) {
@@ -176,6 +177,10 @@ class _JobTitlesScreenState extends State<JobTitlesScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    final semantic = context.semanticColors;
+
     return AppScaffold(
       title: 'المسميات الوظيفية',
       floatingActionButton: FloatingActionButton(
@@ -190,54 +195,62 @@ class _JobTitlesScreenState extends State<JobTitlesScreen> {
                   title: 'لا توجد مسميات وظيفية',
                   message: 'قم بإضافة مسميات وظيفية جديدة للشركة',
                 )
-              : ListView.builder(
-                  padding: const EdgeInsets.all(16),
-                  itemCount: _jobTitles.length,
-                  itemBuilder: (context, index) {
-                    final jobTitle = _jobTitles[index];
-                    return AppListItem(
-                      title: Text(
-                        jobTitle.name,
-                        style: TextStyle(
-                          decoration:
-                              jobTitle.active ? null : TextDecoration.lineThrough,
-                          color: jobTitle.active
-                              ? AppColors.textPrimary
-                              : Colors.grey,
-                        ),
-                      ),
-                      subtitle: jobTitle.active
-                          ? AppStatusPill.success('مفعل')
-                          : AppStatusPill.danger('معطل'),
-                      trailing: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          IconButton(
-                            icon: const Icon(
-                              Icons.edit,
-                              color: AppColors.primary,
+              : Align(
+                  alignment: Alignment.topCenter,
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 900),
+                    child: ListView.builder(
+                      padding: const EdgeInsets.all(16),
+                      itemCount: _jobTitles.length,
+                      itemBuilder: (context, index) {
+                        final jobTitle = _jobTitles[index];
+                        return AppListItem(
+                          title: Text(
+                            jobTitle.name,
+                            style: theme.textTheme.bodyLarge?.copyWith(
+                              decoration: jobTitle.active
+                                  ? null
+                                  : TextDecoration.lineThrough,
+                              color: jobTitle.active
+                                  ? scheme.onSurface
+                                  : scheme.onSurfaceVariant,
+                              fontWeight: FontWeight.w600,
                             ),
-                            tooltip: 'تعديل',
-                            onPressed: () => _showAddEditDialog(jobTitle),
                           ),
-                          if (jobTitle.active)
-                            IconButton(
-                              icon: const Icon(
-                                Icons.block,
-                                color: Colors.orange,
+                          subtitle: jobTitle.active
+                              ? AppStatusPill.success('مفعل')
+                              : AppStatusPill.neutral('معطل'),
+                          trailing: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              IconButton(
+                                icon: const Icon(Icons.edit_outlined),
+                                tooltip: 'تعديل',
+                                onPressed: () => _showAddEditDialog(jobTitle),
                               ),
-                              tooltip: 'تعطيل',
-                              onPressed: () => _confirmDeactivate(jobTitle),
-                            ),
-                          IconButton(
-                            icon: const Icon(Icons.delete, color: Colors.red),
-                            tooltip: 'حذف',
-                            onPressed: () => _confirmDelete(jobTitle),
+                              if (jobTitle.active)
+                                IconButton(
+                                  icon: Icon(
+                                    Icons.block_outlined,
+                                    color: semantic.warning,
+                                  ),
+                                  tooltip: 'تعطيل',
+                                  onPressed: () => _confirmDeactivate(jobTitle),
+                                ),
+                              IconButton(
+                                icon: Icon(
+                                  Icons.delete_outline,
+                                  color: scheme.error,
+                                ),
+                                tooltip: 'حذف',
+                                onPressed: () => _confirmDelete(jobTitle),
+                              ),
+                            ],
                           ),
-                        ],
-                      ),
-                    );
-                  },
+                        );
+                      },
+                    ),
+                  ),
                 ),
     );
   }
