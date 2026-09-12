@@ -6,8 +6,11 @@ import '../../services/admin_biometrics_service.dart';
 import '../../services/admin_service.dart';
 import '../../utils/formatters.dart';
 import '../../widgets/common/app_card.dart';
+import '../../widgets/common/app_confirm_dialog.dart';
+import '../../widgets/common/app_empty_state.dart';
 import '../../widgets/common/app_form_dialog.dart';
 import '../../widgets/common/app_form_field.dart';
+import '../../widgets/common/app_loading_state.dart';
 import '../../widgets/common/app_scaffold.dart';
 import '../../widgets/common/app_status_pill.dart';
 
@@ -45,7 +48,9 @@ class _ManageOvertimeScreenState extends State<ManageOvertimeScreen> {
       if (!mounted) return;
       setState(() {
         _pendingOvertime = records;
-        _employees = {for (final employee in employees) employee.id: employee};
+        _employees = {
+          for (final employee in employees) employee.id: employee,
+        };
       });
     } catch (error) {
       if (mounted) {
@@ -64,27 +69,15 @@ class _ManageOvertimeScreenState extends State<ManageOvertimeScreen> {
   ) async {
     final employee = _employees[record.employeeId];
     final approving = status == 'approved';
-    final confirmed = await showDialog<bool>(
-          context: context,
-          builder: (context) => AlertDialog(
-            title: Text(approving ? 'اعتماد الوقت الإضافي' : 'رفض الوقت الإضافي'),
-            content: Text(
-              '${approving ? 'اعتماد' : 'رفض'} ${record.overtimeMinutes} دقيقة إضافية للموظف ${employee?.fullName ?? 'غير معروف'} بتاريخ ${Formatters.date(record.workDate)}؟',
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(context, false),
-                child: const Text('إلغاء'),
-              ),
-              FilledButton(
-                onPressed: () => Navigator.pop(context, true),
-                child: Text(approving ? 'اعتماد' : 'رفض'),
-              ),
-            ],
-          ),
-        ) ??
-        false;
-    if (!confirmed) return;
+    final confirmed = await AppConfirmDialog.show(
+      context,
+      title: approving ? 'اعتماد الوقت الإضافي' : 'رفض الوقت الإضافي',
+      content:
+          '${approving ? 'اعتماد' : 'رفض'} ${record.overtimeMinutes} دقيقة إضافية للموظف ${employee?.fullName ?? 'غير معروف'} بتاريخ ${Formatters.date(record.workDate)}؟',
+      confirmText: approving ? 'اعتماد' : 'رفض',
+      isDestructive: !approving,
+    );
+    if (confirmed != true) return;
     await _updateStatus(record.id, status);
   }
 
@@ -176,6 +169,7 @@ class _ManageOvertimeScreenState extends State<ManageOvertimeScreen> {
           }
         },
         builder: (context, setDialogState) {
+          final scheme = Theme.of(context).colorScheme;
           return Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -183,11 +177,14 @@ class _ManageOvertimeScreenState extends State<ManageOvertimeScreen> {
               Text(
                 employee.fullName,
                 style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.bold,
+                      fontWeight: FontWeight.w700,
                     ),
               ),
               Text(
                 '${employee.employeeNumber} • ${Formatters.date(record.workDate)}',
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: scheme.onSurfaceVariant,
+                    ),
               ),
               const SizedBox(height: 8),
               Text(
@@ -197,6 +194,7 @@ class _ManageOvertimeScreenState extends State<ManageOvertimeScreen> {
               AppFormField(
                 controller: controller,
                 labelText: 'المبلغ المستحق',
+                prefixIcon: Icons.payments_outlined,
                 keyboardType: const TextInputType.numberWithOptions(
                   decimal: true,
                 ),
@@ -215,16 +213,12 @@ class _ManageOvertimeScreenState extends State<ManageOvertimeScreen> {
     return AppScaffold(
       title: 'الوقت الإضافي',
       body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
+          ? const AppLoadingState(label: 'جاري تحميل الوقت الإضافي')
           : _pendingOvertime.isEmpty
-              ? const Center(
-                  child: Padding(
-                    padding: EdgeInsets.all(24),
-                    child: Text(
-                      'لا توجد سجلات وقت إضافي تحتاج إلى متابعة.',
-                      textAlign: TextAlign.center,
-                    ),
-                  ),
+              ? const AppEmptyState(
+                  title: 'لا توجد سجلات معلقة',
+                  message: 'لا توجد سجلات وقت إضافي تحتاج إلى متابعة.',
+                  icon: Icons.more_time_outlined,
                 )
               : RefreshIndicator(
                   onRefresh: _loadData,
@@ -281,6 +275,8 @@ class _OvertimeCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
     final employeeName = employee?.fullName ?? 'موظف غير معروف';
     final metadata = <String>[
       if (employee != null) employee!.employeeNumber,
@@ -296,6 +292,8 @@ class _OvertimeCard extends StatelessWidget {
           Row(
             children: [
               CircleAvatar(
+                backgroundColor: scheme.primaryContainer,
+                foregroundColor: scheme.onPrimaryContainer,
                 child: Text(employeeName.isEmpty ? 'م' : employeeName[0]),
               ),
               const SizedBox(width: 10),
@@ -307,15 +305,18 @@ class _OvertimeCard extends StatelessWidget {
                       employeeName,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                            fontWeight: FontWeight.bold,
-                          ),
+                      style: theme.textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w700,
+                      ),
                     ),
                     if (metadata.isNotEmpty)
                       Text(
                         metadata,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: scheme.onSurfaceVariant,
+                        ),
                       ),
                   ],
                 ),
@@ -336,7 +337,12 @@ class _OvertimeCard extends StatelessWidget {
           const SizedBox(height: 8),
           Row(
             children: [
-              const Text('حالة الدفع: '),
+              Text(
+                'حالة الدفع: ',
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: scheme.onSurfaceVariant,
+                ),
+              ),
               _paymentStatus(record.paymentStatus),
             ],
           ),
@@ -348,10 +354,13 @@ class _OvertimeCard extends StatelessWidget {
                   child: FilledButton.icon(
                     onPressed: processing ? null : onApprove,
                     icon: processing
-                        ? const SizedBox(
+                        ? SizedBox(
                             width: 16,
                             height: 16,
-                            child: CircularProgressIndicator(strokeWidth: 2),
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: scheme.onPrimary,
+                            ),
                           )
                         : const Icon(Icons.check_circle_outline),
                     label: const Text('اعتماد'),
@@ -361,6 +370,12 @@ class _OvertimeCard extends StatelessWidget {
                 Expanded(
                   child: OutlinedButton.icon(
                     onPressed: processing ? null : onReject,
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: scheme.error,
+                      side: BorderSide(
+                        color: scheme.error.withValues(alpha: .55),
+                      ),
+                    ),
                     icon: const Icon(Icons.close),
                     label: const Text('رفض'),
                   ),
