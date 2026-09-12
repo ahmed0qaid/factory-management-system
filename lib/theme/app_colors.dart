@@ -56,8 +56,8 @@ class AppColors {
 
   // Semantic compatibility aliases. New widgets should use AppSemanticColors
   // or ColorScheme.error so light/dark themes can resolve the correct tone.
-  static const success = Color(0xFF2E7D32);
-  static const warning = Color(0xFF9A6200);
+  static const success = Color(0xFF287A32);
+  static const warning = Color(0xFF815100);
   static const danger = Color(0xFFBA1A1A);
 
   static Color infoCardBackground(Color color) => color.withValues(alpha: .06);
