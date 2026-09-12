@@ -1,27 +1,33 @@
 import 'package:flutter/material.dart';
-import '../../theme/app_colors.dart';
+
 import '../../theme/app_spacing.dart';
 
 class AppFormDialog extends StatelessWidget {
   final String title;
-  final Widget Function(BuildContext context, void Function(void Function()) setState) builder;
+  final Widget Function(
+    BuildContext context,
+    void Function(void Function()) setState,
+  ) builder;
   final String submitText;
   final String cancelText;
   final Future<bool> Function() onSubmit;
 
   const AppFormDialog({
-    Key? key,
+    super.key,
     required this.title,
     required this.builder,
     required this.onSubmit,
     this.submitText = 'حفظ',
     this.cancelText = 'إلغاء',
-  }) : super(key: key);
+  });
 
   static Future<T?> show<T>(
     BuildContext context, {
     required String title,
-    required Widget Function(BuildContext context, void Function(void Function()) setState) builder,
+    required Widget Function(
+      BuildContext context,
+      void Function(void Function()) setState,
+    ) builder,
     required Future<bool> Function() onSubmit,
     String submitText = 'حفظ',
     String cancelText = 'إلغاء',
@@ -46,10 +52,16 @@ class AppFormDialog extends StatelessWidget {
 
     return StatefulBuilder(
       builder: (context, setState) {
+        final theme = Theme.of(context);
+        final scheme = theme.colorScheme;
+
         return AlertDialog(
           title: Text(
             title,
-            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+            style: theme.textTheme.titleLarge?.copyWith(
+              fontWeight: FontWeight.w700,
+              color: scheme.onSurface,
+            ),
           ),
           content: SingleChildScrollView(
             child: Form(
@@ -57,11 +69,16 @@ class AppFormDialog extends StatelessWidget {
               child: builder(context, setState),
             ),
           ),
-          actionsPadding: const EdgeInsets.symmetric(horizontal: AppSpacing.md, vertical: AppSpacing.sm),
+          actionsPadding: const EdgeInsets.symmetric(
+            horizontal: AppSpacing.md,
+            vertical: AppSpacing.sm,
+          ),
           actions: [
             TextButton(
-              onPressed: isSubmitting ? null : () => Navigator.of(context).pop(),
-              child: Text(cancelText, style: const TextStyle(color: AppColors.secondary)),
+              onPressed: isSubmitting
+                  ? null
+                  : () => Navigator.of(context).pop(),
+              child: Text(cancelText),
             ),
             FilledButton(
               onPressed: isSubmitting
@@ -82,10 +99,13 @@ class AppFormDialog extends StatelessWidget {
                       }
                     },
               child: isSubmitting
-                  ? const SizedBox(
+                  ? SizedBox(
                       width: 20,
                       height: 20,
-                      child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: scheme.onPrimary,
+                      ),
                     )
                   : Text(submitText),
             ),
