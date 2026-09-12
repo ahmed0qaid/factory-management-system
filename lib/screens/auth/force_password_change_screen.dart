@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../services/auth_service.dart';
-import '../../theme/app_colors.dart';
+import '../../theme/app_spacing.dart';
 import '../../widgets/common/app_card.dart';
 import '../../widgets/common/app_form_field.dart';
 import '../../widgets/common/app_loading_button.dart';
@@ -62,6 +62,9 @@ class _ForcePasswordChangeScreenState extends State<ForcePasswordChangeScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+
     return AppScaffold(
       title: '',
       showAppBar: false,
@@ -70,46 +73,59 @@ class _ForcePasswordChangeScreenState extends State<ForcePasswordChangeScreen> {
           return SingleChildScrollView(
             keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
             padding: EdgeInsets.only(
-              left: 20,
-              right: 20,
-              top: 24,
-              bottom: MediaQuery.viewInsetsOf(context).bottom + 24,
+              left: AppSpacing.lg,
+              right: AppSpacing.lg,
+              top: AppSpacing.xl,
+              bottom: MediaQuery.viewInsetsOf(context).bottom + AppSpacing.xl,
             ),
             child: ConstrainedBox(
-              constraints: BoxConstraints(minHeight: constraints.maxHeight - 48),
+              constraints: BoxConstraints(
+                minHeight: constraints.maxHeight - AppSpacing.xl * 2,
+              ),
               child: Center(
                 child: ConstrainedBox(
                   constraints: const BoxConstraints(maxWidth: 480),
                   child: AppCard(
-                    padding: const EdgeInsets.all(28),
+                    elevated: true,
+                    padding: const EdgeInsets.all(AppSpacing.xl),
                     child: Form(
                       key: _formKey,
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
-                          const Icon(
-                            Icons.lock_reset,
-                            size: 56,
-                            color: AppColors.primary,
+                          Align(
+                            child: Container(
+                              width: 64,
+                              height: 64,
+                              decoration: BoxDecoration(
+                                color: scheme.primaryContainer,
+                                shape: BoxShape.circle,
+                              ),
+                              child: Icon(
+                                Icons.lock_reset,
+                                size: 32,
+                                color: scheme.onPrimaryContainer,
+                              ),
+                            ),
                           ),
-                          const SizedBox(height: 14),
+                          const SizedBox(height: AppSpacing.md),
                           Text(
                             'تعيين كلمة مرور جديدة',
                             textAlign: TextAlign.center,
-                            style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                                  fontWeight: FontWeight.bold,
-                                ),
+                            style: theme.textTheme.titleLarge?.copyWith(
+                              fontWeight: FontWeight.w700,
+                            ),
                           ),
-                          const SizedBox(height: 8),
+                          const SizedBox(height: AppSpacing.sm),
                           Text(
                             'هذه أول مرة تسجل فيها الدخول. أكمل هذه الخطوة مرة واحدة قبل استخدام النظام.',
                             textAlign: TextAlign.center,
-                            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                                  color: Theme.of(context).colorScheme.onSurfaceVariant,
-                                ),
+                            style: theme.textTheme.bodyMedium?.copyWith(
+                              color: scheme.onSurfaceVariant,
+                            ),
                           ),
-                          const SizedBox(height: 28),
+                          const SizedBox(height: AppSpacing.xl),
                           AppFormField(
                             controller: _oldPassword,
                             isPassword: true,
@@ -121,7 +137,7 @@ class _ForcePasswordChangeScreenState extends State<ForcePasswordChangeScreen> {
                                     ? 'أدخل كلمة المرور المؤقتة'
                                     : null,
                           ),
-                          const SizedBox(height: 16),
+                          const SizedBox(height: AppSpacing.md),
                           AppFormField(
                             controller: _password,
                             isPassword: true,
@@ -139,7 +155,7 @@ class _ForcePasswordChangeScreenState extends State<ForcePasswordChangeScreen> {
                               return null;
                             },
                           ),
-                          const SizedBox(height: 16),
+                          const SizedBox(height: AppSpacing.md),
                           AppFormField(
                             controller: _confirm,
                             isPassword: true,
@@ -153,7 +169,7 @@ class _ForcePasswordChangeScreenState extends State<ForcePasswordChangeScreen> {
                                 ? 'كلمتا المرور غير متطابقتين'
                                 : null,
                           ),
-                          const SizedBox(height: 28),
+                          const SizedBox(height: AppSpacing.xl),
                           AppLoadingButton(
                             text: 'حفظ ومتابعة',
                             icon: Icons.check,
