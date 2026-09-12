@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../models/advance_model.dart';
 import '../../services/employee_service.dart';
-import '../../theme/app_colors.dart';
+import '../../theme/app_semantic_colors.dart';
 import '../../utils/formatters.dart';
 import '../../widgets/common/app_card.dart';
 import '../../widgets/common/app_error_state.dart';
@@ -125,6 +125,13 @@ class _AdvancesScreenState extends State<AdvancesScreen> {
           title: 'طلب سلفة',
           submitText: 'إرسال الطلب',
           builder: (context, setDialogState) {
+            final theme = Theme.of(context);
+            final scheme = theme.colorScheme;
+            final semantic = context.semanticColors;
+            final balanceColor = balance.availableBalance > 0
+                ? semantic.success
+                : scheme.error;
+
             return Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -139,16 +146,15 @@ class _AdvancesScreenState extends State<AdvancesScreen> {
                           Icon(
                             Icons.account_balance_wallet_outlined,
                             size: 20,
-                            color: Theme.of(context).colorScheme.primary,
+                            color: scheme.primary,
                           ),
                           const SizedBox(width: 8),
                           Expanded(
                             child: Text(
                               'ملخص الرصيد الحالي',
-                              style: Theme.of(context)
-                                  .textTheme
-                                  .titleSmall
-                                  ?.copyWith(fontWeight: FontWeight.bold),
+                              style: theme.textTheme.titleSmall?.copyWith(
+                                fontWeight: FontWeight.w700,
+                              ),
                             ),
                           ),
                         ],
@@ -179,9 +185,7 @@ class _AdvancesScreenState extends State<AdvancesScreen> {
                         'الرصيد المتاح',
                         Formatters.money(balance.availableBalance),
                         strong: true,
-                        valueColor: balance.availableBalance > 0
-                            ? AppColors.success
-                            : AppColors.danger,
+                        valueColor: balanceColor,
                       ),
                     ],
                   ),
@@ -190,11 +194,14 @@ class _AdvancesScreenState extends State<AdvancesScreen> {
                 if (balance.availableBalance <= 0)
                   AppCard(
                     padding: const EdgeInsets.all(12),
-                    borderColor:
-                        Theme.of(context).colorScheme.error.withValues(alpha: .3),
-                    child: const Text(
+                    backgroundColor: scheme.errorContainer,
+                    borderColor: scheme.error.withValues(alpha: .32),
+                    child: Text(
                       'لا يوجد رصيد متاح للسلفة حاليًا. لا يمكن إرسال طلب جديد.',
                       textAlign: TextAlign.center,
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        color: scheme.onErrorContainer,
+                      ),
                     ),
                   )
                 else ...[
@@ -245,7 +252,9 @@ class _AdvancesScreenState extends State<AdvancesScreen> {
               );
               if (mounted && widget.isActive) {
                 ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('تم إرسال طلب السلفة للإدارة.')),
+                  const SnackBar(
+                    content: Text('تم إرسال طلب السلفة للإدارة.'),
+                  ),
                 );
                 await _refresh();
               }
@@ -360,7 +369,7 @@ class _AdvancesScreenState extends State<AdvancesScreen> {
                         'لا توجد طلبات سلفة',
                         textAlign: TextAlign.center,
                         style: theme.textTheme.titleMedium?.copyWith(
-                          fontWeight: FontWeight.bold,
+                          fontWeight: FontWeight.w700,
                         ),
                       ),
                       const SizedBox(height: 7),
@@ -390,7 +399,9 @@ class _AdvancesScreenState extends State<AdvancesScreen> {
                                 )
                               : const Icon(Icons.add, size: 19),
                           label: Text(
-                            _loadingRequestForm ? 'جاري التجهيز...' : 'طلب سلفة',
+                            _loadingRequestForm
+                                ? 'جاري التجهيز...'
+                                : 'طلب سلفة',
                           ),
                         ),
                       ),
@@ -434,7 +445,7 @@ class _AdvancesScreenState extends State<AdvancesScreen> {
                 Text(
                   'طلبات السلف',
                   style: theme.textTheme.titleSmall?.copyWith(
-                    fontWeight: FontWeight.bold,
+                    fontWeight: FontWeight.w700,
                   ),
                 ),
                 const SizedBox(height: 2),
@@ -474,6 +485,7 @@ class _AdvancesScreenState extends State<AdvancesScreen> {
   Widget _buildAdvanceCard(BuildContext context, AdvanceModel advance) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
+    final semantic = context.semanticColors;
     final remaining = advance.remainingAmount;
 
     return AppCard(
@@ -493,7 +505,7 @@ class _AdvancesScreenState extends State<AdvancesScreen> {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: theme.textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.bold,
+                    fontWeight: FontWeight.w700,
                   ),
                 ),
               ),
@@ -518,7 +530,7 @@ class _AdvancesScreenState extends State<AdvancesScreen> {
                   value: remaining > 0
                       ? Formatters.money(remaining)
                       : 'لا يوجد متبقٍ',
-                  valueColor: remaining > 0 ? null : AppColors.success,
+                  valueColor: remaining > 0 ? null : semantic.success,
                 ),
               ),
             ],
@@ -619,7 +631,7 @@ class _AdvanceMeta extends StatelessWidget {
             overflow: TextOverflow.ellipsis,
             style: theme.textTheme.bodyMedium?.copyWith(
               fontWeight: FontWeight.w600,
-              color: valueColor,
+              color: valueColor ?? scheme.onSurface,
             ),
           ),
         ],
@@ -643,20 +655,30 @@ class _SummaryLine extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 3),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Expanded(child: Text(label)),
+          Expanded(
+            child: Text(
+              label,
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: scheme.onSurfaceVariant,
+              ),
+            ),
+          ),
           const SizedBox(width: 12),
           Flexible(
             child: Text(
               value,
               textAlign: TextAlign.end,
-              style: TextStyle(
-                fontWeight: strong ? FontWeight.bold : null,
-                color: valueColor,
+              style: theme.textTheme.bodyMedium?.copyWith(
+                fontWeight: strong ? FontWeight.w700 : FontWeight.w600,
+                color: valueColor ?? scheme.onSurface,
               ),
             ),
           ),
