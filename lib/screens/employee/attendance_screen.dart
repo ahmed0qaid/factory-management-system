@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 
 import '../../models/attendance_model.dart';
 import '../../services/employee_service.dart';
+import '../../theme/app_radius.dart';
 import '../../theme/app_semantic_colors.dart';
+import '../../theme/app_spacing.dart';
 import '../../utils/attendance_display.dart';
 import '../../utils/formatters.dart';
 import '../../widgets/attendance/attendance_visual_summary_chart.dart';
@@ -23,13 +25,16 @@ class AttendanceScreen extends StatefulWidget {
 }
 
 class _AttendanceScreenState extends State<AttendanceScreen> {
+  final _service = EmployeeService();
+  late Future<List<AttendanceRecordModel>> _future;
+
   AttendanceViewType _viewType = AttendanceViewType.timeline;
   String _statusFilter = 'all';
   int? _yearFilter;
   int? _monthFilter;
   bool _sortDescending = true;
 
-  final List<String> _monthsAr = const [
+  static const _monthsAr = <String>[
     'يناير',
     'فبراير',
     'مارس',
@@ -44,7 +49,19 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
     'ديسمبر',
   ];
 
-  int _getActiveFiltersCount() {
+  @override
+  void initState() {
+    super.initState();
+    _future = _service.getMyAttendance(limit: 500);
+  }
+
+  void _reload() {
+    setState(() {
+      _future = _service.getMyAttendance(limit: 500);
+    });
+  }
+
+  int _activeFiltersCount() {
     var count = 0;
     if (_statusFilter != 'all') count++;
     if (_yearFilter != null) count++;
@@ -70,11 +87,11 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
 
     AppBottomSheet.show(
       context,
-      title: 'الفلاتر',
+      title: 'فلاتر الدوام',
       child: StatefulBuilder(
-        builder: (ctx, setModalState) {
-          final textTheme = Theme.of(ctx).textTheme;
-          final sectionStyle = textTheme.titleSmall?.copyWith(
+        builder: (sheetContext, setSheetState) {
+          final theme = Theme.of(sheetContext);
+          final sectionStyle = theme.textTheme.titleSmall?.copyWith(
             fontWeight: FontWeight.w700,
           );
 
@@ -83,108 +100,108 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               Text('الحالة', style: sectionStyle),
-              const SizedBox(height: 8),
+              const SizedBox(height: AppSpacing.xs),
               Wrap(
-                spacing: 8,
-                runSpacing: 8,
+                spacing: AppSpacing.xs,
+                runSpacing: AppSpacing.xs,
                 children: [
-                  _buildModalChip(
+                  _filterChip(
                     'الكل',
                     tempStatus == 'all',
-                    () => setModalState(() => tempStatus = 'all'),
+                    () => setSheetState(() => tempStatus = 'all'),
                   ),
-                  _buildModalChip(
+                  _filterChip(
                     'حاضر',
                     tempStatus == 'present',
-                    () => setModalState(() => tempStatus = 'present'),
+                    () => setSheetState(() => tempStatus = 'present'),
                   ),
-                  _buildModalChip(
+                  _filterChip(
                     'غائب',
                     tempStatus == 'absent',
-                    () => setModalState(() => tempStatus = 'absent'),
+                    () => setSheetState(() => tempStatus = 'absent'),
                   ),
-                  _buildModalChip(
+                  _filterChip(
                     'تحتاج مراجعة',
                     tempStatus == 'needs_review',
-                    () => setModalState(() => tempStatus = 'needs_review'),
+                    () => setSheetState(() => tempStatus = 'needs_review'),
                   ),
                 ],
               ),
-              const Divider(height: 24),
+              const Divider(height: AppSpacing.xl),
               Text('الترتيب', style: sectionStyle),
-              const SizedBox(height: 8),
+              const SizedBox(height: AppSpacing.xs),
               Wrap(
-                spacing: 8,
-                runSpacing: 8,
+                spacing: AppSpacing.xs,
+                runSpacing: AppSpacing.xs,
                 children: [
-                  _buildModalChip(
+                  _filterChip(
                     'الأحدث أولاً',
                     tempSort,
-                    () => setModalState(() => tempSort = true),
+                    () => setSheetState(() => tempSort = true),
                   ),
-                  _buildModalChip(
+                  _filterChip(
                     'الأقدم أولاً',
                     !tempSort,
-                    () => setModalState(() => tempSort = false),
+                    () => setSheetState(() => tempSort = false),
                   ),
                 ],
               ),
-              const Divider(height: 24),
+              const Divider(height: AppSpacing.xl),
               Text('السنة', style: sectionStyle),
-              const SizedBox(height: 8),
+              const SizedBox(height: AppSpacing.xs),
               Wrap(
-                spacing: 8,
-                runSpacing: 8,
+                spacing: AppSpacing.xs,
+                runSpacing: AppSpacing.xs,
                 children: [
-                  _buildModalChip(
+                  _filterChip(
                     'الكل',
                     tempYear == null,
-                    () => setModalState(() => tempYear = null),
+                    () => setSheetState(() => tempYear = null),
                   ),
                   ...availableYears.map(
-                    (year) => _buildModalChip(
-                      year.toString(),
+                    (year) => _filterChip(
+                      '$year',
                       tempYear == year,
-                      () => setModalState(() => tempYear = year),
+                      () => setSheetState(() => tempYear = year),
                     ),
                   ),
                 ],
               ),
-              const Divider(height: 24),
+              const Divider(height: AppSpacing.xl),
               Text('الشهر', style: sectionStyle),
-              const SizedBox(height: 8),
+              const SizedBox(height: AppSpacing.xs),
               Wrap(
-                spacing: 8,
-                runSpacing: 8,
+                spacing: AppSpacing.xs,
+                runSpacing: AppSpacing.xs,
                 children: [
-                  _buildModalChip(
+                  _filterChip(
                     'الكل',
                     tempMonth == null,
-                    () => setModalState(() => tempMonth = null),
+                    () => setSheetState(() => tempMonth = null),
                   ),
                   ...List.generate(12, (index) {
-                    final monthNum = index + 1;
-                    return _buildModalChip(
+                    final month = index + 1;
+                    return _filterChip(
                       _monthsAr[index],
-                      tempMonth == monthNum,
-                      () => setModalState(() => tempMonth = monthNum),
+                      tempMonth == month,
+                      () => setSheetState(() => tempMonth = month),
                     );
                   }),
                 ],
               ),
-              const SizedBox(height: 24),
+              const SizedBox(height: AppSpacing.lg),
               Row(
                 children: [
                   Expanded(
                     child: OutlinedButton(
                       onPressed: () {
-                        Navigator.pop(ctx);
+                        Navigator.pop(sheetContext);
                         _resetFilters();
                       },
                       child: const Text('إعادة تعيين'),
                     ),
                   ),
-                  const SizedBox(width: 12),
+                  const SizedBox(width: AppSpacing.sm),
                   Expanded(
                     child: FilledButton(
                       onPressed: () {
@@ -194,7 +211,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
                           _monthFilter = tempMonth;
                           _sortDescending = tempSort;
                         });
-                        Navigator.pop(ctx);
+                        Navigator.pop(sheetContext);
                       },
                       child: const Text('تطبيق'),
                     ),
@@ -208,20 +225,19 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
     );
   }
 
-  Widget _buildModalChip(String label, bool isSelected, VoidCallback onTap) {
+  Widget _filterChip(String label, bool selected, VoidCallback onTap) {
     return ChoiceChip(
       label: Text(label),
-      selected: isSelected,
+      selected: selected,
       onSelected: (_) => onTap(),
+      showCheckmark: false,
     );
   }
 
   @override
   Widget build(BuildContext context) {
-    final service = EmployeeService();
-
     return FutureBuilder<List<AttendanceRecordModel>>(
-      future: service.getMyAttendance(limit: 500),
+      future: _future,
       builder: (context, snapshot) {
         if (snapshot.connectionState != ConnectionState.done) {
           return const AppLoadingState(label: 'جاري تحميل سجلات الدوام');
@@ -230,6 +246,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
           return AppErrorState(
             title: 'تعذر تحميل سجلات الدوام',
             message: '${snapshot.error}',
+            onRetry: _reload,
           );
         }
 
@@ -237,32 +254,18 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
         final availableYears =
             rawItems.map((record) => record.workDate.year).toSet().toList()
               ..sort((a, b) => b.compareTo(a));
-
-        var items = List<AttendanceRecordModel>.from(rawItems);
-        if (_statusFilter != 'all') {
-          items = items.where((item) => item.status == _statusFilter).toList();
-        }
-        if (_yearFilter != null) {
-          items = items
-              .where((item) => item.workDate.year == _yearFilter)
-              .toList();
-        }
-        if (_monthFilter != null) {
-          items = items
-              .where((item) => item.workDate.month == _monthFilter)
-              .toList();
-        }
-        items.sort((a, b) {
-          final comparison = a.workDate.compareTo(b.workDate);
-          return _sortDescending ? -comparison : comparison;
-        });
-
-        final activeCount = _getActiveFiltersCount();
+        final items = _applyFilters(rawItems);
+        final activeCount = _activeFiltersCount();
 
         return Column(
           children: [
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              padding: const EdgeInsetsDirectional.fromSTEB(
+                AppSpacing.md,
+                AppSpacing.sm,
+                AppSpacing.md,
+                AppSpacing.xs,
+              ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
@@ -285,48 +288,91 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
                       setState(() => _viewType = selection.first);
                     },
                   ),
-                  if (_viewType == AttendanceViewType.timeline) ...[
-                    const SizedBox(height: 8),
-                    Align(
-                      alignment: AlignmentDirectional.centerStart,
-                      child: OutlinedButton.icon(
-                        icon: const Icon(Icons.filter_list),
+                  const SizedBox(height: AppSpacing.xs),
+                  Row(
+                    children: [
+                      OutlinedButton.icon(
+                        icon: const Icon(Icons.tune_outlined),
                         label: Text(
-                          activeCount > 0
-                              ? 'الفلاتر ($activeCount)'
-                              : 'الفلاتر',
+                          activeCount == 0
+                              ? 'الفلاتر'
+                              : 'الفلاتر ($activeCount)',
                         ),
-                        onPressed: () => _showFilterBottomSheet(availableYears),
+                        onPressed: () =>
+                            _showFilterBottomSheet(availableYears),
                       ),
-                    ),
-                  ],
+                      if (activeCount > 0) ...[
+                        const SizedBox(width: AppSpacing.xs),
+                        TextButton(
+                          onPressed: _resetFilters,
+                          child: const Text('مسح الفلاتر'),
+                        ),
+                      ],
+                    ],
+                  ),
                 ],
               ),
             ),
             Expanded(
               child: _viewType == AttendanceViewType.visual
-                  ? AttendanceVisualSummaryChart(records: rawItems)
+                  ? AttendanceVisualSummaryChart(records: items)
                   : items.isEmpty
-                  ? const AppEmptyState(
-                      title: 'لا توجد سجلات مطابقة',
-                      message: 'غيّر الفلاتر أو أعد تعيينها لعرض سجلات أخرى.',
-                      icon: Icons.event_busy_outlined,
-                    )
-                  : ListView.builder(
-                      padding: const EdgeInsets.fromLTRB(16, 4, 16, 24),
-                      itemCount: items.length,
-                      itemBuilder: (context, index) {
-                        return _TimelineItem(
-                          record: items[index],
-                          isLast: index == items.length - 1,
-                        );
-                      },
-                    ),
+                      ? const AppEmptyState(
+                          title: 'لا توجد سجلات مطابقة',
+                          message: 'غيّر الفلاتر أو أعد تعيينها لعرض سجلات أخرى.',
+                          icon: Icons.event_busy_outlined,
+                        )
+                      : RefreshIndicator(
+                          onRefresh: () async {
+                            _reload();
+                            await _future;
+                          },
+                          child: ListView.builder(
+                            physics: const AlwaysScrollableScrollPhysics(),
+                            padding: const EdgeInsetsDirectional.fromSTEB(
+                              AppSpacing.md,
+                              AppSpacing.xxs,
+                              AppSpacing.md,
+                              AppSpacing.xl,
+                            ),
+                            itemCount: items.length,
+                            itemBuilder: (context, index) => _TimelineItem(
+                              record: items[index],
+                              isLast: index == items.length - 1,
+                            ),
+                          ),
+                        ),
             ),
           ],
         );
       },
     );
+  }
+
+  List<AttendanceRecordModel> _applyFilters(
+    List<AttendanceRecordModel> source,
+  ) {
+    var items = List<AttendanceRecordModel>.from(source);
+
+    if (_statusFilter != 'all') {
+      items = items.where((item) => item.status == _statusFilter).toList();
+    }
+    if (_yearFilter != null) {
+      items = items
+          .where((item) => item.workDate.year == _yearFilter)
+          .toList();
+    }
+    if (_monthFilter != null) {
+      items = items
+          .where((item) => item.workDate.month == _monthFilter)
+          .toList();
+    }
+
+    items.sort((a, b) {
+      final comparison = a.workDate.compareTo(b.workDate);
+      return _sortDescending ? -comparison : comparison;
+    });
+    return items;
   }
 
   List<AttendanceRecordModel> _deduplicate(List<AttendanceRecordModel> items) {
@@ -349,7 +395,16 @@ class _TimelineItem extends StatelessWidget {
   final AttendanceRecordModel record;
   final bool isLast;
 
-  const _TimelineItem({required this.record, required this.isLast});
+  const _TimelineItem({
+    required this.record,
+    required this.isLast,
+  });
+
+  String _dayMonth(DateTime value) {
+    final day = value.day.toString().padLeft(2, '0');
+    final month = value.month.toString().padLeft(2, '0');
+    return '$day/$month';
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -362,12 +417,12 @@ class _TimelineItem extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           SizedBox(
-            width: 24,
+            width: AppSpacing.xl,
             child: Column(
               children: [
                 Container(
-                  width: 12,
-                  height: 12,
+                  width: AppSpacing.sm,
+                  height: AppSpacing.sm,
                   decoration: BoxDecoration(
                     color: color,
                     shape: BoxShape.circle,
@@ -377,8 +432,10 @@ class _TimelineItem extends StatelessWidget {
                   Expanded(
                     child: Container(
                       width: 2,
-                      margin: const EdgeInsets.symmetric(vertical: 4),
-                      color: color.withValues(alpha: .28),
+                      margin: const EdgeInsets.symmetric(
+                        vertical: AppSpacing.xxs,
+                      ),
+                      color: color.withValues(alpha: .24),
                     ),
                   ),
               ],
@@ -386,70 +443,83 @@ class _TimelineItem extends StatelessWidget {
           ),
           Expanded(
             child: AppCard(
-              margin: const EdgeInsets.only(bottom: 12),
-              padding: const EdgeInsets.all(14),
+              margin: const EdgeInsets.only(bottom: AppSpacing.sm),
+              padding: const EdgeInsets.all(AppSpacing.sm),
               borderColor: color.withValues(alpha: .24),
               child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   Row(
                     children: [
                       Expanded(
                         child: Text(
-                          Formatters.date(record.workDate),
-                          textAlign: TextAlign.start,
+                          _dayMonth(record.workDate),
                           style: theme.textTheme.titleSmall?.copyWith(
                             color: scheme.onSurface,
-                            fontWeight: FontWeight.w600,
+                            fontWeight: FontWeight.w700,
                           ),
                         ),
                       ),
-                      const SizedBox(width: 8),
-                      _buildStatusPill(record.status),
+                      const SizedBox(width: AppSpacing.xs),
+                      _statusPill(record.status),
                     ],
                   ),
-                  const SizedBox(height: 14),
-                  _MetricPair(
-                    color: color,
-                    first: _MetricValue('الحضور', displayTime(record.checkIn)),
-                    second: _MetricValue(
-                      'الانصراف',
-                      displayTime(record.checkOut),
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  _MetricPair(
-                    color: color,
-                    first: _MetricValue(
-                      'التأخير',
-                      displayMinutes(record.lateMinutes),
-                    ),
-                    second: _MetricValue(
-                      'الانصراف المبكر',
-                      displayMaybeComputedMinutes(
-                        minutes: record.earlyLeaveMinutes,
-                        isComputed: record.checkOut != null,
+                  const SizedBox(height: AppSpacing.sm),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: _MetricBox(
+                          label: 'الحضور',
+                          value: displayTime(record.checkIn),
+                          color: color,
+                        ),
                       ),
-                    ),
+                      const SizedBox(width: AppSpacing.xs),
+                      Expanded(
+                        child: _MetricBox(
+                          label: 'الانصراف',
+                          value: displayTime(record.checkOut),
+                          color: color,
+                        ),
+                      ),
+                    ],
                   ),
-                  const SizedBox(height: 8),
+                  const SizedBox(height: AppSpacing.xs),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: _MetricBox(
+                          label: 'التأخير',
+                          value: displayMinutes(record.lateMinutes),
+                          color: color,
+                        ),
+                      ),
+                      const SizedBox(width: AppSpacing.xs),
+                      Expanded(
+                        child: _MetricBox(
+                          label: 'الانصراف المبكر',
+                          value: displayMaybeComputedMinutes(
+                            minutes: record.earlyLeaveMinutes,
+                            isComputed: record.checkOut != null,
+                          ),
+                          color: color,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: AppSpacing.xs),
                   _MetricBox(
-                    value: _MetricValue(
-                      'الدوام المحتسب',
-                      displayMinutes(record.creditedMinutes),
-                    ),
+                    label: 'الدوام المحتسب',
+                    value: displayMinutes(record.creditedMinutes),
                     color: color,
                   ),
-                  if (record.reviewNote != null &&
-                      record.reviewNote!.trim().isNotEmpty) ...[
-                    const SizedBox(height: 10),
+                  if (record.reviewNote?.trim().isNotEmpty == true) ...[
+                    const SizedBox(height: AppSpacing.xs),
                     Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.all(10),
+                      padding: const EdgeInsets.all(AppSpacing.xs),
                       decoration: BoxDecoration(
                         color: scheme.errorContainer,
-                        borderRadius: BorderRadius.circular(10),
+                        borderRadius: BorderRadius.circular(AppRadius.md),
                       ),
                       child: Text(
                         record.reviewNote!.trim(),
@@ -468,7 +538,7 @@ class _TimelineItem extends StatelessWidget {
     );
   }
 
-  Widget _buildStatusPill(String status) {
+  Widget _statusPill(String status) {
     final label = statusLabel(status);
     switch (status) {
       case 'present':
@@ -491,9 +561,63 @@ class _TimelineItem extends StatelessWidget {
   }
 }
 
+class _MetricBox extends StatelessWidget {
+  final String label;
+  final String value;
+  final Color color;
+
+  const _MetricBox({
+    required this.label,
+    required this.value,
+    required this.color,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+
+    return Container(
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.xs,
+        vertical: AppSpacing.xs,
+      ),
+      decoration: BoxDecoration(
+        color: scheme.surfaceContainer,
+        borderRadius: BorderRadius.circular(AppRadius.md),
+        border: Border.all(color: scheme.outlineVariant),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: scheme.onSurfaceVariant,
+            ),
+          ),
+          const SizedBox(height: AppSpacing.xxs),
+          Text(
+            value,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: theme.textTheme.titleSmall?.copyWith(
+              color: color,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 Color _statusColor(BuildContext context, String status) {
   final scheme = Theme.of(context).colorScheme;
   final semantic = context.semanticColors;
+
   switch (status) {
     case 'present':
     case 'approved':
@@ -511,86 +635,5 @@ Color _statusColor(BuildContext context, String status) {
       return scheme.error;
     default:
       return scheme.onSurfaceVariant;
-  }
-}
-
-class _MetricPair extends StatelessWidget {
-  final _MetricValue first;
-  final _MetricValue second;
-  final Color color;
-
-  const _MetricPair({
-    required this.first,
-    required this.second,
-    required this.color,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Expanded(
-          child: _MetricBox(value: first, color: color),
-        ),
-        const SizedBox(width: 8),
-        Expanded(
-          child: _MetricBox(value: second, color: color),
-        ),
-      ],
-    );
-  }
-}
-
-class _MetricValue {
-  final String label;
-  final String value;
-
-  const _MetricValue(this.label, this.value);
-}
-
-class _MetricBox extends StatelessWidget {
-  final _MetricValue value;
-  final Color color;
-
-  const _MetricBox({required this.value, required this.color});
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final scheme = theme.colorScheme;
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
-      decoration: BoxDecoration(
-        color: scheme.surfaceContainer,
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: color.withValues(alpha: .22)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-          Text(
-            value.label,
-            maxLines: 1,
-            textAlign: TextAlign.center,
-            overflow: TextOverflow.ellipsis,
-            style: theme.textTheme.bodySmall?.copyWith(
-              color: scheme.onSurfaceVariant,
-            ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            value.value,
-            maxLines: 2,
-            textAlign: TextAlign.center,
-            overflow: TextOverflow.ellipsis,
-            style: theme.textTheme.titleSmall?.copyWith(
-              color: scheme.onSurface,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-        ],
-      ),
-    );
   }
 }
