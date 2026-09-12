@@ -2,69 +2,138 @@
 
 ## Design Personality
 
-The product is an enterprise HR system designed Arabic-first with complete English LTR capability. Its visual persona is **Professional**, **Modern**, **Calm**, **Clean**, **Trustworthy**, **Information-focused**, and **Minimal Visual Noise**. Visual choices prioritize repeated operational readability over decorative spectacle.
+The product is an enterprise HR/factory employee system designed Arabic-first with complete English LTR capability. Its visual persona is **Professional**, **Modern**, **Calm**, **Clean**, **Trustworthy**, **Information-focused**, and **Low-noise**. Repeated operational readability is more important than decorative color.
 
-## 3 Core Color Axes (Material 3)
+## Theme Architecture
 
-The design system is grounded in 3 primary color axes:
+The application uses Material 3 and derives its structural palette from one brand seed through `ColorScheme.fromSeed`.
 
-1. **Primary Teal (`#0F766E`)**: Primary buttons, active navigation, key indicators, hero elements.
-2. **Secondary Slate (`#475569`)**: Neutral icons, secondary text, subtle borders, inactive navigation, structural elements.
-3. **Tertiary Amber (`#B45309`)**: High-priority accent, secondary emphasis, non-error notifications requiring attention.
+### Brand seed
 
-### Semantic Colors
-- **Success (`#16A34A`)**: Attendance present, approved requests, completed payments, operational success.
-- **Warning (`#D97706`)**: Late check-in, pending review, attention required.
-- **Danger (`#DC2626`)**: Absence, rejected requests, destructive actions.
+- **Primary Teal (`#0F766E`)**
 
-*Rule: Semantic colors are strictly restricted to actual system states and MUST NOT be used for decorative or quick-action styling.*
+Use teal for high-emphasis actions, selected navigation, focus, and small identity accents. It is not a general card/background color.
 
-## Surface & Container Elevation (M3 Roles)
+### Structural color rule
 
-Utilize Material 3 surface containers for soft contrast without heavy drop shadows:
-- `surface`: Screen background canvas (`#FFFFFF` in light, `#0F172A` in dark).
-- `surfaceContainerLow`: Mildly elevated card backgrounds.
-- `surfaceContainer`: Standard card and dialog surfaces.
-- `surfaceContainerHigh`: Sub-surface containers (mini metrics, input backgrounds).
-- `outlineVariant`: Subtle border outlines (`#E2E8F0` / `#334155`).
+Production screens should not choose independent structural colors. Use Material 3 roles from `Theme.of(context).colorScheme`:
+
+- `surface`: page canvas.
+- `surfaceContainerLowest`: primary card surface.
+- `surfaceContainerLow` / `surfaceContainer`: nested or secondary surfaces.
+- `surfaceContainerHighest`: stronger neutral separation/disabled surfaces.
+- `onSurface`: primary readable content.
+- `onSurfaceVariant`: metadata, hints, secondary text/icons.
+- `outlineVariant`: subtle borders/dividers.
+- `primary` / `primaryContainer`: high-emphasis action and selected state.
+
+The generated scheme resolves the correct tones in both light and dark modes.
+
+## Semantic Colors
+
+Semantic colors are state-only and are never decorative module colors.
+
+- **Success**: approved, paid, completed, successful operation.
+- **Warning**: pending, late, incomplete, needs review.
+- **Error/Danger**: error, rejected, absence when treated as a negative state, destructive actions.
+
+Success and warning use `AppSemanticColors` through `context.semanticColors`. Error/destructive state uses `ColorScheme.error` roles.
+
+Every semantic state must include a textual label and/or icon; color must not be the only cue.
+
+## Where Color Should and Should Not Appear
+
+### Good uses
+
+- One primary call to action.
+- Selected navigation destination.
+- Selected chip/segmented control.
+- Input focus border.
+- Small icon/value accent in a neutral card.
+- Status badge/pill with real semantic meaning.
+- Error or destructive confirmation.
+
+### Avoid
+
+- Painting every dashboard card a different color.
+- Using brand teal for success.
+- Using green/amber/red as decorative category colors.
+- Fixed white cards or fixed grey/black text in production screens.
+- Multiple equally strong filled buttons competing on one screen.
+
+## Surface & Elevation
+
+Prefer tonal surface hierarchy and subtle borders over heavy shadows:
+
+- Standard cards are neutral and use `outlineVariant`.
+- Nested metric areas can use `surfaceContainer`.
+- Shadows are reserved for genuinely elevated/focal cards and stay subtle.
+- Dialogs and bottom sheets use theme surface roles rather than fixed light colors.
 
 ## Typography Scale
 
-Centralized Cairo font scale via `AppTypography` with `letterSpacing: 0` for Arabic:
-- **Display / Hero**: 24–28 pt, Bold
-- **Screen Titles**: 20–22 pt, Bold
-- **Section Headers**: 18 pt, SemiBold
-- **Card Titles / Body Large**: 16 pt, Medium/SemiBold
-- **Standard Body Text**: 14 pt, Regular/Medium
-- **Secondary Descriptions**: 12–13 pt, Regular
-- **Badges & Micro Labels**: 11–12 pt, Medium
-- **Buttons**: 14 pt, SemiBold
+The application uses the bundled **Cairo** font through `AppTypography`, so Arabic typography works offline and remains stable.
+
+- Display / Hero: 32–46 pt only where a true hero/display role exists.
+- Screen titles: `titleLarge` / headline roles.
+- Section headers: `titleMedium`.
+- Card titles: `titleSmall`.
+- Standard body: `bodyMedium`.
+- Secondary descriptions: `bodySmall`.
+- Labels / badges: label roles.
+
+Do not introduce arbitrary font sizes when an existing `TextTheme` role communicates the hierarchy.
 
 ## Spacing & Geometry Tokens
 
-- **Spacing Scale**: `4`, `8`, `12`, `16`, `20`, `24`, `32`, `40`
+- **Spacing Scale**: `4`, `8`, `12`, `16`, `20`, `24`, `32`, `40` through `AppSpacing`.
 - **Corner Radii**:
-  - Small: `8px` (Chips, Badges)
-  - Medium: `12px` (Inputs, Buttons, Sub-containers)
-  - Large: `16px` (Standard Cards - Default for HR UI)
-  - Extra Large: `20–24px` (Dialogs, Bottom Sheets, Header Cards)
+  - Small: `8px` — chips/badges.
+  - Medium: `12px` — inputs/buttons/sub-containers.
+  - Large: `16px` — standard cards.
+  - Extra Large: `20–24px` — dialogs/bottom sheets/focal surfaces.
+
+Use `AppRadius` instead of introducing arbitrary radii in screens.
 
 ## Icon Scale
 
-Standardized Material Icons:
-- Inline: `16px`
-- Small: `18px`
-- Standard / Body: `22px`
-- Navigation / Card Leading: `24px`
-- Empty State: `40px`
-- Hero / Header: `48px`
+Use `AppIconSizes` where possible:
+
+- Inline: `16px`.
+- Small: `18px`.
+- Standard/body: `22px`.
+- Navigation/leading: approximately `24px`.
+- Empty state: approximately `28–40px` depending on layout.
+
+Large decorative icons should be rare.
+
+## Theme Modes
+
+The application supports:
+
+- System
+- Light
+- Dark
+
+`AppThemeController` owns the preference and persists it. Do not create parallel theme preference logic.
+
+## Accessibility
+
+Essential text targets WCAG AA contrast:
+
+- Normal text: at least `4.5:1`.
+- Large text: at least `3:1`.
+
+Reusable status/accent components adapt legacy custom accent colors to current brightness where necessary.
 
 ## RTL / LTR Adaptability
 
-- Automatic directional layout via `EdgeInsetsDirectional`, `AlignmentDirectional`, and `PositionedDirectional`.
-- Text alignment using `TextAlign.start` / `TextAlign.end`.
-- Chevron and navigation icons dynamically reflect text direction.
+- Prefer `EdgeInsetsDirectional`, `AlignmentDirectional`, and directional positioning.
+- Use `TextAlign.start` / `TextAlign.end`.
+- Direction-sensitive chevrons/arrows must follow locale direction.
 
-## Master Documentation Reference
+## References
 
-For exhaustive specs, inspect [`design-system/MASTER.md`](file:///c:/Users/aslam/StudioProjects/hr_employee_system/design-system/MASTER.md).
+- Application theme implementation: `lib/theme/`.
+- Theme usage rules: [`docs/THEME_SYSTEM.md`](docs/THEME_SYSTEM.md).
+- Master design-system documentation: [`design-system/MASTER.md`](design-system/MASTER.md).
