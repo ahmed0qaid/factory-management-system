@@ -1,5 +1,6 @@
 import 'package:appwrite/appwrite.dart' hide Locale;
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 
 import 'screens/auth/login_screen.dart';
@@ -29,6 +30,26 @@ class HrApp extends StatelessWidget {
             GlobalWidgetsLocalizations.delegate,
             GlobalCupertinoLocalizations.delegate,
           ],
+          builder: (context, child) {
+            final theme = Theme.of(context);
+            final scheme = theme.colorScheme;
+            final dark = theme.brightness == Brightness.dark;
+
+            return AnnotatedRegion<SystemUiOverlayStyle>(
+              value: SystemUiOverlayStyle(
+                statusBarColor: Colors.transparent,
+                statusBarIconBrightness:
+                    dark ? Brightness.light : Brightness.dark,
+                statusBarBrightness:
+                    dark ? Brightness.dark : Brightness.light,
+                systemNavigationBarColor: scheme.surface,
+                systemNavigationBarIconBrightness:
+                    dark ? Brightness.light : Brightness.dark,
+                systemNavigationBarDividerColor: scheme.outlineVariant,
+              ),
+              child: child ?? const SizedBox.shrink(),
+            );
+          },
           home: const AuthGate(),
         );
       },
