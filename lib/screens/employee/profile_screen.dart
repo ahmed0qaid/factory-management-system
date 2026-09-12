@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 
 import '../../models/profile_model.dart';
+import '../../theme/app_spacing.dart';
 import '../../utils/formatters.dart';
 import '../../widgets/common/app_card.dart';
+import '../../widgets/common/app_status_pill.dart';
 
 class ProfileScreen extends StatelessWidget {
   final ProfileModel profile;
@@ -11,48 +13,63 @@ class ProfileScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+
     return Align(
       alignment: Alignment.topCenter,
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 760),
         child: ListView(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.all(AppSpacing.md),
           children: [
             AppCard(
+              elevated: true,
               child: Column(
                 children: [
                   CircleAvatar(
-                    radius: 48,
+                    radius: 44,
+                    backgroundColor: scheme.primaryContainer,
+                    foregroundColor: scheme.onPrimaryContainer,
                     child: Text(
                       profile.fullName.isNotEmpty ? profile.fullName[0] : 'م',
-                      style: const TextStyle(fontSize: 32),
+                      style: theme.textTheme.headlineMedium?.copyWith(
+                        color: scheme.onPrimaryContainer,
+                        fontWeight: FontWeight.w700,
+                      ),
                     ),
                   ),
-                  const SizedBox(height: 12),
+                  const SizedBox(height: AppSpacing.sm + AppSpacing.xs),
                   Text(
                     profile.fullName,
                     textAlign: TextAlign.center,
-                    style: Theme.of(context).textTheme.titleLarge,
+                    style: theme.textTheme.titleLarge?.copyWith(
+                      fontWeight: FontWeight.w700,
+                    ),
                   ),
-                  const SizedBox(height: 4),
+                  const SizedBox(height: AppSpacing.xs),
                   Text(
                     profile.jobTitleName ?? 'بدون مسمى وظيفي',
                     textAlign: TextAlign.center,
-                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          color: Theme.of(context).colorScheme.onSurfaceVariant,
-                        ),
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      color: scheme.onSurfaceVariant,
+                    ),
                   ),
+                  const SizedBox(height: AppSpacing.sm),
+                  profile.active
+                      ? AppStatusPill.success('الحساب نشط')
+                      : AppStatusPill.danger('الحساب موقوف'),
                 ],
               ),
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: AppSpacing.md),
             Text(
               'بيانات الحساب',
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.bold,
-                  ),
+              style: theme.textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.w700,
+              ),
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: AppSpacing.sm),
             AppCard(
               child: Column(
                 children: [
@@ -87,17 +104,15 @@ class ProfileScreen extends StatelessWidget {
                     'المستحق الشهري',
                     Formatters.money(profile.monthlyEntitlement),
                   ),
-                  const Divider(),
-                  _line(context, 'حالة الحساب', profile.active ? 'نشط' : 'موقوف'),
                 ],
               ),
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: AppSpacing.sm + AppSpacing.xs),
             Text(
               'يمكن تعديل إعدادات الأمان والبصمة من شاشة «الإعدادات» في القائمة الجانبية.',
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: Theme.of(context).colorScheme.onSurfaceVariant,
-                  ),
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: scheme.onSurfaceVariant,
+              ),
             ),
           ],
         ),
@@ -105,28 +120,35 @@ class ProfileScreen extends StatelessWidget {
     );
   }
 
-  Widget _line(BuildContext context, String title, String value) => Padding(
-        padding: const EdgeInsets.symmetric(vertical: 8),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Expanded(
-              child: Text(
-                title,
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: Theme.of(context).colorScheme.onSurfaceVariant,
-                    ),
+  Widget _line(BuildContext context, String title, String value) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: AppSpacing.sm),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Expanded(
+            child: Text(
+              title,
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: scheme.onSurfaceVariant,
               ),
             ),
-            const SizedBox(width: 12),
-            Flexible(
-              child: Text(
-                value,
-                textAlign: TextAlign.end,
-                style: const TextStyle(fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(width: AppSpacing.sm + AppSpacing.xs),
+          Flexible(
+            child: Text(
+              value,
+              textAlign: TextAlign.end,
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: scheme.onSurface,
+                fontWeight: FontWeight.w600,
               ),
             ),
-          ],
-        ),
-      );
+          ),
+        ],
+      ),
+    );
+  }
 }
