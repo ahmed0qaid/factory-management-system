@@ -1,16 +1,15 @@
 import 'package:flutter/material.dart';
 
-import '../../theme/app_colors.dart';
 import '../../theme/app_icon_sizes.dart';
 import '../../theme/app_radius.dart';
 import '../../theme/app_spacing.dart';
 import 'app_card.dart';
 
-/// Standardized Responsive HR Stat Card (AppStatCard)
+/// Standardized responsive stat card.
 ///
-/// Supports Dynamic State Evaluation:
-/// - Active (isActive == true): Pure White Background, Colored Border, Colored Title & Value.
-/// - Inactive (isActive == false): Dark Translucent / Subtle Neutral Background, Neutral Border & Text.
+/// Structural surfaces remain neutral. The supplied accent color is used only
+/// for the icon/value emphasis when the metric is active, keeping dashboards
+/// readable instead of turning every card into a different color block.
 class AppStatCard extends StatelessWidget {
   final String title;
   final String value;
@@ -33,29 +32,29 @@ class AppStatCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final textTheme = Theme.of(context).textTheme;
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    final textTheme = theme.textTheme;
+    final accent = _adaptColor(color, theme.brightness);
 
-    // Refined Luxury Card Colors & Styling
-    final effectiveBg = Colors.white;
-    final effectiveBorder = isActive
-        ? color.withValues(alpha: .35)
-        : AppColors.border;
-    final effectiveValueColor = isActive ? color : AppColors.textMuted;
-    final effectiveTitleColor = isActive
-        ? AppColors.textPrimary
-        : AppColors.textSecondary;
-    final effectiveIconBg = isActive
-        ? color.withValues(alpha: .08)
-        : AppColors.surfaceContainer;
-    final effectiveIconColor = isActive ? color : AppColors.textMuted;
+    final background = scheme.surfaceContainerLowest;
+    final border = isActive
+        ? accent.withValues(alpha: theme.brightness == Brightness.dark ? .38 : .24)
+        : scheme.outlineVariant.withValues(alpha: .65);
+    final valueColor = isActive ? accent : scheme.onSurfaceVariant;
+    final titleColor = isActive ? scheme.onSurface : scheme.onSurfaceVariant;
+    final iconBackground = isActive
+        ? accent.withValues(alpha: theme.brightness == Brightness.dark ? .16 : .08)
+        : scheme.surfaceContainerHigh;
+    final iconColor = isActive ? accent : scheme.onSurfaceVariant;
 
     return AppCard(
       onTap: onTap,
       padding: const EdgeInsets.all(AppSpacing.sm),
-      backgroundColor: effectiveBg,
-      borderColor: effectiveBorder,
-      borderWidth: isActive ? 1.2 : 1.0,
-      elevated: isActive,
+      backgroundColor: background,
+      borderColor: border,
+      borderWidth: isActive ? 1.1 : 1,
+      elevated: false,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -63,15 +62,14 @@ class AppStatCard extends StatelessWidget {
             width: 40,
             height: 40,
             decoration: BoxDecoration(
-              color: effectiveIconBg,
+              color: iconBackground,
               borderRadius: BorderRadius.circular(AppRadius.md),
-              border: Border.all(
-                color: isActive
-                    ? color.withValues(alpha: .18)
-                    : AppColors.border.withValues(alpha: .5),
-              ),
             ),
-            child: Icon(icon, color: effectiveIconColor, size: AppIconSizes.standard),
+            child: Icon(
+              icon,
+              color: iconColor,
+              size: AppIconSizes.standard,
+            ),
           ),
           const Spacer(),
           Text(
@@ -79,8 +77,8 @@ class AppStatCard extends StatelessWidget {
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
             style: textTheme.bodySmall?.copyWith(
-              color: effectiveTitleColor,
-              fontWeight: isActive ? FontWeight.normal : FontWeight.w500,
+              color: titleColor,
+              fontWeight: FontWeight.w500,
             ),
           ),
           const SizedBox(height: AppSpacing.xxs),
@@ -89,8 +87,8 @@ class AppStatCard extends StatelessWidget {
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: textTheme.titleMedium?.copyWith(
-              color: effectiveValueColor,
-              
+              color: valueColor,
+              fontWeight: FontWeight.w700,
             ),
           ),
           if (subtitle != null) ...[
@@ -100,7 +98,7 @@ class AppStatCard extends StatelessWidget {
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: textTheme.bodySmall?.copyWith(
-                color: effectiveValueColor.withValues(alpha: .8),
+                color: scheme.onSurfaceVariant,
               ),
             ),
           ],
@@ -108,7 +106,17 @@ class AppStatCard extends StatelessWidget {
       ),
     );
   }
+
+  Color _adaptColor(Color source, Brightness brightness) {
+    final sourceBrightness = ThemeData.estimateBrightnessForColor(source);
+    if (brightness == Brightness.dark &&
+        sourceBrightness == Brightness.dark) {
+      return Color.lerp(source, Colors.white, .38)!;
+    }
+    if (brightness == Brightness.light &&
+        sourceBrightness == Brightness.light) {
+      return Color.lerp(source, Colors.black, .36)!;
+    }
+    return source;
+  }
 }
-
-
-
