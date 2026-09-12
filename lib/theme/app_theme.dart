@@ -12,12 +12,13 @@ class AppTheme {
   static ThemeData get dark => _build(Brightness.dark);
 
   static ThemeData _build(Brightness brightness) {
-    // Flutter recommends ColorScheme.fromSeed for Material 3 so component
-    // colors are generated as a coherent tonal system instead of being picked
-    // independently per widget.
+    // Material 3 color roles are generated from one brand seed so actions,
+    // containers, neutral surfaces and dark-mode tones stay coherent instead
+    // of assigning unrelated colors widget by widget.
     final colorScheme = ColorScheme.fromSeed(
       seedColor: AppColors.primary,
       brightness: brightness,
+      dynamicSchemeVariant: DynamicSchemeVariant.fidelity,
     );
 
     final semanticColors = brightness == Brightness.dark
@@ -34,9 +35,13 @@ class AppTheme {
       extensions: <ThemeExtension<dynamic>>[semanticColors],
       scaffoldBackgroundColor: colorScheme.surface,
       canvasColor: colorScheme.surface,
+      dividerColor: colorScheme.outlineVariant,
       textTheme: textTheme,
       primaryTextTheme: textTheme,
-      iconTheme: IconThemeData(color: colorScheme.onSurfaceVariant, size: 22),
+      iconTheme: IconThemeData(
+        color: colorScheme.onSurfaceVariant,
+        size: 22,
+      ),
       appBarTheme: AppComponentThemes.appBar(colorScheme, textTheme),
       cardTheme: AppComponentThemes.card(colorScheme),
       inputDecorationTheme: AppComponentThemes.input(colorScheme),
@@ -45,12 +50,20 @@ class AppTheme {
         textTheme,
       ),
       filledButtonTheme: AppComponentThemes.filledButton(colorScheme),
+      elevatedButtonTheme: AppComponentThemes.elevatedButton(colorScheme),
       outlinedButtonTheme: AppComponentThemes.outlinedButton(colorScheme),
       textButtonTheme: AppComponentThemes.textButton(colorScheme),
+      iconButtonTheme: AppComponentThemes.iconButton(colorScheme),
       floatingActionButtonTheme:
           AppComponentThemes.floatingActionButton(colorScheme),
       listTileTheme: AppComponentThemes.listTile(colorScheme, textTheme),
       switchTheme: AppComponentThemes.switchTheme(colorScheme),
+      checkboxTheme: AppComponentThemes.checkbox(colorScheme),
+      radioTheme: AppComponentThemes.radio(colorScheme),
+      segmentedButtonTheme: AppComponentThemes.segmentedButton(colorScheme),
+      popupMenuTheme: AppComponentThemes.popupMenu(colorScheme, textTheme),
+      datePickerTheme: AppComponentThemes.datePicker(colorScheme),
+      timePickerTheme: AppComponentThemes.timePicker(colorScheme),
       progressIndicatorTheme: ProgressIndicatorThemeData(
         color: colorScheme.primary,
         linearTrackColor: colorScheme.surfaceContainerHighest,
@@ -113,7 +126,9 @@ class AppTheme {
         ),
       ),
       dataTableTheme: DataTableThemeData(
-        headingRowColor: WidgetStatePropertyAll(colorScheme.surfaceContainerLow),
+        headingRowColor: WidgetStatePropertyAll(
+          colorScheme.surfaceContainerLow,
+        ),
         headingTextStyle: textTheme.titleSmall?.copyWith(
           color: colorScheme.onSurface,
           fontWeight: FontWeight.w700,
@@ -131,6 +146,14 @@ class AppTheme {
         textStyle: textTheme.bodySmall?.copyWith(
           color: colorScheme.onInverseSurface,
         ),
+      ),
+      expansionTileTheme: ExpansionTileThemeData(
+        iconColor: colorScheme.primary,
+        collapsedIconColor: colorScheme.onSurfaceVariant,
+        textColor: colorScheme.onSurface,
+        collapsedTextColor: colorScheme.onSurface,
+        shape: const Border(),
+        collapsedShape: const Border(),
       ),
     );
   }
