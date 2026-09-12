@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 
-import '../../theme/app_colors.dart';
 import '../../theme/app_radius.dart';
 import '../../theme/app_spacing.dart';
 import 'app_card.dart';
@@ -23,8 +22,11 @@ class AppActionCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final textTheme = Theme.of(context).textTheme;
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    final textTheme = theme.textTheme;
     final isRtl = Directionality.of(context) == TextDirection.rtl;
+    final accent = _adaptColor(color, theme.brightness);
 
     return AppCard(
       onTap: onTap,
@@ -35,10 +37,12 @@ class AppActionCard extends StatelessWidget {
             width: 40,
             height: 40,
             decoration: BoxDecoration(
-              color: AppColors.semanticBackground(color),
+              color: accent.withValues(
+                alpha: theme.brightness == Brightness.dark ? .18 : .09,
+              ),
               borderRadius: BorderRadius.circular(AppRadius.md),
             ),
-            child: Icon(icon, color: color, size: 22),
+            child: Icon(icon, color: accent, size: 22),
           ),
           const SizedBox(width: AppSpacing.sm),
           Expanded(
@@ -49,7 +53,9 @@ class AppActionCard extends StatelessWidget {
                   title,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: textTheme.titleSmall,
+                  style: textTheme.titleSmall?.copyWith(
+                    color: scheme.onSurface,
+                  ),
                 ),
                 if (subtitle != null) ...[
                   const SizedBox(height: AppSpacing.xxs),
@@ -57,7 +63,9 @@ class AppActionCard extends StatelessWidget {
                     subtitle!,
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
-                    style: textTheme.bodySmall,
+                    style: textTheme.bodySmall?.copyWith(
+                      color: scheme.onSurfaceVariant,
+                    ),
                   ),
                 ],
               ],
@@ -66,10 +74,23 @@ class AppActionCard extends StatelessWidget {
           const SizedBox(width: AppSpacing.xs),
           Icon(
             isRtl ? Icons.chevron_left : Icons.chevron_right,
-            color: Theme.of(context).colorScheme.onSurfaceVariant,
+            color: scheme.onSurfaceVariant,
           ),
         ],
       ),
     );
+  }
+
+  Color _adaptColor(Color source, Brightness brightness) {
+    final sourceBrightness = ThemeData.estimateBrightnessForColor(source);
+    if (brightness == Brightness.dark &&
+        sourceBrightness == Brightness.dark) {
+      return Color.lerp(source, Colors.white, .38)!;
+    }
+    if (brightness == Brightness.light &&
+        sourceBrightness == Brightness.light) {
+      return Color.lerp(source, Colors.black, .36)!;
+    }
+    return source;
   }
 }
