@@ -1,24 +1,28 @@
 // ignore_for_file: curly_braces_in_flow_control_structures
 
 import 'package:flutter/material.dart';
-import '../../theme/app_colors.dart';
+
+import '../../config/constants.dart';
+import '../../models/job_title_model.dart';
 import '../../models/profile_model.dart';
+import '../../services/admin_biometrics_service.dart';
 import '../../services/admin_service.dart';
 import '../../services/appwrite_service.dart';
-import '../../config/constants.dart';
+import '../../services/job_title_service.dart';
+import '../../theme/app_semantic_colors.dart';
+import '../../utils/formatters.dart';
+import '../../widgets/common/app_empty_state.dart';
+import '../../widgets/common/app_form_field.dart';
+import '../../widgets/common/app_list_item.dart';
+import '../../widgets/common/app_loading_state.dart';
+import '../../widgets/common/app_scaffold.dart';
+import '../../widgets/common/app_status_pill.dart';
 import 'create_employee_screen.dart';
 import 'widgets/temporary_employees_list_view.dart';
-import '../../services/admin_biometrics_service.dart';
-import '../../services/job_title_service.dart';
-import '../../models/job_title_model.dart';
-import '../../widgets/common/app_list_item.dart';
-import '../../widgets/common/app_scaffold.dart';
-import '../../widgets/common/app_loading_state.dart';
-import '../../widgets/common/app_empty_state.dart';
-import '../../widgets/common/app_status_pill.dart';
 
 class ManageEmployeesScreen extends StatefulWidget {
   final ProfileModel currentProfile;
+
   const ManageEmployeesScreen({super.key, required this.currentProfile});
 
   @override
@@ -54,8 +58,8 @@ class _ManageEmployeesScreenState extends State<ManageEmployeesScreen> {
         activeOnly: true,
       );
       if (mounted) setState(() => _activeJobTitles = titles);
-    } catch (e) {
-      // Ignore or log
+    } catch (_) {
+      // Keep employee management usable if job-title lookup fails.
     }
   }
 
@@ -72,8 +76,8 @@ class _ManageEmployeesScreenState extends State<ManageEmployeesScreen> {
         status: 'pending',
       );
       if (mounted) setState(() => _pendingTemporaryCount = emps.length);
-    } catch (e) {
-      // Ignored
+    } catch (_) {
+      // Badge is auxiliary; don't block the screen if its request fails.
     }
   }
 
@@ -88,10 +92,11 @@ class _ManageEmployeesScreenState extends State<ManageEmployeesScreen> {
         });
       }
     } catch (e) {
-      if (mounted)
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('خطأ في جلب الموظفين: $e')));
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('خطأ في جلب الموظفين: $e')),
+        );
+      }
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
@@ -105,9 +110,9 @@ class _ManageEmployeesScreenState extends State<ManageEmployeesScreen> {
       } else {
         _filteredEmployees = _allEmployees
             .where(
-              (e) =>
-                  e.fullName.toLowerCase().contains(query) ||
-                  e.employeeNumber.toLowerCase().contains(query),
+              (employee) =>
+                  employee.fullName.toLowerCase().contains(query) ||
+                  employee.employeeNumber.toLowerCase().contains(query),
             )
             .toList();
       }
@@ -120,7 +125,6 @@ class _ManageEmployeesScreenState extends State<ManageEmployeesScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('لا يمكن تعطيل حساب الموارد البشرية'),
-            backgroundColor: AppColors.danger,
           ),
         );
       }
@@ -128,18 +132,20 @@ class _ManageEmployeesScreenState extends State<ManageEmployeesScreen> {
     }
     try {
       await _service.updateEmployeeStatus(employee.id, isActive);
-      _loadEmployees();
-      if (mounted)
+      await _loadEmployees();
+      if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('تم ${isActive ? 'تفعيل' : 'تعطيل'} الموظف بنجاح'),
           ),
         );
+      }
     } catch (e) {
-      if (mounted)
+      if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text(e.toString().replaceAll('Exception: ', ''))),
         );
+      }
     }
   }
 
@@ -147,28 +153,27 @@ class _ManageEmployeesScreenState extends State<ManageEmployeesScreen> {
     final nameCtrl = TextEditingController(text: employee.fullName);
     final deptCtrl = TextEditingController(text: employee.departmentName ?? '');
 
-    List<JobTitleModel> selectedJobTitles = [];
+    final selectedJobTitles = <JobTitleModel>[];
     if (employee.jobTitleId != null && employee.jobTitleId!.isNotEmpty) {
       final ids = employee.jobTitleId!.split(',');
       for (final id in ids) {
         try {
-          final t = _activeJobTitles.firstWhere((t) => t.id == id.trim());
-          if (!selectedJobTitles.contains(t)) {
-            selectedJobTitles.add(t);
-          }
+          final title = _activeJobTitles.firstWhere((t) => t.id == id.trim());
+          if (!selectedJobTitles.contains(title)) selectedJobTitles.add(title);
         } catch (_) {}
       }
-    } else if (employee.jobTitleName != null && employee.jobTitleName!.isNotEmpty) {
+    } else if (employee.jobTitleName != null &&
+        employee.jobTitleName!.isNotEmpty) {
       final names = employee.jobTitleName!.split(',');
       for (final name in names) {
         try {
-          final t = _activeJobTitles.firstWhere((t) => t.name == name.trim());
-          if (!selectedJobTitles.contains(t)) {
-            selectedJobTitles.add(t);
-          }
+          final title =
+              _activeJobTitles.firstWhere((t) => t.name == name.trim());
+          if (!selectedJobTitles.contains(title)) selectedJobTitles.add(title);
         } catch (_) {}
       }
     }
+
     final biometricCtrl = TextEditingController(
       text: employee.biometricEmployeeId ?? '',
     );
@@ -185,238 +190,207 @@ class _ManageEmployeesScreenState extends State<ManageEmployeesScreen> {
     final empNumCtrl = TextEditingController(text: employee.employeeNumber);
     final passCtrl = TextEditingController();
     final confirmPassCtrl = TextEditingController();
-    bool mustChangePass = employee.mustChangePassword;
-    bool isActive = employee.active;
+    var mustChangePass = employee.mustChangePassword;
+    var isActive = employee.active;
 
-    showDialog(
+    showDialog<void>(
       context: context,
-      builder: (context) {
+      builder: (dialogContext) {
         return StatefulBuilder(
           builder: (context, setDialogState) {
+            final theme = Theme.of(context);
+            final scheme = theme.colorScheme;
             return AlertDialog(
               title: Text('تعديل الموظف: ${employee.employeeNumber}'),
-              content: SingleChildScrollView(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    TextField(
-                      controller: nameCtrl,
-                      decoration: const InputDecoration(
+              content: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 620),
+                child: SingleChildScrollView(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      AppFormField(
+                        controller: nameCtrl,
                         labelText: 'الاسم',
-                        border: OutlineInputBorder(),
+                        prefixIcon: Icons.person_outline,
                       ),
-                    ),
-                    const SizedBox(height: 8),
-                    TextField(
-                      controller: empNumCtrl,
-                      decoration: const InputDecoration(
+                      const SizedBox(height: 12),
+                      AppFormField(
+                        controller: empNumCtrl,
                         labelText: 'رقم الموظف',
-                        border: OutlineInputBorder(),
+                        prefixIcon: Icons.badge_outlined,
                       ),
-                    ),
-                    const SizedBox(height: 8),
-                    TextField(
-                      controller: deptCtrl,
-                      decoration: const InputDecoration(
+                      const SizedBox(height: 12),
+                      AppFormField(
+                        controller: deptCtrl,
                         labelText: 'القسم',
-                        border: OutlineInputBorder(),
+                        prefixIcon: Icons.apartment_outlined,
                       ),
-                    ),
-                    const SizedBox(height: 8),
-                    InputDecorator(
-                      decoration: const InputDecoration(
-                        labelText: 'المسمى الوظيفي',
-                        hintText: 'اختر مسمى وظيفي واحد أو أكثر',
-                        border: OutlineInputBorder(),
+                      const SizedBox(height: 12),
+                      InputDecorator(
+                        decoration: const InputDecoration(
+                          labelText: 'المسمى الوظيفي',
+                          hintText: 'اختر مسمى وظيفي واحد أو أكثر',
+                        ),
+                        child: Wrap(
+                          spacing: 8,
+                          runSpacing: 6,
+                          children: _activeJobTitles.map((title) {
+                            final selected = selectedJobTitles.contains(title);
+                            return FilterChip(
+                              label: Text(title.name),
+                              selected: selected,
+                              onSelected: (value) {
+                                setDialogState(() {
+                                  if (value) {
+                                    selectedJobTitles.add(title);
+                                  } else {
+                                    selectedJobTitles.remove(title);
+                                  }
+                                });
+                              },
+                            );
+                          }).toList(),
+                        ),
                       ),
-                      child: Wrap(
-                        spacing: 8.0,
-                        runSpacing: 4.0,
-                        children: _activeJobTitles.map((title) {
-                          final isSelected = selectedJobTitles.contains(title);
-                          return FilterChip(
-                            label: Text(title.name),
-                            selected: isSelected,
-                            onSelected: (selected) {
-                              setDialogState(() {
-                                if (selected) {
-                                  selectedJobTitles.add(title);
-                                } else {
-                                  selectedJobTitles.remove(title);
-                                }
-                              });
-                            },
-                          );
-                        }).toList(),
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    TextField(
-                      controller: biometricCtrl,
-                      decoration: const InputDecoration(
+                      const SizedBox(height: 12),
+                      AppFormField(
+                        controller: biometricCtrl,
                         labelText: 'رقم البصمة',
-                        border: OutlineInputBorder(),
+                        prefixIcon: Icons.fingerprint,
                       ),
-                    ),
-                    const SizedBox(height: 8),
-                    TextField(
-                      controller: phoneCtrl,
-                      keyboardType: TextInputType.phone,
-                      decoration: const InputDecoration(
+                      const SizedBox(height: 12),
+                      AppFormField(
+                        controller: phoneCtrl,
+                        keyboardType: TextInputType.phone,
                         labelText: 'رقم الهاتف',
-                        border: OutlineInputBorder(),
+                        prefixIcon: Icons.phone_outlined,
                       ),
-                    ),
-                    const SizedBox(height: 8),
-                    TextField(
-                      controller: baseSalaryCtrl,
-                      keyboardType: TextInputType.number,
-                      decoration: const InputDecoration(
-                        labelText: 'الراتب الأساسي',
-                        border: OutlineInputBorder(),
+                      const SizedBox(height: 12),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: AppFormField(
+                              controller: baseSalaryCtrl,
+                              keyboardType: TextInputType.number,
+                              labelText: 'الراتب الأساسي',
+                              prefixIcon: Icons.payments_outlined,
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: AppFormField(
+                              controller: bonusCtrl,
+                              keyboardType: TextInputType.number,
+                              labelText: 'المكافأة الشهرية',
+                              prefixIcon: Icons.card_giftcard_outlined,
+                            ),
+                          ),
+                        ],
                       ),
-                    ),
-                    const SizedBox(height: 8),
-                    TextField(
-                      controller: bonusCtrl,
-                      keyboardType: TextInputType.number,
-                      decoration: const InputDecoration(
-                        labelText: 'المكافأة الشهرية',
-                        border: OutlineInputBorder(),
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    TextField(
-                      controller: dailyWorkHoursCtrl,
-                      keyboardType: const TextInputType.numberWithOptions(
-                        decimal: true,
-                      ),
-                      decoration: const InputDecoration(
+                      const SizedBox(height: 12),
+                      AppFormField(
+                        controller: dailyWorkHoursCtrl,
+                        keyboardType: const TextInputType.numberWithOptions(
+                          decimal: true,
+                        ),
                         labelText: 'ساعات العمل اليومية',
-                        helperText: 'ضمن بيانات الراتب/الدوام',
-                        border: OutlineInputBorder(),
+                        hintText: 'ضمن بيانات الراتب/الدوام',
+                        prefixIcon: Icons.schedule_outlined,
                       ),
-                    ),
-                    const SizedBox(height: 8),
-                    SwitchListTile(
-                      title: const Text('نشط'),
-                      subtitle: employee.isHrAdmin
-                          ? const Text(
-                              'حساب الموارد البشرية غير قابل للتعطيل',
-                              style: TextStyle(
-                                color: AppColors.secondary,
-                                fontSize: 12,
-                              ),
-                            )
-                          : null,
-                      value: isActive,
-                      onChanged: employee.isHrAdmin
-                          ? null
-                          : (val) => setDialogState(() => isActive = val),
-                    ),
-                    const Divider(),
-                    const Text(
-                      'تغيير كلمة المرور (اختياري)',
-                      style: TextStyle(fontWeight: FontWeight.bold),
-                    ),
-                    const SizedBox(height: 8),
-                    TextField(
-                      controller: passCtrl,
-                      obscureText: true,
-                      decoration: const InputDecoration(
+                      const SizedBox(height: 8),
+                      SwitchListTile(
+                        contentPadding: EdgeInsets.zero,
+                        title: const Text('الحساب نشط'),
+                        subtitle: employee.isHrAdmin
+                            ? Text(
+                                'حساب الموارد البشرية غير قابل للتعطيل',
+                                style: theme.textTheme.bodySmall?.copyWith(
+                                  color: scheme.onSurfaceVariant,
+                                ),
+                              )
+                            : null,
+                        value: isActive,
+                        onChanged: employee.isHrAdmin
+                            ? null
+                            : (value) =>
+                                setDialogState(() => isActive = value),
+                      ),
+                      const Divider(height: 24),
+                      Text(
+                        'تغيير كلمة المرور (اختياري)',
+                        style: theme.textTheme.titleSmall?.copyWith(
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      AppFormField(
+                        controller: passCtrl,
+                        isPassword: true,
                         labelText: 'كلمة مرور جديدة',
-                        border: OutlineInputBorder(),
+                        prefixIcon: Icons.lock_reset_outlined,
                       ),
-                    ),
-                    const SizedBox(height: 8),
-                    TextField(
-                      controller: confirmPassCtrl,
-                      obscureText: true,
-                      decoration: const InputDecoration(
+                      const SizedBox(height: 12),
+                      AppFormField(
+                        controller: confirmPassCtrl,
+                        isPassword: true,
                         labelText: 'تأكيد كلمة المرور',
-                        border: OutlineInputBorder(),
+                        prefixIcon: Icons.check_circle_outline,
                       ),
-                    ),
-                    const SizedBox(height: 8),
-                    SwitchListTile(
-                      title: const Text('إجبار الموظف على تغيير كلمة المرور'),
-                      value: mustChangePass,
-                      onChanged: (val) =>
-                          setDialogState(() => mustChangePass = val),
-                    ),
-                  ],
+                      const SizedBox(height: 8),
+                      SwitchListTile(
+                        contentPadding: EdgeInsets.zero,
+                        title: const Text(
+                          'إجبار الموظف على تغيير كلمة المرور',
+                        ),
+                        value: mustChangePass,
+                        onChanged: (value) =>
+                            setDialogState(() => mustChangePass = value),
+                      ),
+                    ],
+                  ),
                 ),
               ),
               actions: [
                 TextButton(
-                  onPressed: () => Navigator.pop(context),
+                  onPressed: () => Navigator.pop(dialogContext),
                   child: const Text('إلغاء'),
                 ),
-                ElevatedButton(
+                FilledButton(
                   onPressed: () async {
                     if (employee.isHrAdmin && !isActive) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text('لا يمكن تعطيل حساب الموارد البشرية'),
-                          backgroundColor: AppColors.danger,
-                        ),
-                      );
+                      _showDialogMessage('لا يمكن تعطيل حساب الموارد البشرية');
                       return;
                     }
                     final empNum = empNumCtrl.text.trim();
                     if (empNum.isEmpty) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text('رقم الموظف لا يمكن أن يكون فارغاً'),
-                          backgroundColor: AppColors.danger,
-                        ),
-                      );
+                      _showDialogMessage('رقم الموظف لا يمكن أن يكون فارغاً');
                       return;
                     }
-                    if (confirmPassCtrl.text.isNotEmpty &&
-                        passCtrl.text.isEmpty) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text('أدخل كلمة المرور الجديدة أولًا.'),
-                          backgroundColor: AppColors.danger,
-                        ),
-                      );
+                    if (confirmPassCtrl.text.isNotEmpty && passCtrl.text.isEmpty) {
+                      _showDialogMessage('أدخل كلمة المرور الجديدة أولًا.');
                       return;
                     }
-
                     if (passCtrl.text.isNotEmpty) {
                       if (confirmPassCtrl.text.isEmpty) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text('يرجى تأكيد كلمة المرور.'),
-                            backgroundColor: AppColors.danger,
-                          ),
-                        );
+                        _showDialogMessage('يرجى تأكيد كلمة المرور.');
                         return;
                       }
                       if (passCtrl.text.length < 8) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text(
-                              'كلمة المرور يجب أن تكون 8 أحرف على الأقل',
-                            ),
-                            backgroundColor: AppColors.danger,
-                          ),
+                        _showDialogMessage(
+                          'كلمة المرور يجب أن تكون 8 أحرف على الأقل',
                         );
                         return;
                       }
                       if (passCtrl.text != confirmPassCtrl.text) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text('كلمة المرور وتأكيدها غير متطابقين'),
-                            backgroundColor: AppColors.danger,
-                          ),
+                        _showDialogMessage(
+                          'كلمة المرور وتأكيدها غير متطابقين',
                         );
                         return;
                       }
                     }
 
-                    Navigator.pop(context); // Close dialog
+                    Navigator.pop(dialogContext);
                     setState(() => _isLoading = true);
                     try {
                       if (empNum != employee.employeeNumber ||
@@ -427,13 +401,12 @@ class _ManageEmployeesScreenState extends State<ManageEmployeesScreen> {
                           newEmployeeNumber: empNum != employee.employeeNumber
                               ? empNum
                               : null,
-                          newPassword: passCtrl.text.isNotEmpty
-                              ? passCtrl.text
-                              : null,
+                          newPassword:
+                              passCtrl.text.isNotEmpty ? passCtrl.text : null,
                           mustChangePassword:
                               mustChangePass != employee.mustChangePassword
-                              ? mustChangePass
-                              : null,
+                                  ? mustChangePass
+                                  : null,
                         );
                       }
 
@@ -441,22 +414,23 @@ class _ManageEmployeesScreenState extends State<ManageEmployeesScreen> {
                         employee.id,
                         fullName: nameCtrl.text.trim(),
                         departmentName: deptCtrl.text.trim(),
-                        jobTitleId: selectedJobTitles.map((t) => t.id).join(','),
-                        jobTitleName: selectedJobTitles.map((t) => t.name).join(','),
+                        jobTitleId:
+                            selectedJobTitles.map((t) => t.id).join(','),
+                        jobTitleName:
+                            selectedJobTitles.map((t) => t.name).join(','),
                         biometricEmployeeId: biometricCtrl.text.trim(),
                         phone: phoneCtrl.text.trim(),
                         baseSalary:
                             num.tryParse(baseSalaryCtrl.text.trim()) ??
-                            employee.baseSalary,
+                                employee.baseSalary,
                         monthlyBonus:
                             num.tryParse(bonusCtrl.text.trim()) ??
-                            employee.monthlyBonus,
+                                employee.monthlyBonus,
                         dailyWorkHours:
                             num.tryParse(dailyWorkHoursCtrl.text.trim()) ?? 8,
                         active: isActive,
                       );
 
-                      // Verify the update actually saved in Appwrite
                       final verifyDoc = await AppwriteService.tablesDB.getRow(
                         databaseId: AppConstants.databaseId,
                         tableId: AppConstants.profilesTable,
@@ -466,29 +440,22 @@ class _ManageEmployeesScreenState extends State<ManageEmployeesScreen> {
                       final inputBio = biometricCtrl.text.trim();
                       final savedBio =
                           verifyDoc.data['biometric_employee_id']?.toString() ??
-                          '';
+                              '';
 
-                      await _loadEmployees(); // Reload lists
+                      await _loadEmployees();
                       if (context.mounted) {
-                        if (inputBio == savedBio) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text('تم حفظ بيانات الموظف.'),
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text(
+                              inputBio == savedBio
+                                  ? 'تم حفظ بيانات الموظف.'
+                                  : 'تم إرسال التعديل لكن قيمة رقم البصمة لم تحفظ كما أُدخلت.',
                             ),
-                          );
-                        } else {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Text(
-                                'تم إرسال التعديل لكن القيمة لم تحفظ في قاعدة البيانات. (المدخل: $inputBio, المحفوظ: $savedBio)',
-                              ),
-                              backgroundColor: AppColors.danger,
-                            ),
-                          );
-                        }
+                          ),
+                        );
                       }
                     } catch (e) {
-                      if (context.mounted)
+                      if (context.mounted) {
                         ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(
                             content: Text(
@@ -496,6 +463,7 @@ class _ManageEmployeesScreenState extends State<ManageEmployeesScreen> {
                             ),
                           ),
                         );
+                      }
                     } finally {
                       if (mounted) setState(() => _isLoading = false);
                     }
@@ -510,97 +478,161 @@ class _ManageEmployeesScreenState extends State<ManageEmployeesScreen> {
     );
   }
 
+  void _showDialogMessage(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message)),
+    );
+  }
+
   void _showMobileDetails(ProfileModel employee) {
-    showModalBottomSheet(
+    showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-      ),
-      builder: (context) {
+      useSafeArea: true,
+      builder: (sheetContext) {
+        final theme = Theme.of(sheetContext);
+        final scheme = theme.colorScheme;
         return Padding(
-          padding: EdgeInsets.only(
-            left: 16,
-            right: 16,
-            top: 16,
-            bottom: MediaQuery.of(context).viewInsets.bottom + 16,
+          padding: EdgeInsets.fromLTRB(
+            16,
+            12,
+            16,
+            MediaQuery.viewInsetsOf(sheetContext).bottom + 16,
           ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Text(
-                'تفاصيل الموظف',
-                style: Theme.of(context).textTheme.titleLarge?.copyWith(),
+              Center(
+                child: Container(
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: scheme.outlineVariant,
+                    borderRadius: BorderRadius.circular(99),
+                  ),
+                ),
               ),
-              const Divider(),
-              _detailRow('الاسم:', employee.fullName),
-              _detailRow('رقم الموظف:', employee.employeeNumber),
-              _detailRow('الدور:', employee.roleLabel),
+              const SizedBox(height: 14),
+              Row(
+                children: [
+                  CircleAvatar(
+                    backgroundColor: scheme.primaryContainer,
+                    foregroundColor: scheme.onPrimaryContainer,
+                    child: Text(
+                      employee.fullName.isEmpty ? 'م' : employee.fullName[0],
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          employee.fullName,
+                          style: theme.textTheme.titleMedium?.copyWith(
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                        Text(
+                          employee.employeeNumber,
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: scheme.onSurfaceVariant,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  employee.active
+                      ? AppStatusPill.success('نشط')
+                      : AppStatusPill.neutral('معطل'),
+                ],
+              ),
+              const Divider(height: 24),
+              _detailRow(sheetContext, 'الدور', employee.roleLabel),
               _detailRow(
-                'القسم:',
+                sheetContext,
+                'القسم',
                 employee.departmentName?.isNotEmpty == true
                     ? employee.departmentName!
                     : 'غير محدد',
               ),
               _detailRow(
-                'المسمى:',
+                sheetContext,
+                'المسمى',
                 employee.jobTitleName?.isNotEmpty == true
                     ? employee.jobTitleName!
                     : 'غير محدد',
               ),
               _detailRow(
-                'رقم البصمة:',
+                sheetContext,
+                'رقم البصمة',
                 employee.biometricEmployeeId?.isNotEmpty == true
                     ? employee.biometricEmployeeId!
                     : 'غير محدد',
               ),
-              _detailRow('الراتب الأساسي:', '${employee.baseSalary}'),
-              _detailRow('المكافأة:', '${employee.monthlyBonus}'),
-              _detailRow('ساعات العمل اليومية:', '${employee.dailyWorkHours}'),
-              if (employee.phone != null && employee.phone!.isNotEmpty)
-                _detailRow('الهاتف:', employee.phone!),
               _detailRow(
-                'تاريخ التوظيف:',
-                employee.hireDate.toIso8601String().substring(0, 10),
+                sheetContext,
+                'الراتب الأساسي',
+                Formatters.money(employee.baseSalary),
               ),
-              _detailRow('الحالة:', employee.active ? 'نشط' : 'غير نشط'),
-              const SizedBox(height: 24),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+              _detailRow(
+                sheetContext,
+                'المكافأة',
+                Formatters.money(employee.monthlyBonus),
+              ),
+              _detailRow(
+                sheetContext,
+                'ساعات العمل اليومية',
+                '${employee.dailyWorkHours}',
+              ),
+              if (employee.phone != null && employee.phone!.isNotEmpty)
+                _detailRow(sheetContext, 'الهاتف', employee.phone!),
+              _detailRow(
+                sheetContext,
+                'تاريخ التوظيف',
+                Formatters.date(employee.hireDate),
+              ),
+              const SizedBox(height: 20),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                alignment: WrapAlignment.end,
                 children: [
-                  ElevatedButton.icon(
-                    icon: const Icon(Icons.edit, size: 18),
+                  TextButton(
+                    onPressed: () => Navigator.pop(sheetContext),
+                    child: const Text('رجوع'),
+                  ),
+                  FilledButton.tonalIcon(
+                    icon: const Icon(Icons.edit_outlined, size: 18),
                     label: const Text('تعديل'),
                     onPressed: () {
-                      Navigator.pop(context);
+                      Navigator.pop(sheetContext);
                       _showEditDialog(employee);
                     },
                   ),
                   if (!employee.isHrAdmin)
-                    ElevatedButton.icon(
+                    OutlinedButton.icon(
                       icon: Icon(
-                        employee.active ? Icons.block : Icons.check_circle,
+                        employee.active
+                            ? Icons.block_outlined
+                            : Icons.check_circle_outline,
                         size: 18,
                       ),
                       label: Text(employee.active ? 'تعطيل' : 'تفعيل'),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: employee.active
-                            ? AppColors.danger
-                            : AppColors.success,
-                        foregroundColor: Theme.of(
-                          context,
-                        ).colorScheme.onPrimary,
-                      ),
+                      style: employee.active
+                          ? OutlinedButton.styleFrom(
+                              foregroundColor: scheme.error,
+                              side: BorderSide(
+                                color: scheme.error.withValues(alpha: .55),
+                              ),
+                            )
+                          : null,
                       onPressed: () {
-                        Navigator.pop(context);
+                        Navigator.pop(sheetContext);
                         _toggleStatus(employee, !employee.active);
                       },
                     ),
-                  TextButton(
-                    onPressed: () => Navigator.pop(context),
-                    child: const Text('رجوع'),
-                  ),
                 ],
               ),
             ],
@@ -610,20 +642,31 @@ class _ManageEmployeesScreenState extends State<ManageEmployeesScreen> {
     );
   }
 
-  Widget _detailRow(String label, String value) {
+  Widget _detailRow(BuildContext context, String label, String value) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 6),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           SizedBox(
-            width: 110,
+            width: 120,
             child: Text(
               label,
-              style: const TextStyle(color: AppColors.secondary),
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: scheme.onSurfaceVariant,
+              ),
             ),
           ),
-          Expanded(child: Text(value, style: const TextStyle())),
+          Expanded(
+            child: Text(
+              value,
+              style: theme.textTheme.bodyMedium?.copyWith(
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
         ],
       ),
     );
@@ -631,13 +674,17 @@ class _ManageEmployeesScreenState extends State<ManageEmployeesScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    final semantic = context.semanticColors;
+
     return DefaultTabController(
       length: 2,
       child: AppScaffold(
         title: 'إدارة الموظفين',
         actions: [
           IconButton(
-            icon: const Icon(Icons.person_add),
+            icon: const Icon(Icons.person_add_alt_1_outlined),
             tooltip: 'إضافة موظف',
             onPressed: () async {
               await Navigator.of(context).push(
@@ -653,47 +700,49 @@ class _ManageEmployeesScreenState extends State<ManageEmployeesScreen> {
         ],
         bottom: TabBar(
           isScrollable: true,
-            tabs: [
-              const Tab(text: 'الموظفون الرسميون'),
-              Tab(
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Text('الموظفون المؤقتون'),
-                    if (_pendingTemporaryCount > 0) ...[
-                      const SizedBox(width: 8),
-                      Container(
-                        padding: const EdgeInsets.all(6),
-                        decoration: const BoxDecoration(
-                          color: AppColors.danger,
-                          shape: BoxShape.circle,
-                        ),
-                        child: Text(
-                          '$_pendingTemporaryCount',
-                          style: TextStyle(
-                            color: Theme.of(context).colorScheme.onPrimary,
-                            fontSize: 12,
-                          ),
+          tabs: [
+            const Tab(text: 'الموظفون الرسميون'),
+            Tab(
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Text('الموظفون المؤقتون'),
+                  if (_pendingTemporaryCount > 0) ...[
+                    const SizedBox(width: 8),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 7,
+                        vertical: 2,
+                      ),
+                      decoration: BoxDecoration(
+                        color: semantic.warningContainer,
+                        borderRadius: BorderRadius.circular(99),
+                      ),
+                      child: Text(
+                        '$_pendingTemporaryCount',
+                        style: theme.textTheme.labelSmall?.copyWith(
+                          color: semantic.onWarningContainer,
+                          fontWeight: FontWeight.w700,
                         ),
                       ),
-                    ],
+                    ),
                   ],
-                ),
+                ],
               ),
-            ],
-          ),
-          body: TabBarView(
-            children: [
-              Column(
-                children: [
+            ),
+          ],
+        ),
+        body: TabBarView(
+          children: [
+            Column(
+              children: [
                 Padding(
-                  padding: const EdgeInsets.all(16.0),
+                  padding: const EdgeInsets.all(16),
                   child: TextField(
                     controller: _searchController,
                     decoration: const InputDecoration(
                       labelText: 'بحث بالاسم أو رقم الموظف',
                       prefixIcon: Icon(Icons.search),
-                      border: OutlineInputBorder(),
                     ),
                   ),
                 ),
@@ -701,175 +750,141 @@ class _ManageEmployeesScreenState extends State<ManageEmployeesScreen> {
                   child: _isLoading
                       ? const AppLoadingState(label: 'جاري تحميل الموظفين')
                       : _filteredEmployees.isEmpty
-                      ? const AppEmptyState(
-                          title: 'لا يوجد موظفون',
-                          message: 'لا يوجد موظفون مطابقون لبحثك.',
-                          icon: Icons.group_off_outlined,
-                        )
-                      : LayoutBuilder(
-                          builder: (context, constraints) {
-                            if (constraints.maxWidth < 700) {
-                              return ListView.builder(
-                                itemCount: _filteredEmployees.length,
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 16,
-                                ),
-                                itemBuilder: (context, index) {
-                                  final e = _filteredEmployees[index];
-                                  return AppListItem(
-                                      leading: Container(
-                                        width: 44,
-                                        height: 44,
-                                        decoration: BoxDecoration(
-                                          color: Theme.of(context)
-                                              .colorScheme
-                                              .primary
-                                              .withValues(alpha: .1),
-                                          shape: BoxShape.circle,
+                          ? const AppEmptyState(
+                              title: 'لا يوجد موظفون',
+                              message: 'لا يوجد موظفون مطابقون لبحثك.',
+                              icon: Icons.group_off_outlined,
+                            )
+                          : LayoutBuilder(
+                              builder: (context, constraints) {
+                                if (constraints.maxWidth < 700) {
+                                  return ListView.builder(
+                                    itemCount: _filteredEmployees.length,
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 16,
+                                    ),
+                                    itemBuilder: (context, index) {
+                                      final employee =
+                                          _filteredEmployees[index];
+                                      return AppListItem(
+                                        leading: CircleAvatar(
+                                          backgroundColor:
+                                              scheme.primaryContainer,
+                                          foregroundColor:
+                                              scheme.onPrimaryContainer,
+                                          child: const Icon(Icons.person_outline),
                                         ),
-                                        child: Icon(
-                                          Icons.person_outline,
-                                          color: Theme.of(
-                                            context,
-                                          ).colorScheme.primary,
-                                        ),
-                                      ),
-                                      title: Text(
-                                        e.fullName,
-                                      ),
-                                      subtitle: Column(
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.start,
-                                        children: [
-                                          Text(
-                                            '${e.employeeNumber} — ${e.jobTitleName ?? "بدون مسمى"}',
-                                          ),
-                                          if (e.biometricEmployeeId == null ||
-                                              e.biometricEmployeeId!.isEmpty)
-                                            Container(
-                                              margin: const EdgeInsets.only(
-                                                top: 4,
-                                              ),
-                                              padding:
-                                                  const EdgeInsets.symmetric(
-                                                    horizontal: 6,
-                                                    vertical: 2,
-                                                  ),
-                                              decoration: BoxDecoration(
-                                                color: AppColors.warning
-                                                    .withValues(alpha: .15),
-                                                borderRadius:
-                                                    BorderRadius.circular(4),
-                                              ),
-                                              child: const Text(
-                                                'رقم البصمة غير محدد',
-                                                style: TextStyle(
-                                                  fontSize: 10,
-                                                  color: AppColors.warning,
+                                        title: Text(employee.fullName),
+                                        subtitle: Column(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
+                                          children: [
+                                            Text(
+                                              '${employee.employeeNumber} • ${employee.jobTitleName ?? 'بدون مسمى'}',
+                                            ),
+                                            if (employee.biometricEmployeeId ==
+                                                    null ||
+                                                employee.biometricEmployeeId!
+                                                    .isEmpty)
+                                              Padding(
+                                                padding: const EdgeInsets.only(
+                                                  top: 4,
+                                                ),
+                                                child: AppStatusPill.warning(
+                                                  'رقم البصمة غير محدد',
                                                 ),
                                               ),
-                                            ),
-                                        ],
-                                      ),
-                                      trailing: AppStatusPill(
-                                        label: e.active ? 'نشط' : 'معطل',
-                                        color: e.active ? AppColors.success : AppColors.danger,
-                                      ),
-                                      onTap: () => _showMobileDetails(e),
+                                          ],
+                                        ),
+                                        trailing: employee.active
+                                            ? AppStatusPill.success('نشط')
+                                            : AppStatusPill.neutral('معطل'),
+                                        onTap: () =>
+                                            _showMobileDetails(employee),
+                                      );
+                                    },
                                   );
-                                },
-                              );
-                            }
+                                }
 
-                            return SingleChildScrollView(
-                              scrollDirection: Axis.horizontal,
-                              child: SingleChildScrollView(
-                                child: DataTable(
-                                  headingRowColor: WidgetStateProperty.all(
-                                    Theme.of(
-                                      context,
-                                    ).colorScheme.surfaceContainerHighest,
-                                  ),
-                                  columns: const [
-                                    DataColumn(label: Text('الاسم')),
-                                    DataColumn(label: Text('الرقم')),
-                                    DataColumn(label: Text('الدور')),
-                                    DataColumn(label: Text('القسم')),
-                                    DataColumn(label: Text('المسمى')),
-                                    DataColumn(label: Text('الحالة')),
-                                    DataColumn(label: Text('رقم البصمة')),
-                                    DataColumn(label: Text('إجراءات')),
-                                  ],
-                                  rows: _filteredEmployees
-                                      .map(
-                                        (e) => DataRow(
+                                return SingleChildScrollView(
+                                  scrollDirection: Axis.horizontal,
+                                  child: SingleChildScrollView(
+                                    child: DataTable(
+                                      columns: const [
+                                        DataColumn(label: Text('الاسم')),
+                                        DataColumn(label: Text('الرقم')),
+                                        DataColumn(label: Text('الدور')),
+                                        DataColumn(label: Text('القسم')),
+                                        DataColumn(label: Text('المسمى')),
+                                        DataColumn(label: Text('الحالة')),
+                                        DataColumn(label: Text('رقم البصمة')),
+                                        DataColumn(label: Text('إجراءات')),
+                                      ],
+                                      rows: _filteredEmployees.map((employee) {
+                                        return DataRow(
                                           cells: [
-                                            DataCell(Text(e.fullName)),
-                                            DataCell(Text(e.employeeNumber)),
-                                            DataCell(Text(e.roleLabel)),
+                                            DataCell(Text(employee.fullName)),
+                                            DataCell(
+                                              Text(employee.employeeNumber),
+                                            ),
+                                            DataCell(Text(employee.roleLabel)),
                                             DataCell(
                                               Text(
-                                                e.departmentName?.isNotEmpty ==
+                                                employee.departmentName
+                                                            ?.isNotEmpty ==
                                                         true
-                                                    ? e.departmentName!
+                                                    ? employee.departmentName!
                                                     : '-',
                                               ),
                                             ),
                                             DataCell(
                                               Text(
-                                                e.jobTitleName?.isNotEmpty ==
+                                                employee.jobTitleName
+                                                            ?.isNotEmpty ==
                                                         true
-                                                    ? e.jobTitleName!
+                                                    ? employee.jobTitleName!
                                                     : '-',
                                               ),
                                             ),
                                             DataCell(
                                               Switch(
-                                                value: e.active,
-                                                onChanged: e.isHrAdmin
+                                                value: employee.active,
+                                                onChanged: employee.isHrAdmin
                                                     ? null
-                                                    : (val) =>
-                                                          _toggleStatus(e, val),
-                                                activeThumbImage: null,
-                                                activeTrackColor: AppColors
-                                                    .success
-                                                    .withValues(alpha: .4),
-                                                activeThumbColor:
-                                                    AppColors.success,
+                                                    : (value) => _toggleStatus(
+                                                          employee,
+                                                          value,
+                                                        ),
                                               ),
                                             ),
                                             DataCell(
                                               Text(
-                                                e
-                                                            .biometricEmployeeId
+                                                employee.biometricEmployeeId
                                                             ?.isNotEmpty ==
                                                         true
-                                                    ? e.biometricEmployeeId!
+                                                    ? employee
+                                                        .biometricEmployeeId!
                                                     : 'غير محدد',
                                               ),
                                             ),
                                             DataCell(
                                               IconButton(
-                                                icon: Icon(
-                                                  Icons.edit,
-                                                  color: Theme.of(
-                                                    context,
-                                                  ).colorScheme.primary,
+                                                icon: const Icon(
+                                                  Icons.edit_outlined,
                                                 ),
                                                 tooltip: 'تعديل',
                                                 onPressed: () =>
-                                                    _showEditDialog(e),
+                                                    _showEditDialog(employee),
                                               ),
                                             ),
                                           ],
-                                        ),
-                                      )
-                                      .toList(),
-                                ),
-                              ),
-                            );
-                          },
-                        ),
+                                        );
+                                      }).toList(),
+                                    ),
+                                  ),
+                                );
+                              },
+                            ),
                 ),
               ],
             ),
