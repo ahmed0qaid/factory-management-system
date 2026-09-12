@@ -262,7 +262,7 @@ class _EmployeeShellState extends State<EmployeeShell> {
           EmployeeHomeScreen(profile: profile),
           const AttendanceScreen(),
           const PayrollScreen(),
-          const AdvancesScreen(),
+          AdvancesScreen(isActive: _index == 3),
           ProfileScreen(profile: profile),
         ];
 
