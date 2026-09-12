@@ -96,7 +96,9 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
       case AdminModuleType.audit:
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('سجل النظام غير مفعّل بعد، لذلك لم يتم فتح شاشة غير مكتملة.'),
+            content: Text(
+              'سجل النظام غير مفعّل بعد، لذلك لم يتم فتح شاشة غير مكتملة.',
+            ),
           ),
         );
     }
@@ -202,10 +204,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          CircleAvatar(
-            radius: 26,
-            child: Icon(_roleIcon(widget.profile.role)),
-          ),
+          CircleAvatar(radius: 26, child: Icon(_roleIcon(widget.profile.role))),
           const SizedBox(width: 14),
           Expanded(
             child: Column(
@@ -213,9 +212,9 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
               children: [
                 Text(
                   widget.profile.roleLabel,
-                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                        fontWeight: FontWeight.bold,
-                      ),
+                  style: Theme.of(
+                    context,
+                  ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
                 ),
                 const SizedBox(height: 5),
                 Text(_roleDescription(widget.profile.role)),
@@ -229,14 +228,28 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
 
   Widget _buildMetrics(BuildContext context, List<ProfileModel> employees) {
     final active = employees.where((employee) => employee.active).length;
-    final management = employees.where((employee) => employee.isManagement).length;
+    final management = employees
+        .where((employee) => employee.isManagement)
+        .length;
     return LayoutBuilder(
       builder: (context, constraints) {
         final compact = constraints.maxWidth < 520;
         final cards = [
-          _MetricData('الموظفون', employees.length.toString(), Icons.groups_outlined),
-          _MetricData('النشطون', active.toString(), Icons.verified_user_outlined),
-          _MetricData('الإداريون', management.toString(), Icons.admin_panel_settings_outlined),
+          _MetricData(
+            'الموظفون',
+            employees.length.toString(),
+            Icons.groups_outlined,
+          ),
+          _MetricData(
+            'النشطون',
+            active.toString(),
+            Icons.verified_user_outlined,
+          ),
+          _MetricData(
+            'الإداريون',
+            management.toString(),
+            Icons.admin_panel_settings_outlined,
+          ),
         ];
         if (compact) {
           return Row(
@@ -252,7 +265,9 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
           spacing: 12,
           runSpacing: 12,
           children: cards
-              .map((item) => SizedBox(width: 210, child: _MetricCard(data: item)))
+              .map(
+                (item) => SizedBox(width: 210, child: _MetricCard(data: item)),
+              )
               .toList(),
         );
       },
@@ -262,7 +277,9 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   List<Widget> _buildSections(BuildContext context, List<AdminModule> modules) {
     final sections = <Widget>[];
     for (final category in AdminModuleCategory.values) {
-      final items = modules.where((module) => module.category == category).toList();
+      final items = modules
+          .where((module) => module.category == category)
+          .toList();
       if (items.isEmpty) continue;
       final meta = _categoryMeta(category);
       if (sections.isNotEmpty) sections.add(const SizedBox(height: 22));
@@ -283,22 +300,43 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   (String, String, IconData) _categoryMeta(AdminModuleCategory category) {
     switch (category) {
       case AdminModuleCategory.people:
-        return ('الموظفون والهيكل', 'بيانات الموظفين والمسميات الوظيفية', Icons.groups_2_outlined);
+        return (
+          'الموظفون والهيكل',
+          'بيانات الموظفين والمسميات الوظيفية',
+          Icons.groups_2_outlined,
+        );
       case AdminModuleCategory.attendance:
-        return ('الدوام والورديات', 'السياسات والورديات والجداول والبصمة والإضافي', Icons.schedule_outlined);
+        return (
+          'الدوام والورديات',
+          'السياسات والورديات والجداول والبصمة والإضافي',
+          Icons.schedule_outlined,
+        );
       case AdminModuleCategory.approvals:
-        return ('الطلبات والاعتمادات', 'الإجازات والجزاءات وما يحتاج قرارًا إداريًا', Icons.fact_check_outlined);
+        return (
+          'الطلبات والاعتمادات',
+          'الإجازات والجزاءات وما يحتاج قرارًا إداريًا',
+          Icons.fact_check_outlined,
+        );
       case AdminModuleCategory.finance:
-        return ('المالية', 'الرواتب والسلف والصناديق والحركات المالية', Icons.account_balance_outlined);
+        return (
+          'المالية',
+          'الرواتب والسلف والصناديق والحركات المالية',
+          Icons.account_balance_outlined,
+        );
       case AdminModuleCategory.system:
-        return ('إدارة النظام', 'المستندات والصلاحيات والعمليات الإدارية', Icons.settings_suggest_outlined);
+        return (
+          'إدارة النظام',
+          'المستندات والصلاحيات والعمليات الإدارية',
+          Icons.settings_suggest_outlined,
+        );
     }
   }
 
   IconData _roleIcon(String role) {
     if (AppRoles.isHr(role)) return Icons.badge_outlined;
     if (AppRoles.isGeneralManager(role)) return Icons.business_center_outlined;
-    if (AppRoles.isFinancialManager(role)) return Icons.account_balance_outlined;
+    if (AppRoles.isFinancialManager(role))
+      return Icons.account_balance_outlined;
     return Icons.person_outline;
   }
 
@@ -349,8 +387,8 @@ class _AdminSection extends StatelessWidget {
                   Text(
                     title,
                     style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                          fontWeight: FontWeight.bold,
-                        ),
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                   Text(subtitle, style: Theme.of(context).textTheme.bodySmall),
                 ],
@@ -364,10 +402,11 @@ class _AdminSection extends StatelessWidget {
             final columns = constraints.maxWidth >= 980
                 ? 3
                 : constraints.maxWidth >= 620
-                    ? 2
-                    : 1;
+                ? 2
+                : 1;
             const gap = 10.0;
-            final itemWidth = (constraints.maxWidth - gap * (columns - 1)) / columns;
+            final itemWidth =
+                (constraints.maxWidth - gap * (columns - 1)) / columns;
             return Wrap(
               spacing: gap,
               runSpacing: gap,
@@ -381,7 +420,10 @@ class _AdminSection extends StatelessWidget {
                         child: Row(
                           children: [
                             CircleAvatar(
-                              child: Icon(iconBuilder(module.iconName), size: 22),
+                              child: Icon(
+                                iconBuilder(module.iconName),
+                                size: 22,
+                              ),
                             ),
                             const SizedBox(width: 12),
                             Expanded(
@@ -392,16 +434,19 @@ class _AdminSection extends StatelessWidget {
                                     module.title,
                                     maxLines: 1,
                                     overflow: TextOverflow.ellipsis,
-                                    style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                                          fontWeight: FontWeight.bold,
-                                        ),
+                                    style: Theme.of(context)
+                                        .textTheme
+                                        .titleSmall
+                                        ?.copyWith(fontWeight: FontWeight.bold),
                                   ),
                                   const SizedBox(height: 3),
                                   Text(
                                     module.description,
                                     maxLines: 2,
                                     overflow: TextOverflow.ellipsis,
-                                    style: Theme.of(context).textTheme.bodySmall,
+                                    style: Theme.of(
+                                      context,
+                                    ).textTheme.bodySmall,
                                   ),
                                 ],
                               ),
@@ -442,8 +487,8 @@ class _ReportsShortcut extends StatelessWidget {
                 Text(
                   'مركز التقارير',
                   style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.bold,
-                      ),
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
                 const SizedBox(height: 3),
                 const Text('التقارير الإدارية والمالية مع PDF والطباعة.'),
@@ -481,9 +526,9 @@ class _MetricCard extends StatelessWidget {
           const SizedBox(height: 6),
           Text(
             data.value,
-            style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                  fontWeight: FontWeight.bold,
-                ),
+            style: Theme.of(
+              context,
+            ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
           ),
           Text(
             data.label,

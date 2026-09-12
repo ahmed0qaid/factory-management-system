@@ -7,7 +7,8 @@ class AppFormDialog extends StatelessWidget {
   final Widget Function(
     BuildContext context,
     void Function(void Function()) setState,
-  ) builder;
+  )
+  builder;
   final String submitText;
   final String cancelText;
   final Future<bool> Function() onSubmit;
@@ -27,7 +28,8 @@ class AppFormDialog extends StatelessWidget {
     required Widget Function(
       BuildContext context,
       void Function(void Function()) setState,
-    ) builder,
+    )
+    builder,
     required Future<bool> Function() onSubmit,
     String submitText = 'حفظ',
     String cancelText = 'إلغاء',
@@ -64,10 +66,7 @@ class AppFormDialog extends StatelessWidget {
             ),
           ),
           content: SingleChildScrollView(
-            child: Form(
-              key: formKey,
-              child: builder(context, setState),
-            ),
+            child: Form(key: formKey, child: builder(context, setState)),
           ),
           actionsPadding: const EdgeInsets.symmetric(
             horizontal: AppSpacing.md,

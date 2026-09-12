@@ -77,11 +77,7 @@ class ProfileScreen extends StatelessWidget {
                   const Divider(),
                   _line(context, 'القسم', profile.departmentName ?? '-'),
                   const Divider(),
-                  _line(
-                    context,
-                    'المسمى الوظيفي',
-                    profile.jobTitleName ?? '-',
-                  ),
+                  _line(context, 'المسمى الوظيفي', profile.jobTitleName ?? '-'),
                   const Divider(),
                   _line(context, 'الدور في النظام', profile.roleLabel),
                   const Divider(),

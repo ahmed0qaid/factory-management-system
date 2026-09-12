@@ -105,9 +105,9 @@ class _CreateEmployeeScreenState extends State<CreateEmployeeScreen> {
       Navigator.pop(context);
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('فشل الحفظ: $e')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('فشل الحفظ: $e')));
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -261,8 +261,9 @@ class _CreateEmployeeScreenState extends State<CreateEmployeeScreen> {
                               spacing: AppSpacing.sm,
                               runSpacing: AppSpacing.xs,
                               children: _jobTitles.map((title) {
-                                final isSelected =
-                                    _selectedJobTitles.contains(title);
+                                final isSelected = _selectedJobTitles.contains(
+                                  title,
+                                );
                                 return FilterChip(
                                   label: Text(title.name),
                                   selected: isSelected,

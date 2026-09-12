@@ -11,10 +11,7 @@ class JobTitleService {
     bool activeOnly = true,
   }) async {
     try {
-      final queries = [
-        Query.equal('company_id', companyId),
-        Query.limit(100),
-      ];
+      final queries = [Query.equal('company_id', companyId), Query.limit(100)];
 
       if (activeOnly) {
         queries.add(Query.equal('active', true));
@@ -41,11 +38,7 @@ class JobTitleService {
         databaseId: AppConstants.databaseId,
         tableId: AppConstants.jobTitlesTable,
         rowId: ID.unique(),
-        data: {
-          'company_id': companyId,
-          'name': name,
-          'active': true,
-        },
+        data: {'company_id': companyId, 'name': name, 'active': true},
       );
       return JobTitleModel.fromMap(res.data);
     } catch (e) {
@@ -63,10 +56,7 @@ class JobTitleService {
         databaseId: AppConstants.databaseId,
         tableId: AppConstants.jobTitlesTable,
         rowId: id,
-        data: {
-          'name': name,
-          'active': active,
-        },
+        data: {'name': name, 'active': active},
       );
       return JobTitleModel.fromMap(res.data);
     } catch (e) {
@@ -80,9 +70,7 @@ class JobTitleService {
         databaseId: AppConstants.databaseId,
         tableId: AppConstants.jobTitlesTable,
         rowId: id,
-        data: {
-          'active': false,
-        },
+        data: {'active': false},
       );
     } catch (e) {
       throw Exception('فشل في تعطيل المسمى الوظيفي: $e');
@@ -94,10 +82,7 @@ class JobTitleService {
       final res = await _db.listRows(
         databaseId: AppConstants.databaseId,
         tableId: AppConstants.profilesTable,
-        queries: [
-          Query.equal('job_title_id', id),
-          Query.limit(1),
-        ],
+        queries: [Query.equal('job_title_id', id), Query.limit(1)],
       );
       return res.rows.isNotEmpty;
     } catch (e) {

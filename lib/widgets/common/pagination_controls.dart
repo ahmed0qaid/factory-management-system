@@ -93,5 +93,3 @@ class PaginationControls extends StatelessWidget {
     );
   }
 }
-
-

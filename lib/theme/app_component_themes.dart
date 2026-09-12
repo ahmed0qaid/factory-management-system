@@ -74,7 +74,9 @@ class AppComponentThemes {
         vertical: AppSpacing.sm + 2,
       ),
       labelStyle: TextStyle(color: scheme.onSurfaceVariant),
-      hintStyle: TextStyle(color: scheme.onSurfaceVariant.withValues(alpha: .76)),
+      hintStyle: TextStyle(
+        color: scheme.onSurfaceVariant.withValues(alpha: .76),
+      ),
       prefixIconColor: scheme.onSurfaceVariant,
       suffixIconColor: scheme.onSurfaceVariant,
       border: OutlineInputBorder(
@@ -184,7 +186,9 @@ class AppComponentThemes {
     );
   }
 
-  static FloatingActionButtonThemeData floatingActionButton(ColorScheme scheme) {
+  static FloatingActionButtonThemeData floatingActionButton(
+    ColorScheme scheme,
+  ) {
     return FloatingActionButtonThemeData(
       elevation: 1,
       focusElevation: 1,
@@ -266,9 +270,7 @@ class AppComponentThemes {
               ? scheme.secondaryContainer
               : scheme.surfaceContainerLowest;
         }),
-        side: WidgetStatePropertyAll(
-          BorderSide(color: scheme.outlineVariant),
-        ),
+        side: WidgetStatePropertyAll(BorderSide(color: scheme.outlineVariant)),
         textStyle: const WidgetStatePropertyAll(
           TextStyle(
             fontFamily: 'Cairo',

@@ -10,10 +10,7 @@ import '../../widgets/common/app_scaffold.dart';
 class ForcePasswordChangeScreen extends StatefulWidget {
   final VoidCallback onPasswordChanged;
 
-  const ForcePasswordChangeScreen({
-    super.key,
-    required this.onPasswordChanged,
-  });
+  const ForcePasswordChangeScreen({super.key, required this.onPasswordChanged});
 
   @override
   State<ForcePasswordChangeScreen> createState() =>
@@ -52,9 +49,9 @@ class _ForcePasswordChangeScreenState extends State<ForcePasswordChangeScreen> {
       widget.onPasswordChanged();
     } catch (error) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('تعذر تغيير كلمة المرور: $error')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('تعذر تغيير كلمة المرور: $error')));
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -134,8 +131,8 @@ class _ForcePasswordChangeScreenState extends State<ForcePasswordChangeScreen> {
                             textInputAction: TextInputAction.next,
                             validator: (value) =>
                                 value == null || value.length < 8
-                                    ? 'أدخل كلمة المرور المؤقتة'
-                                    : null,
+                                ? 'أدخل كلمة المرور المؤقتة'
+                                : null,
                           ),
                           const SizedBox(height: AppSpacing.md),
                           AppFormField(

@@ -67,7 +67,8 @@ class _AdvanceBalanceDetailsScreenState
                       children: [
                         Text(
                           'الفترة المالية الحالية',
-                          style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                          style: Theme.of(context).textTheme.titleMedium
+                              ?.copyWith(
                                 color: scheme.primary,
                                 fontWeight: FontWeight.w700,
                               ),
@@ -85,7 +86,8 @@ class _AdvanceBalanceDetailsScreenState
                       children: [
                         Text(
                           'الدوام والمستحقات',
-                          style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                          style: Theme.of(context).textTheme.titleMedium
+                              ?.copyWith(
                                 color: scheme.primary,
                                 fontWeight: FontWeight.w700,
                               ),
@@ -120,7 +122,8 @@ class _AdvanceBalanceDetailsScreenState
                       children: [
                         Text(
                           'الخصومات المحتسبة',
-                          style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                          style: Theme.of(context).textTheme.titleMedium
+                              ?.copyWith(
                                 color: scheme.error,
                                 fontWeight: FontWeight.w700,
                               ),
@@ -151,7 +154,8 @@ class _AdvanceBalanceDetailsScreenState
                       children: [
                         Text(
                           'الخلاصة',
-                          style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                          style: Theme.of(context).textTheme.titleMedium
+                              ?.copyWith(
                                 color: scheme.onSurface,
                                 fontWeight: FontWeight.w700,
                               ),
@@ -176,9 +180,8 @@ class _AdvanceBalanceDetailsScreenState
                         const SizedBox(height: 12),
                         Text(
                           'يتم حساب الرصيد المتاح بناءً على أيام الحضور خلال الفترة المالية الحالية، بعد خصم السلف السابقة والجزاءات المسجلة.',
-                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                color: scheme.onSurfaceVariant,
-                              ),
+                          style: Theme.of(context).textTheme.bodySmall
+                              ?.copyWith(color: scheme.onSurfaceVariant),
                         ),
                       ],
                     ),
@@ -208,8 +211,8 @@ class _AdvanceBalanceDetailsScreenState
             child: Text(
               title,
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: Theme.of(context).colorScheme.onSurfaceVariant,
-                  ),
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
             ),
           ),
           const SizedBox(width: 8),
@@ -219,9 +222,9 @@ class _AdvanceBalanceDetailsScreenState
               value,
               textAlign: TextAlign.end,
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    fontWeight: isBold ? FontWeight.w700 : FontWeight.w500,
-                    color: color ?? Theme.of(context).colorScheme.onSurface,
-                  ),
+                fontWeight: isBold ? FontWeight.w700 : FontWeight.w500,
+                color: color ?? Theme.of(context).colorScheme.onSurface,
+              ),
             ),
           ),
         ],

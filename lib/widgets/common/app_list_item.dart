@@ -34,14 +34,16 @@ class AppListItem extends StatelessWidget {
       backgroundColor: backgroundColor,
       onTap: onTap,
       child: ListTile(
-        contentPadding: contentPadding ??
+        contentPadding:
+            contentPadding ??
             const EdgeInsets.symmetric(
               horizontal: AppSpacing.md,
               vertical: AppSpacing.xs,
             ),
         leading: leading,
         title: DefaultTextStyle(
-          style: theme.textTheme.titleSmall?.copyWith(
+          style:
+              theme.textTheme.titleSmall?.copyWith(
                 color: scheme.onSurface,
                 fontWeight: FontWeight.w600,
               ) ??
@@ -50,7 +52,8 @@ class AppListItem extends StatelessWidget {
         ),
         subtitle: subtitle != null
             ? DefaultTextStyle(
-                style: theme.textTheme.bodyMedium?.copyWith(
+                style:
+                    theme.textTheme.bodyMedium?.copyWith(
                       color: scheme.onSurfaceVariant,
                     ) ??
                     TextStyle(color: scheme.onSurfaceVariant),

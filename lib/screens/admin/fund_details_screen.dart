@@ -85,9 +85,9 @@ class _FundDetailsScreenState extends State<FundDetailsScreen> {
           return true;
         } catch (e) {
           if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text(e.toString())),
-            );
+            ScaffoldMessenger.of(
+              context,
+            ).showSnackBar(SnackBar(content: Text(e.toString())));
           }
           return false;
         }
@@ -98,7 +98,9 @@ class _FundDetailsScreenState extends State<FundDetailsScreen> {
           children: [
             AppFormField(
               controller: amountCtrl,
-              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              keyboardType: const TextInputType.numberWithOptions(
+                decimal: true,
+              ),
               labelText: 'المبلغ',
               prefixIcon: Icons.payments_outlined,
             ),
@@ -247,48 +249,48 @@ class _FundDetailsScreenState extends State<FundDetailsScreen> {
                 child: _loading
                     ? const AppLoadingState(label: 'جاري تحميل الحركات')
                     : _transactions.isEmpty
-                        ? const AppEmptyState(
-                            title: 'لا توجد حركات',
-                            message: 'لم يتم تسجيل حركات مالية في هذا الصندوق بعد.',
-                            icon: Icons.receipt_long_outlined,
-                          )
-                        : ListView.builder(
-                            padding: const EdgeInsets.all(16),
-                            itemCount: _transactions.length,
-                            itemBuilder: (context, index) {
-                              final tx = _transactions[index];
-                              final isIn = tx.type == 'in';
-                              final accent = isIn ? scheme.primary : scheme.error;
-                              final background = isIn
-                                  ? scheme.primaryContainer
-                                  : scheme.errorContainer;
-                              final foreground = isIn
-                                  ? scheme.onPrimaryContainer
-                                  : scheme.onErrorContainer;
-                              return AppListItem(
-                                leading: CircleAvatar(
-                                  backgroundColor: background,
-                                  foregroundColor: foreground,
-                                  child: Icon(
-                                    isIn
-                                        ? Icons.arrow_downward
-                                        : Icons.arrow_upward,
-                                  ),
-                                ),
-                                title: Text(tx.description),
-                                subtitle: Text(
-                                  DateFormat('yyyy/MM/dd HH:mm').format(tx.date),
-                                ),
-                                trailing: Text(
-                                  '${isIn ? '+' : '-'}${Formatters.money(tx.amount)}',
-                                  style: theme.textTheme.titleSmall?.copyWith(
-                                    fontWeight: FontWeight.w700,
-                                    color: accent,
-                                  ),
-                                ),
-                              );
-                            },
-                          ),
+                    ? const AppEmptyState(
+                        title: 'لا توجد حركات',
+                        message: 'لم يتم تسجيل حركات مالية في هذا الصندوق بعد.',
+                        icon: Icons.receipt_long_outlined,
+                      )
+                    : ListView.builder(
+                        padding: const EdgeInsets.all(16),
+                        itemCount: _transactions.length,
+                        itemBuilder: (context, index) {
+                          final tx = _transactions[index];
+                          final isIn = tx.type == 'in';
+                          final accent = isIn ? scheme.primary : scheme.error;
+                          final background = isIn
+                              ? scheme.primaryContainer
+                              : scheme.errorContainer;
+                          final foreground = isIn
+                              ? scheme.onPrimaryContainer
+                              : scheme.onErrorContainer;
+                          return AppListItem(
+                            leading: CircleAvatar(
+                              backgroundColor: background,
+                              foregroundColor: foreground,
+                              child: Icon(
+                                isIn
+                                    ? Icons.arrow_downward
+                                    : Icons.arrow_upward,
+                              ),
+                            ),
+                            title: Text(tx.description),
+                            subtitle: Text(
+                              DateFormat('yyyy/MM/dd HH:mm').format(tx.date),
+                            ),
+                            trailing: Text(
+                              '${isIn ? '+' : '-'}${Formatters.money(tx.amount)}',
+                              style: theme.textTheme.titleSmall?.copyWith(
+                                fontWeight: FontWeight.w700,
+                                color: accent,
+                              ),
+                            ),
+                          );
+                        },
+                      ),
               ),
             ],
           ),

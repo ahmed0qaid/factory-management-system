@@ -95,8 +95,9 @@ class _MonthlyWorkScheduleScreenState extends State<MonthlyWorkScheduleScreen> {
     });
 
     try {
-      final assignment =
-          await _assignmentService.getActiveAssignment(employee.id);
+      final assignment = await _assignmentService.getActiveAssignment(
+        employee.id,
+      );
       if (!mounted || _selectedEmployee?.id != employee.id) return;
       setState(() {
         _currentAssignment = assignment;
@@ -127,7 +128,8 @@ class _MonthlyWorkScheduleScreenState extends State<MonthlyWorkScheduleScreen> {
     if (employee == null || assignment == null) return;
 
     final monthLabel = _monthNames[_selectedMonth - 1];
-    final confirmed = await showDialog<bool>(
+    final confirmed =
+        await showDialog<bool>(
           context: context,
           builder: (context) => AlertDialog(
             title: const Text('توليد جدول الدوام'),
@@ -299,8 +301,8 @@ class _MonthlyWorkScheduleScreenState extends State<MonthlyWorkScheduleScreen> {
                                       .toList(),
                                   onChanged: canManage
                                       ? (value) => setState(
-                                            () => _selectedYear = value!,
-                                          )
+                                          () => _selectedYear = value!,
+                                        )
                                       : null,
                                 );
                                 final month = AppDropdownField<int>(
@@ -316,8 +318,8 @@ class _MonthlyWorkScheduleScreenState extends State<MonthlyWorkScheduleScreen> {
                                       .toList(),
                                   onChanged: canManage
                                       ? (value) => setState(
-                                            () => _selectedMonth = value!,
-                                          )
+                                          () => _selectedMonth = value!,
+                                        )
                                       : null,
                                 );
                                 if (compact) {
@@ -361,9 +363,8 @@ class _MonthlyWorkScheduleScreenState extends State<MonthlyWorkScheduleScreen> {
                                 ),
                               ],
                               onChanged: canManage
-                                  ? (value) => setState(
-                                        () => _restDaysOption = value!,
-                                      )
+                                  ? (value) =>
+                                        setState(() => _restDaysOption = value!)
                                   : null,
                             ),
                           ],
@@ -389,9 +390,13 @@ class _MonthlyWorkScheduleScreenState extends State<MonthlyWorkScheduleScreen> {
                               spacing: 8,
                               runSpacing: 8,
                               children: [
-                                Chip(label: Text('إجمالي الأيام: $daysInMonth')),
+                                Chip(
+                                  label: Text('إجمالي الأيام: $daysInMonth'),
+                                ),
                                 Chip(label: Text('أيام العمل: $workDaysCount')),
-                                Chip(label: Text('أيام الراحة: $restDaysCount')),
+                                Chip(
+                                  label: Text('أيام الراحة: $restDaysCount'),
+                                ),
                               ],
                             ),
                           ],

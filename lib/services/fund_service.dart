@@ -25,12 +25,7 @@ class FundService {
       databaseId: _dbId,
       tableId: 'funds',
       rowId: ID.unique(),
-      data: {
-        'name': name,
-        'type': type,
-        'balance': 0.0,
-        'active': true,
-      },
+      data: {'name': name, 'type': type, 'balance': 0.0, 'active': true},
     );
   }
 
@@ -65,7 +60,9 @@ class FundService {
       rowId: fundId,
     );
     final currentBalance = (fundDoc.data['balance'] ?? 0.0).toDouble();
-    final newBalance = type == 'in' ? currentBalance + amount : currentBalance - amount;
+    final newBalance = type == 'in'
+        ? currentBalance + amount
+        : currentBalance - amount;
 
     await _tablesDB.updateRow(
       databaseId: _dbId,
@@ -85,7 +82,9 @@ class FundService {
         Query.limit(100),
       ],
     );
-    return response.rows.map((d) => FundTransactionModel.fromMap(_data(d))).toList();
+    return response.rows
+        .map((d) => FundTransactionModel.fromMap(_data(d)))
+        .toList();
   }
 
   Future<List<FundClosureModel>> getClosures(String fundId) async {
@@ -98,7 +97,9 @@ class FundService {
         Query.limit(30),
       ],
     );
-    return response.rows.map((d) => FundClosureModel.fromMap(_data(d))).toList();
+    return response.rows
+        .map((d) => FundClosureModel.fromMap(_data(d)))
+        .toList();
   }
 
   Future<void> closeDailyMovement(String fundId, String closedBy) async {
@@ -112,13 +113,11 @@ class FundService {
     }
 
     // Get all transactions since last closure
-    final List<String> queries = [
-      Query.equal('fund_id', fundId),
-    ];
+    final List<String> queries = [Query.equal('fund_id', fundId)];
     if (lastClosureDate != null) {
       queries.add(Query.greaterThan('date', lastClosureDate.toIso8601String()));
     }
-    
+
     final txResponse = await _tablesDB.listRows(
       databaseId: _dbId,
       tableId: 'fund_transactions',

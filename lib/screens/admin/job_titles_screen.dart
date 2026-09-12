@@ -45,9 +45,9 @@ class _JobTitlesScreenState extends State<JobTitlesScreen> {
       );
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('خطأ: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('خطأ: $e')));
       }
     } finally {
       if (mounted) setState(() => _isLoading = false);
@@ -86,9 +86,9 @@ class _JobTitlesScreenState extends State<JobTitlesScreen> {
         } catch (e) {
           if (mounted) {
             setState(() => _isLoading = false);
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text('خطأ: $e')),
-            );
+            ScaffoldMessenger.of(
+              context,
+            ).showSnackBar(SnackBar(content: Text('خطأ: $e')));
           }
           return false;
         }
@@ -136,9 +136,9 @@ class _JobTitlesScreenState extends State<JobTitlesScreen> {
       } catch (e) {
         if (mounted) {
           setState(() => _isLoading = false);
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('خطأ: $e')),
-          );
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text('خطأ: $e')));
         }
       }
     }
@@ -190,68 +190,68 @@ class _JobTitlesScreenState extends State<JobTitlesScreen> {
       body: _isLoading
           ? const AppLoadingState(label: 'جاري تحميل المسميات الوظيفية')
           : _jobTitles.isEmpty
-              ? const AppEmptyState(
-                  icon: Icons.badge_outlined,
-                  title: 'لا توجد مسميات وظيفية',
-                  message: 'قم بإضافة مسميات وظيفية جديدة للشركة',
-                )
-              : Align(
-                  alignment: Alignment.topCenter,
-                  child: ConstrainedBox(
-                    constraints: const BoxConstraints(maxWidth: 900),
-                    child: ListView.builder(
-                      padding: const EdgeInsets.all(16),
-                      itemCount: _jobTitles.length,
-                      itemBuilder: (context, index) {
-                        final jobTitle = _jobTitles[index];
-                        return AppListItem(
-                          title: Text(
-                            jobTitle.name,
-                            style: theme.textTheme.bodyLarge?.copyWith(
-                              decoration: jobTitle.active
-                                  ? null
-                                  : TextDecoration.lineThrough,
-                              color: jobTitle.active
-                                  ? scheme.onSurface
-                                  : scheme.onSurfaceVariant,
-                              fontWeight: FontWeight.w600,
+          ? const AppEmptyState(
+              icon: Icons.badge_outlined,
+              title: 'لا توجد مسميات وظيفية',
+              message: 'قم بإضافة مسميات وظيفية جديدة للشركة',
+            )
+          : Align(
+              alignment: Alignment.topCenter,
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 900),
+                child: ListView.builder(
+                  padding: const EdgeInsets.all(16),
+                  itemCount: _jobTitles.length,
+                  itemBuilder: (context, index) {
+                    final jobTitle = _jobTitles[index];
+                    return AppListItem(
+                      title: Text(
+                        jobTitle.name,
+                        style: theme.textTheme.bodyLarge?.copyWith(
+                          decoration: jobTitle.active
+                              ? null
+                              : TextDecoration.lineThrough,
+                          color: jobTitle.active
+                              ? scheme.onSurface
+                              : scheme.onSurfaceVariant,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      subtitle: jobTitle.active
+                          ? AppStatusPill.success('مفعل')
+                          : AppStatusPill.neutral('معطل'),
+                      trailing: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          IconButton(
+                            icon: const Icon(Icons.edit_outlined),
+                            tooltip: 'تعديل',
+                            onPressed: () => _showAddEditDialog(jobTitle),
+                          ),
+                          if (jobTitle.active)
+                            IconButton(
+                              icon: Icon(
+                                Icons.block_outlined,
+                                color: semantic.warning,
+                              ),
+                              tooltip: 'تعطيل',
+                              onPressed: () => _confirmDeactivate(jobTitle),
                             ),
+                          IconButton(
+                            icon: Icon(
+                              Icons.delete_outline,
+                              color: scheme.error,
+                            ),
+                            tooltip: 'حذف',
+                            onPressed: () => _confirmDelete(jobTitle),
                           ),
-                          subtitle: jobTitle.active
-                              ? AppStatusPill.success('مفعل')
-                              : AppStatusPill.neutral('معطل'),
-                          trailing: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              IconButton(
-                                icon: const Icon(Icons.edit_outlined),
-                                tooltip: 'تعديل',
-                                onPressed: () => _showAddEditDialog(jobTitle),
-                              ),
-                              if (jobTitle.active)
-                                IconButton(
-                                  icon: Icon(
-                                    Icons.block_outlined,
-                                    color: semantic.warning,
-                                  ),
-                                  tooltip: 'تعطيل',
-                                  onPressed: () => _confirmDeactivate(jobTitle),
-                                ),
-                              IconButton(
-                                icon: Icon(
-                                  Icons.delete_outline,
-                                  color: scheme.error,
-                                ),
-                                tooltip: 'حذف',
-                                onPressed: () => _confirmDelete(jobTitle),
-                              ),
-                            ],
-                          ),
-                        );
-                      },
-                    ),
-                  ),
+                        ],
+                      ),
+                    );
+                  },
                 ),
+              ),
+            ),
     );
   }
 }

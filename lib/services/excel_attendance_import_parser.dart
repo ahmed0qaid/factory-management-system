@@ -332,12 +332,12 @@ class ExcelAttendanceImportParser {
 
   static DateTime? parseExcelDate(Object? value) {
     if (value == null) return null;
-    
+
     // Excel serial number
     if (value is num) {
       return DateTime(1899, 12, 30).add(Duration(days: value.floor()));
     }
-    
+
     // Excel DateTime object (if any platform-specific parse handles it)
     if (value is DateTime) {
       return value;

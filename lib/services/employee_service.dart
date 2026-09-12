@@ -158,7 +158,14 @@ class EmployeeService {
 
     // Get advances for current month
     final advancesStart = DateTime(year, month, 1).toIso8601String();
-    final advancesEnd = DateTime(year, month + 1, 0, 23, 59, 59).toIso8601String();
+    final advancesEnd = DateTime(
+      year,
+      month + 1,
+      0,
+      23,
+      59,
+      59,
+    ).toIso8601String();
     final advancesData = await AppwriteService.tablesDB.listRows(
       databaseId: AppConstants.databaseId,
       tableId: AppConstants.advancesTable,
@@ -184,7 +191,8 @@ class EmployeeService {
       advancesTotal: advancesTotal,
       year: year,
       month: month,
-      fridayMode: FridaySalaryMode.includeFridays, // Default for employee view if not saved per employee
+      fridayMode: FridaySalaryMode
+          .includeFridays, // Default for employee view if not saved per employee
     );
   }
 

@@ -21,7 +21,10 @@ class EmployeeShiftAssignmentModel {
     this.notes,
   });
 
-  factory EmployeeShiftAssignmentModel.fromMap(Map<String, dynamic> map, {String? id}) {
+  factory EmployeeShiftAssignmentModel.fromMap(
+    Map<String, dynamic> map, {
+    String? id,
+  }) {
     return EmployeeShiftAssignmentModel(
       id: id ?? map['\$id'] ?? map['id'] ?? '',
       companyId: map['company_id'] ?? '',
@@ -29,7 +32,9 @@ class EmployeeShiftAssignmentModel {
       assignmentType: map['assignment_type'] ?? 'fixed',
       fixedShiftId: map['fixed_shift_id'],
       rotationPattern: map['rotation_pattern'],
-      rotationStartDate: map['rotation_start_date'] != null ? DateTime.parse(map['rotation_start_date']) : null,
+      rotationStartDate: map['rotation_start_date'] != null
+          ? DateTime.parse(map['rotation_start_date'])
+          : null,
       active: map['active'] ?? true,
       notes: map['notes'],
     );

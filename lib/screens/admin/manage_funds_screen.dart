@@ -69,9 +69,9 @@ class _ManageFundsScreenState extends State<ManageFundsScreen> {
           return true;
         } catch (e) {
           if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text(e.toString())),
-            );
+            ScaffoldMessenger.of(
+              context,
+            ).showSnackBar(SnackBar(content: Text(e.toString())));
           }
           return false;
         }
@@ -80,10 +80,7 @@ class _ManageFundsScreenState extends State<ManageFundsScreen> {
         return Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            AppFormField(
-              controller: nameCtrl,
-              labelText: 'اسم الصندوق',
-            ),
+            AppFormField(controller: nameCtrl, labelText: 'اسم الصندوق'),
             const SizedBox(height: 16),
             AppDropdownField<String>(
               value: type,
@@ -146,59 +143,59 @@ class _ManageFundsScreenState extends State<ManageFundsScreen> {
       body: _loading
           ? const AppLoadingState(label: 'جاري تحميل الصناديق')
           : _funds.isEmpty
-              ? AppEmptyState(
-                  title: 'لا توجد صناديق',
-                  message: 'أضف صندوقًا أو حسابًا ماليًا لبدء تسجيل الحركات.',
-                  icon: Icons.account_balance_wallet_outlined,
-                  actionLabel: 'إضافة صندوق',
-                  onAction: _showCreateDialog,
-                )
-              : Align(
-                  alignment: Alignment.topCenter,
-                  child: ConstrainedBox(
-                    constraints: const BoxConstraints(maxWidth: 900),
-                    child: ListView.builder(
-                      padding: const EdgeInsets.all(16),
-                      itemCount: _funds.length,
-                      itemBuilder: (context, index) {
-                        final fund = _funds[index];
-                        final negative = fund.balance < 0;
-                        return AppListItem(
-                          leading: CircleAvatar(
-                            backgroundColor: scheme.primaryContainer,
-                            foregroundColor: scheme.onPrimaryContainer,
-                            child: Icon(_getIcon(fund.type)),
-                          ),
-                          title: Text(
-                            fund.name,
-                            style: theme.textTheme.bodyLarge?.copyWith(
-                              fontWeight: FontWeight.w700,
+          ? AppEmptyState(
+              title: 'لا توجد صناديق',
+              message: 'أضف صندوقًا أو حسابًا ماليًا لبدء تسجيل الحركات.',
+              icon: Icons.account_balance_wallet_outlined,
+              actionLabel: 'إضافة صندوق',
+              onAction: _showCreateDialog,
+            )
+          : Align(
+              alignment: Alignment.topCenter,
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 900),
+                child: ListView.builder(
+                  padding: const EdgeInsets.all(16),
+                  itemCount: _funds.length,
+                  itemBuilder: (context, index) {
+                    final fund = _funds[index];
+                    final negative = fund.balance < 0;
+                    return AppListItem(
+                      leading: CircleAvatar(
+                        backgroundColor: scheme.primaryContainer,
+                        foregroundColor: scheme.onPrimaryContainer,
+                        child: Icon(_getIcon(fund.type)),
+                      ),
+                      title: Text(
+                        fund.name,
+                        style: theme.textTheme.bodyLarge?.copyWith(
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      subtitle: Text(_getTypeLabel(fund.type)),
+                      trailing: Text(
+                        Formatters.money(fund.balance),
+                        style: theme.textTheme.titleSmall?.copyWith(
+                          fontWeight: FontWeight.w700,
+                          color: negative ? scheme.error : scheme.onSurface,
+                        ),
+                      ),
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => FundDetailsScreen(
+                              fund: fund,
+                              currentProfile: widget.currentProfile,
                             ),
                           ),
-                          subtitle: Text(_getTypeLabel(fund.type)),
-                          trailing: Text(
-                            Formatters.money(fund.balance),
-                            style: theme.textTheme.titleSmall?.copyWith(
-                              fontWeight: FontWeight.w700,
-                              color: negative ? scheme.error : scheme.onSurface,
-                            ),
-                          ),
-                          onTap: () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (_) => FundDetailsScreen(
-                                  fund: fund,
-                                  currentProfile: widget.currentProfile,
-                                ),
-                              ),
-                            ).then((_) => _loadFunds());
-                          },
-                        );
+                        ).then((_) => _loadFunds());
                       },
-                    ),
-                  ),
+                    );
+                  },
                 ),
+              ),
+            ),
     );
   }
 }

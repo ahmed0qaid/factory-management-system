@@ -104,8 +104,9 @@ class _EmployeeShiftAssignmentsScreenState
     });
 
     try {
-      final assignment =
-          await _assignmentService.getActiveAssignment(employee.id);
+      final assignment = await _assignmentService.getActiveAssignment(
+        employee.id,
+      );
       if (!mounted || _selectedEmployee?.id != employee.id) return;
       setState(() {
         _currentAssignment = assignment;
@@ -196,8 +197,9 @@ class _EmployeeShiftAssignmentsScreenState
         assignmentType: _assignmentType,
         fixedShiftId: _assignmentType == 'fixed' ? _fixedShiftId : null,
         rotationPattern: rotationPattern,
-        rotationStartDate:
-            _assignmentType == 'weekly_rotation' ? _rotationStartDate : null,
+        rotationStartDate: _assignmentType == 'weekly_rotation'
+            ? _rotationStartDate
+            : null,
         active: true,
         notes: _notesController.text.trim().isEmpty
             ? null
@@ -229,8 +231,7 @@ class _EmployeeShiftAssignmentsScreenState
     final confirmed = await AppConfirmDialog.show(
       context,
       title: 'تعطيل تعيين الدوام',
-      content:
-          'هل تريد تعطيل تعيين الدوام الحالي للموظف ${employee.fullName}؟',
+      content: 'هل تريد تعطيل تعيين الدوام الحالي للموظف ${employee.fullName}؟',
       confirmText: 'تعطيل',
       isDestructive: true,
     );
@@ -404,10 +405,8 @@ class _EmployeeShiftAssignmentsScreenState
           labelText: 'اختر الوردية',
           items: _shifts
               .map(
-                (shift) => DropdownMenuItem(
-                  value: shift.id,
-                  child: Text(shift.name),
-                ),
+                (shift) =>
+                    DropdownMenuItem(value: shift.id, child: Text(shift.name)),
               )
               .toList(),
           onChanged: canEdit
@@ -432,10 +431,8 @@ class _EmployeeShiftAssignmentsScreenState
           labelText: 'وردية الأسبوع الأول',
           items: _shifts
               .map(
-                (shift) => DropdownMenuItem(
-                  value: shift.id,
-                  child: Text(shift.name),
-                ),
+                (shift) =>
+                    DropdownMenuItem(value: shift.id, child: Text(shift.name)),
               )
               .toList(),
           onChanged: canEdit
@@ -448,10 +445,8 @@ class _EmployeeShiftAssignmentsScreenState
           labelText: 'وردية الأسبوع الثاني',
           items: _shifts
               .map(
-                (shift) => DropdownMenuItem(
-                  value: shift.id,
-                  child: Text(shift.name),
-                ),
+                (shift) =>
+                    DropdownMenuItem(value: shift.id, child: Text(shift.name)),
               )
               .toList(),
           onChanged: canEdit

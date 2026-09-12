@@ -417,9 +417,8 @@ class _EmployeeShellState extends State<EmployeeShell> {
                   ListTile(
                     leading: const Icon(Icons.event_available_outlined),
                     title: const Text('الإجازات والاستئذان'),
-                    onTap: () => closeThen(
-                      () => open(const LeaveRequestsScreen()),
-                    ),
+                    onTap: () =>
+                        closeThen(() => open(const LeaveRequestsScreen())),
                   ),
                   ListTile(
                     leading: const Icon(Icons.gavel_outlined),
@@ -433,9 +432,7 @@ class _EmployeeShellState extends State<EmployeeShell> {
                     leading: const Icon(Icons.settings_outlined),
                     title: const Text('الإعدادات'),
                     subtitle: const Text('الأمان والبصمة وإعدادات التطبيق'),
-                    onTap: () => closeThen(
-                      () => open(const SettingsScreen()),
-                    ),
+                    onTap: () => closeThen(() => open(const SettingsScreen())),
                   ),
                 ],
               ),

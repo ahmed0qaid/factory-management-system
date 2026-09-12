@@ -46,9 +46,7 @@ class _ImportBiometricScreenState extends State<ImportBiometricScreen> {
     if (file.extension?.toLowerCase() != 'xlsx') {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('يجب اختيار ملف Excel بصيغة xlsx فقط.'),
-          ),
+          const SnackBar(content: Text('يجب اختيار ملف Excel بصيغة xlsx فقط.')),
         );
       }
       return;
@@ -64,9 +62,9 @@ class _ImportBiometricScreenState extends State<ImportBiometricScreen> {
 
   Future<void> _generatePreview() async {
     if (_selectedFile == null || _selectedFile!.bytes == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('الرجاء اختيار ملف صحيح')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('الرجاء اختيار ملف صحيح')));
       return;
     }
 
@@ -81,9 +79,9 @@ class _ImportBiometricScreenState extends State<ImportBiometricScreen> {
       });
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('فشل تحليل الملف: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('فشل تحليل الملف: $e')));
       }
     } finally {
       if (mounted) setState(() => _isLoading = false);
@@ -132,8 +130,7 @@ class _ImportBiometricScreenState extends State<ImportBiometricScreen> {
             displayMsg =
                 'فشل الاستيراد: لا توجد صلاحية لحفظ سجلات البصمة في Appwrite.';
           }
-        } else if (msg.contains('حقل غير موجود') ||
-            msg.contains('Attribute')) {
+        } else if (msg.contains('حقل غير موجود') || msg.contains('Attribute')) {
           displayMsg = msg.replaceFirst('Exception: ', '');
           if (!displayMsg.contains('حقل غير موجود')) {
             displayMsg =
@@ -191,9 +188,7 @@ class _ImportBiometricScreenState extends State<ImportBiometricScreen> {
             const SizedBox(width: 12),
             Expanded(
               child: Text(
-                hasErrors
-                    ? 'تم الاستيراد بنجاح جزئي'
-                    : 'اكتمل الاستيراد بنجاح',
+                hasErrors ? 'تم الاستيراد بنجاح جزئي' : 'اكتمل الاستيراد بنجاح',
               ),
             ),
           ],
@@ -233,7 +228,9 @@ class _ImportBiometricScreenState extends State<ImportBiometricScreen> {
                 _resultLine(
                   'سجلات بصمة فشلت',
                   '${result['logs_failed'] ?? 0}',
-                  color: (result['logs_failed'] ?? 0) != 0 ? scheme.error : null,
+                  color: (result['logs_failed'] ?? 0) != 0
+                      ? scheme.error
+                      : null,
                 ),
                 const Divider(height: 20),
                 _resultLine(
@@ -244,10 +241,7 @@ class _ImportBiometricScreenState extends State<ImportBiometricScreen> {
                   'سجلات حضور متخطاة',
                   '${result['skipped_attendance'] ?? 0}',
                 ),
-                _resultLine(
-                  'إضافي منشأ',
-                  '${result['created_overtime'] ?? 0}',
-                ),
+                _resultLine('إضافي منشأ', '${result['created_overtime'] ?? 0}'),
                 _resultLine(
                   'إضافي متخطى',
                   '${result['skipped_overtime'] ?? 0}',
@@ -266,8 +260,9 @@ class _ImportBiometricScreenState extends State<ImportBiometricScreen> {
                 _resultLine(
                   'حالات غياب',
                   '${result['absent_cases'] ?? 0}',
-                  color:
-                      (result['absent_cases'] ?? 0) != 0 ? scheme.error : null,
+                  color: (result['absent_cases'] ?? 0) != 0
+                      ? scheme.error
+                      : null,
                 ),
                 _resultLine(
                   'دخول بدون خروج',
@@ -461,8 +456,9 @@ class _ImportBiometricScreenState extends State<ImportBiometricScreen> {
                         message:
                             'اختر ملف Excel ثم اضغط «معاينة الملف» لفحص البيانات قبل الاستيراد.',
                         icon: Icons.table_view_outlined,
-                        actionLabel:
-                            _selectedFile == null ? 'اختيار ملف Excel' : null,
+                        actionLabel: _selectedFile == null
+                            ? 'اختيار ملف Excel'
+                            : null,
                         onAction: _selectedFile == null ? _pickFile : null,
                       ),
                     if (_selectedFile != null &&
@@ -524,7 +520,8 @@ class _ImportBiometricScreenState extends State<ImportBiometricScreen> {
   }
 
   Widget _buildSummaryCard(PreprocessSummary summary) {
-    final dates = summary.groups.map((g) => g.workDate).toSet().toList()..sort();
+    final dates = summary.groups.map((g) => g.workDate).toSet().toList()
+      ..sort();
     final firstDate = dates.isNotEmpty ? Formatters.date(dates.first) : '-';
     final lastDate = dates.isNotEmpty ? Formatters.date(dates.last) : '-';
     final theme = Theme.of(context);
@@ -555,7 +552,10 @@ class _ImportBiometricScreenState extends State<ImportBiometricScreen> {
             runSpacing: 14,
             children: [
               _summaryLine('صفوف Excel المقروءة', '${summary.excelRowsRead}'),
-              _summaryLine('أرقام بصمة في الملف', '${summary.matchedEmployees}'),
+              _summaryLine(
+                'أرقام بصمة في الملف',
+                '${summary.matchedEmployees}',
+              ),
               _summaryLine(
                 'ورديات من Excel',
                 '${summary.groups.where((g) => g.shiftStart != null && g.shiftEnd != null).length}',
@@ -668,10 +668,7 @@ class _ImportBiometricScreenState extends State<ImportBiometricScreen> {
               const Divider(height: 24),
               if (group.employeeName != null)
                 _buildDataField('الاسم', group.employeeName!),
-              _buildDataField(
-                'تاريخ الدوام',
-                Formatters.date(group.workDate),
-              ),
+              _buildDataField('تاريخ الدوام', Formatters.date(group.workDate)),
               _buildDataField(
                 'الوردية المقترحة',
                 group.suggestedShift?.name ?? 'غير معروف',
@@ -717,8 +714,7 @@ class _ImportBiometricScreenState extends State<ImportBiometricScreen> {
                 _buildDataField(
                   'السبب',
                   group.reviewReason,
-                  valueColor:
-                      group.isAbsent ? scheme.error : semantic.warning,
+                  valueColor: group.isAbsent ? scheme.error : semantic.warning,
                 ),
             ],
           ),
@@ -751,7 +747,8 @@ class _ImportBiometricScreenState extends State<ImportBiometricScreen> {
 
   String _displayPunch(DateTime? value, DateTime workDate) {
     if (value == null) return 'مفقود';
-    final differentDay = value.day != workDate.day ||
+    final differentDay =
+        value.day != workDate.day ||
         value.month != workDate.month ||
         value.year != workDate.year;
     return differentDay

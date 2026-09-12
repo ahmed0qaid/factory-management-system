@@ -15,11 +15,7 @@ class ReportPdfLine {
   final String? subtitle;
   final String? trailing;
 
-  const ReportPdfLine({
-    required this.title,
-    this.subtitle,
-    this.trailing,
-  });
+  const ReportPdfLine({required this.title, this.subtitle, this.trailing});
 }
 
 class ReportPdfSection {
@@ -167,9 +163,7 @@ class ReportPdfService {
                   horizontal: 10,
                   vertical: 7,
                 ),
-                decoration: const pw.BoxDecoration(
-                  color: PdfColors.grey200,
-                ),
+                decoration: const pw.BoxDecoration(color: PdfColors.grey200),
                 child: _text(
                   section.title,
                   fontSize: 12,
@@ -247,18 +241,10 @@ class ReportPdfService {
             child: pw.Column(
               crossAxisAlignment: pw.CrossAxisAlignment.stretch,
               children: [
-                _text(
-                  line.title,
-                  fontSize: 10,
-                  fontWeight: pw.FontWeight.bold,
-                ),
+                _text(line.title, fontSize: 10, fontWeight: pw.FontWeight.bold),
                 if (line.subtitle?.trim().isNotEmpty == true) ...[
                   pw.SizedBox(height: 3),
-                  _text(
-                    line.subtitle!,
-                    fontSize: 9,
-                    color: PdfColors.grey700,
-                  ),
+                  _text(line.subtitle!, fontSize: 9, color: PdfColors.grey700),
                 ],
               ],
             ),

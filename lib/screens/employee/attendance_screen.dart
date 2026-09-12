@@ -234,17 +234,13 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
         }
 
         final rawItems = _deduplicate(snapshot.data ?? const []);
-        final availableYears = rawItems
-            .map((record) => record.workDate.year)
-            .toSet()
-            .toList()
-          ..sort((a, b) => b.compareTo(a));
+        final availableYears =
+            rawItems.map((record) => record.workDate.year).toSet().toList()
+              ..sort((a, b) => b.compareTo(a));
 
         var items = List<AttendanceRecordModel>.from(rawItems);
         if (_statusFilter != 'all') {
-          items = items
-              .where((item) => item.status == _statusFilter)
-              .toList();
+          items = items.where((item) => item.status == _statusFilter).toList();
         }
         if (_yearFilter != null) {
           items = items
@@ -300,8 +296,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
                               ? 'الفلاتر ($activeCount)'
                               : 'الفلاتر',
                         ),
-                        onPressed: () =>
-                            _showFilterBottomSheet(availableYears),
+                        onPressed: () => _showFilterBottomSheet(availableYears),
                       ),
                     ),
                   ],
@@ -312,22 +307,21 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
               child: _viewType == AttendanceViewType.visual
                   ? AttendanceVisualSummaryChart(records: rawItems)
                   : items.isEmpty
-                      ? const AppEmptyState(
-                          title: 'لا توجد سجلات مطابقة',
-                          message:
-                              'غيّر الفلاتر أو أعد تعيينها لعرض سجلات أخرى.',
-                          icon: Icons.event_busy_outlined,
-                        )
-                      : ListView.builder(
-                          padding: const EdgeInsets.fromLTRB(16, 4, 16, 24),
-                          itemCount: items.length,
-                          itemBuilder: (context, index) {
-                            return _TimelineItem(
-                              record: items[index],
-                              isLast: index == items.length - 1,
-                            );
-                          },
-                        ),
+                  ? const AppEmptyState(
+                      title: 'لا توجد سجلات مطابقة',
+                      message: 'غيّر الفلاتر أو أعد تعيينها لعرض سجلات أخرى.',
+                      icon: Icons.event_busy_outlined,
+                    )
+                  : ListView.builder(
+                      padding: const EdgeInsets.fromLTRB(16, 4, 16, 24),
+                      itemCount: items.length,
+                      itemBuilder: (context, index) {
+                        return _TimelineItem(
+                          record: items[index],
+                          isLast: index == items.length - 1,
+                        );
+                      },
+                    ),
             ),
           ],
         );
@@ -335,9 +329,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
     );
   }
 
-  List<AttendanceRecordModel> _deduplicate(
-    List<AttendanceRecordModel> items,
-  ) {
+  List<AttendanceRecordModel> _deduplicate(List<AttendanceRecordModel> items) {
     final seen = <String>{};
     final result = <AttendanceRecordModel>[];
     for (final item in items) {
@@ -420,10 +412,7 @@ class _TimelineItem extends StatelessWidget {
                   const SizedBox(height: 14),
                   _MetricPair(
                     color: color,
-                    first: _MetricValue(
-                      'الحضور',
-                      displayTime(record.checkIn),
-                    ),
+                    first: _MetricValue('الحضور', displayTime(record.checkIn)),
                     second: _MetricValue(
                       'الانصراف',
                       displayTime(record.checkOut),
@@ -540,9 +529,13 @@ class _MetricPair extends StatelessWidget {
   Widget build(BuildContext context) {
     return Row(
       children: [
-        Expanded(child: _MetricBox(value: first, color: color)),
+        Expanded(
+          child: _MetricBox(value: first, color: color),
+        ),
         const SizedBox(width: 8),
-        Expanded(child: _MetricBox(value: second, color: color)),
+        Expanded(
+          child: _MetricBox(value: second, color: color),
+        ),
       ],
     );
   }

@@ -3,7 +3,8 @@ class AppConstants {
 
   static String databaseId = 'hr';
   static String createEmployeeFunctionId = 'create_employee';
-  static String updateEmployeeCredentialsFunctionId = 'update_employee_credentials';
+  static String updateEmployeeCredentialsFunctionId =
+      'update_employee_credentials';
 
   // Appwrite TablesDB table IDs.
   // These IDs can be the same IDs that were previously used as collection IDs.

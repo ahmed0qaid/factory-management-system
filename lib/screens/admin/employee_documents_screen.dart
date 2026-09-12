@@ -71,9 +71,9 @@ class _EmployeeDocumentsScreenState extends State<EmployeeDocumentsScreen> {
       }
     } catch (error) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('تعذر تحميل الموظفين: $error')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('تعذر تحميل الموظفين: $error')));
       }
     } finally {
       if (mounted) setState(() => _isLoading = false);
@@ -116,15 +116,18 @@ class _EmployeeDocumentsScreenState extends State<EmployeeDocumentsScreen> {
 
   Future<void> _pickFile() async {
     try {
-      final result = await FilePicker.pickFiles(type: FileType.any, withData: true);
+      final result = await FilePicker.pickFiles(
+        type: FileType.any,
+        withData: true,
+      );
       if (result != null && result.files.isNotEmpty && mounted) {
         setState(() => _selectedFile = result.files.first);
       }
     } catch (error) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('تعذر اختيار الملف: $error')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('تعذر اختيار الملف: $error')));
       }
     }
   }
@@ -202,7 +205,9 @@ class _EmployeeDocumentsScreenState extends State<EmployeeDocumentsScreen> {
 
   void _message(String message) {
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
   }
 
   @override
@@ -245,8 +250,7 @@ class _EmployeeDocumentsScreenState extends State<EmployeeDocumentsScreen> {
                     if (employee == null)
                       const AppEmptyState(
                         title: 'اختر موظفًا',
-                        message:
-                            'اختر موظفًا لعرض ملفاته وإضافة مستند جديد.',
+                        message: 'اختر موظفًا لعرض ملفاته وإضافة مستند جديد.',
                         icon: Icons.folder_shared_outlined,
                       )
                     else ...[
@@ -275,14 +279,15 @@ class _EmployeeDocumentsScreenState extends State<EmployeeDocumentsScreen> {
                                         employee.fullName,
                                         style: theme.textTheme.titleSmall
                                             ?.copyWith(
-                                          fontWeight: FontWeight.w700,
-                                        ),
+                                              fontWeight: FontWeight.w700,
+                                            ),
                                       ),
                                       Text(
                                         '${employee.employeeNumber}${employee.departmentName?.trim().isNotEmpty == true ? ' • ${employee.departmentName}' : ''}',
-                                        style: theme.textTheme.bodySmall?.copyWith(
-                                          color: scheme.onSurfaceVariant,
-                                        ),
+                                        style: theme.textTheme.bodySmall
+                                            ?.copyWith(
+                                              color: scheme.onSurfaceVariant,
+                                            ),
                                       ),
                                     ],
                                   ),
@@ -377,8 +382,7 @@ class _EmployeeDocumentsScreenState extends State<EmployeeDocumentsScreen> {
                       else if (_employeeDocuments.isEmpty)
                         const AppEmptyState(
                           title: 'لا توجد مستندات',
-                          message:
-                              'لم يتم تسجيل مستندات لهذا الموظف حتى الآن.',
+                          message: 'لم يتم تسجيل مستندات لهذا الموظف حتى الآن.',
                           icon: Icons.description_outlined,
                         )
                       else
@@ -394,9 +398,7 @@ class _EmployeeDocumentsScreenState extends State<EmployeeDocumentsScreen> {
                               leading: CircleAvatar(
                                 backgroundColor: scheme.surfaceContainerHighest,
                                 foregroundColor: scheme.onSurfaceVariant,
-                                child: const Icon(
-                                  Icons.description_outlined,
-                                ),
+                                child: const Icon(Icons.description_outlined),
                               ),
                               title: Text(
                                 '${data['title'] ?? 'مستند'}',

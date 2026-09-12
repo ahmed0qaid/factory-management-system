@@ -12,7 +12,8 @@ class EmployeeDirectoryScreen extends StatefulWidget {
   const EmployeeDirectoryScreen({super.key});
 
   @override
-  State<EmployeeDirectoryScreen> createState() => _EmployeeDirectoryScreenState();
+  State<EmployeeDirectoryScreen> createState() =>
+      _EmployeeDirectoryScreenState();
 }
 
 class _EmployeeDirectoryScreenState extends State<EmployeeDirectoryScreen> {
@@ -134,7 +135,9 @@ class _EmployeeDirectoryScreenState extends State<EmployeeDirectoryScreen> {
                                 if (employee.jobTitleName?.trim().isNotEmpty ==
                                     true)
                                   employee.jobTitleName!.trim(),
-                                if (employee.departmentName?.trim().isNotEmpty ==
+                                if (employee.departmentName
+                                        ?.trim()
+                                        .isNotEmpty ==
                                     true)
                                   employee.departmentName!.trim(),
                               ].join(' • ');
@@ -160,7 +163,9 @@ class _EmployeeDirectoryScreenState extends State<EmployeeDirectoryScreen> {
                                     overflow: TextOverflow.ellipsis,
                                   ),
                                   trailing: employee.active
-                                      ? AppStatusPill.neutral(employee.roleLabel)
+                                      ? AppStatusPill.neutral(
+                                          employee.roleLabel,
+                                        )
                                       : AppStatusPill.danger('موقوف'),
                                 ),
                               );

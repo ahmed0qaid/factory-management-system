@@ -41,9 +41,9 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
       if (mounted) _reload();
     } catch (error) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('تعذر تحديث الإشعار: $error')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('تعذر تحديث الإشعار: $error')));
       }
     }
   }
@@ -118,15 +118,18 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                             const SizedBox(height: 5),
                             Text(
                               '${Formatters.date(notification.createdAt)} • ${Formatters.time(notification.createdAt)}',
-                              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                    color: colors.onSurfaceVariant,
-                                  ),
+                              style: Theme.of(context).textTheme.bodySmall
+                                  ?.copyWith(color: colors.onSurfaceVariant),
                             ),
                           ],
                         ),
                         trailing: notification.isRead
                             ? null
-                            : Icon(Icons.circle, color: colors.primary, size: 10),
+                            : Icon(
+                                Icons.circle,
+                                color: colors.primary,
+                                size: 10,
+                              ),
                         onTap: () => _markAsRead(notification),
                       ),
                     );

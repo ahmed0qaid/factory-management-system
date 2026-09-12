@@ -30,7 +30,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final localAuth = LocalAuthentication();
     var available = false;
     try {
-      available = await localAuth.isDeviceSupported() &&
+      available =
+          await localAuth.isDeviceSupported() &&
           await localAuth.canCheckBiometrics;
     } catch (_) {
       available = false;
@@ -46,7 +47,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
   Future<void> _toggleBiometrics(bool enabled) async {
     if (enabled && !_biometricsAvailable) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('المصادقة بالبصمة غير متاحة على هذا الجهاز.')),
+        const SnackBar(
+          content: Text('المصادقة بالبصمة غير متاحة على هذا الجهاز.'),
+        ),
       );
       return;
     }
@@ -70,9 +73,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
             'البصمة مقفلة على الجهاز. افتح الجهاز بالطريقة الأساسية ثم أعد المحاولة.',
           _ => 'تعذر التحقق من البصمة.',
         };
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(message)),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(message)));
         return;
       } catch (_) {
         if (mounted) {
@@ -125,20 +128,21 @@ class _SettingsScreenState extends State<SettingsScreen> {
                                 children: [
                                   Icon(
                                     Icons.palette_outlined,
-                                    color: Theme.of(context)
-                                        .colorScheme
-                                        .onSurfaceVariant,
+                                    color: Theme.of(
+                                      context,
+                                    ).colorScheme.onSurfaceVariant,
                                   ),
                                   const SizedBox(width: 10),
                                   Expanded(
                                     child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
                                       children: [
                                         Text(
                                           'مظهر التطبيق',
-                                          style: Theme.of(context)
-                                              .textTheme
-                                              .titleSmall,
+                                          style: Theme.of(
+                                            context,
+                                          ).textTheme.titleSmall,
                                         ),
                                         const SizedBox(height: 2),
                                         Text(
@@ -147,9 +151,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
                                               .textTheme
                                               .bodySmall
                                               ?.copyWith(
-                                                color: Theme.of(context)
-                                                    .colorScheme
-                                                    .onSurfaceVariant,
+                                                color: Theme.of(
+                                                  context,
+                                                ).colorScheme.onSurfaceVariant,
                                               ),
                                         ),
                                       ],
@@ -201,8 +205,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
                               : 'البصمة غير متاحة أو غير مهيأة على هذا الجهاز.',
                         ),
                         value: _biometricsEnabled,
-                        onChanged:
-                            _biometricsAvailable ? _toggleBiometrics : null,
+                        onChanged: _biometricsAvailable
+                            ? _toggleBiometrics
+                            : null,
                       ),
                     ),
                     const SizedBox(height: 18),
@@ -228,9 +233,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
   Widget _sectionTitle(BuildContext context, String title) {
     return Text(
       title,
-      style: Theme.of(context).textTheme.titleMedium?.copyWith(
-            fontWeight: FontWeight.w700,
-          ),
+      style: Theme.of(
+        context,
+      ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
     );
   }
 }

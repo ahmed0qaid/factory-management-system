@@ -44,9 +44,9 @@ class _LoginScreenState extends State<LoginScreen> {
       );
     } catch (error) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('تعذر تسجيل الدخول: $error')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('تعذر تسجيل الدخول: $error')));
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -70,7 +70,9 @@ class _LoginScreenState extends State<LoginScreen> {
               bottom: MediaQuery.viewInsetsOf(context).bottom + 24,
             ),
             child: ConstrainedBox(
-              constraints: BoxConstraints(minHeight: constraints.maxHeight - 48),
+              constraints: BoxConstraints(
+                minHeight: constraints.maxHeight - 48,
+              ),
               child: Center(
                 child: ConstrainedBox(
                   constraints: const BoxConstraints(maxWidth: 420),
@@ -98,9 +100,8 @@ class _LoginScreenState extends State<LoginScreen> {
                           Text(
                             'سجّل الدخول بحسابك الوظيفي للمتابعة',
                             textAlign: TextAlign.center,
-                            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                                  color: scheme.onSurfaceVariant,
-                                ),
+                            style: Theme.of(context).textTheme.bodyMedium
+                                ?.copyWith(color: scheme.onSurfaceVariant),
                           ),
                           const SizedBox(height: 28),
                           AppFormField(
@@ -110,8 +111,8 @@ class _LoginScreenState extends State<LoginScreen> {
                             textInputAction: TextInputAction.next,
                             validator: (value) =>
                                 value == null || value.trim().isEmpty
-                                    ? 'أدخل الرقم الوظيفي'
-                                    : null,
+                                ? 'أدخل الرقم الوظيفي'
+                                : null,
                           ),
                           const SizedBox(height: 16),
                           AppFormField(
@@ -144,9 +145,8 @@ class _LoginScreenState extends State<LoginScreen> {
                           Text(
                             'يتم إنشاء الحسابات من الإدارة فقط. لا يوجد تسجيل ذاتي.',
                             textAlign: TextAlign.center,
-                            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                  color: scheme.onSurfaceVariant,
-                                ),
+                            style: Theme.of(context).textTheme.bodySmall
+                                ?.copyWith(color: scheme.onSurfaceVariant),
                           ),
                         ],
                       ),

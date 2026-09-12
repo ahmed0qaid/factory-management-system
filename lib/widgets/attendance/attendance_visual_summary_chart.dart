@@ -27,17 +27,28 @@ class _AttendanceVisualSummaryChartState
             r.workDate.month == _currentDate.month &&
             r.workDate.day == _currentDate.day;
       } else if (_period == SummaryPeriod.week) {
-        int daysToSubtract =
-            _currentDate.weekday == 7 ? 0 : _currentDate.weekday;
-        DateTime startOfWeek =
-            _currentDate.subtract(Duration(days: daysToSubtract));
+        int daysToSubtract = _currentDate.weekday == 7
+            ? 0
+            : _currentDate.weekday;
+        DateTime startOfWeek = _currentDate.subtract(
+          Duration(days: daysToSubtract),
+        );
         DateTime endOfWeek = startOfWeek.add(const Duration(days: 6));
-        DateTime rDate =
-            DateTime(r.workDate.year, r.workDate.month, r.workDate.day);
-        DateTime sDate =
-            DateTime(startOfWeek.year, startOfWeek.month, startOfWeek.day);
-        DateTime eDate =
-            DateTime(endOfWeek.year, endOfWeek.month, endOfWeek.day);
+        DateTime rDate = DateTime(
+          r.workDate.year,
+          r.workDate.month,
+          r.workDate.day,
+        );
+        DateTime sDate = DateTime(
+          startOfWeek.year,
+          startOfWeek.month,
+          startOfWeek.day,
+        );
+        DateTime eDate = DateTime(
+          endOfWeek.year,
+          endOfWeek.month,
+          endOfWeek.day,
+        );
         return rDate.compareTo(sDate) >= 0 && rDate.compareTo(eDate) <= 0;
       } else {
         return r.workDate.year == _currentDate.year &&
@@ -53,8 +64,11 @@ class _AttendanceVisualSummaryChartState
       } else if (_period == SummaryPeriod.week) {
         _currentDate = _currentDate.subtract(const Duration(days: 7));
       } else {
-        _currentDate =
-            DateTime(_currentDate.year, _currentDate.month - 1, _currentDate.day);
+        _currentDate = DateTime(
+          _currentDate.year,
+          _currentDate.month - 1,
+          _currentDate.day,
+        );
       }
     });
   }
@@ -66,8 +80,11 @@ class _AttendanceVisualSummaryChartState
       } else if (_period == SummaryPeriod.week) {
         _currentDate = _currentDate.add(const Duration(days: 7));
       } else {
-        _currentDate =
-            DateTime(_currentDate.year, _currentDate.month + 1, _currentDate.day);
+        _currentDate = DateTime(
+          _currentDate.year,
+          _currentDate.month + 1,
+          _currentDate.day,
+        );
       }
     });
   }
@@ -77,14 +94,25 @@ class _AttendanceVisualSummaryChartState
       return Formatters.date(_currentDate);
     } else if (_period == SummaryPeriod.week) {
       int daysToSubtract = _currentDate.weekday == 7 ? 0 : _currentDate.weekday;
-      DateTime startOfWeek =
-          _currentDate.subtract(Duration(days: daysToSubtract));
+      DateTime startOfWeek = _currentDate.subtract(
+        Duration(days: daysToSubtract),
+      );
       DateTime endOfWeek = startOfWeek.add(const Duration(days: 6));
       return '${Formatters.date(startOfWeek)} - ${Formatters.date(endOfWeek)}';
     } else {
       final List<String> monthsAr = [
-        'يناير', 'فبراير', 'مارس', 'أبريل', 'مايو', 'يونيو',
-        'يوليو', 'أغسطس', 'سبتمبر', 'أكتوبر', 'نوفمبر', 'ديسمبر'
+        'يناير',
+        'فبراير',
+        'مارس',
+        'أبريل',
+        'مايو',
+        'يونيو',
+        'يوليو',
+        'أغسطس',
+        'سبتمبر',
+        'أكتوبر',
+        'نوفمبر',
+        'ديسمبر',
       ];
       return '${monthsAr[_currentDate.month - 1]} ${_currentDate.year}';
     }
@@ -101,7 +129,7 @@ class _AttendanceVisualSummaryChartState
 
     bool isMissingCheckout = record.checkIn != null && record.checkOut == null;
     bool isMissingCheckin = record.checkIn == null && record.checkOut != null;
-    
+
     if (record.status == 'needs_review' ||
         record.status == 'incomplete' ||
         isMissingCheckin ||
@@ -216,10 +244,7 @@ class _AttendanceVisualSummaryChartState
               _getPeriodLabel(),
               style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
             ),
-            IconButton(
-              icon: const Icon(Icons.chevron_right),
-              onPressed: _next,
-            ),
+            IconButton(icon: const Icon(Icons.chevron_right), onPressed: _next),
           ],
         ),
       ],
@@ -252,7 +277,8 @@ class _AttendanceVisualSummaryChartState
 
     bool isMissingCheckout = record.checkIn != null && record.checkOut == null;
     bool isMissingCheckin = record.checkIn == null && record.checkOut != null;
-    bool needsReview = record.status == 'needs_review' ||
+    bool needsReview =
+        record.status == 'needs_review' ||
         isMissingCheckout ||
         isMissingCheckin;
 
@@ -273,8 +299,7 @@ class _AttendanceVisualSummaryChartState
             ),
             child: const Text(
               'يحتاج مراجعة',
-              style: TextStyle(
-                  color: Colors.grey, fontWeight: FontWeight.bold),
+              style: TextStyle(color: Colors.grey, fontWeight: FontWeight.bold),
               textAlign: TextAlign.center,
             ),
           ),
@@ -283,19 +308,32 @@ class _AttendanceVisualSummaryChartState
           runSpacing: 12,
           alignment: WrapAlignment.center,
           children: [
-            _buildStatCard('الحالة', statusLabel(record.status), record.checkOut == null ? Colors.red : Colors.blue),
-            _buildStatCard('الدخول', _formatTimeAr(record.checkIn), Colors.blue),
             _buildStatCard(
-                'الخروج',
-                _formatTimeAr(record.checkOut),
-                record.checkOut == null ? Colors.red : Colors.blue),
+              'الحالة',
+              statusLabel(record.status),
+              record.checkOut == null ? Colors.red : Colors.blue,
+            ),
+            _buildStatCard(
+              'الدخول',
+              _formatTimeAr(record.checkIn),
+              Colors.blue,
+            ),
+            _buildStatCard(
+              'الخروج',
+              _formatTimeAr(record.checkOut),
+              record.checkOut == null ? Colors.red : Colors.blue,
+            ),
             _buildStatCard('التأخير', '${record.lateMinutes} د', Colors.orange),
             _buildStatCard(
-                'خروج مبكر', '${record.earlyLeaveMinutes} د', Colors.orange),
+              'خروج مبكر',
+              '${record.earlyLeaveMinutes} د',
+              Colors.orange,
+            ),
             _buildStatCard(
-                'ساعات العمل',
-                '${(record.workedMinutes / 60).toStringAsFixed(1)} س',
-                Colors.green),
+              'ساعات العمل',
+              '${(record.workedMinutes / 60).toStringAsFixed(1)} س',
+              Colors.green,
+            ),
           ],
         ),
       ],
@@ -309,14 +347,16 @@ class _AttendanceVisualSummaryChartState
     if (startDt == null || endDt == null) {
       if (record.checkIn != null) {
         startDt = record.checkIn!.subtract(const Duration(hours: 1));
-        endDt = (record.checkOut ?? record.checkIn!)
-            .add(const Duration(hours: 1));
+        endDt = (record.checkOut ?? record.checkIn!).add(
+          const Duration(hours: 1),
+        );
       } else {
         return const Center(
-            child: Padding(
-          padding: EdgeInsets.symmetric(vertical: 24.0),
-          child: Text('لا توجد بيانات دوام كافية لهذا اليوم'),
-        ));
+          child: Padding(
+            padding: EdgeInsets.symmetric(vertical: 24.0),
+            child: Text('لا توجد بيانات دوام كافية لهذا اليوم'),
+          ),
+        );
       }
     }
 
@@ -327,15 +367,16 @@ class _AttendanceVisualSummaryChartState
     final int totalMinutes = endDt.difference(startDt).inMinutes;
     if (totalMinutes <= 0) {
       return const Center(
-          child: Padding(
-        padding: EdgeInsets.symmetric(vertical: 24.0),
-        child: Text('لا توجد بيانات دوام كافية لهذا اليوم'),
-      ));
+        child: Padding(
+          padding: EdgeInsets.symmetric(vertical: 24.0),
+          child: Text('لا توجد بيانات دوام كافية لهذا اليوم'),
+        ),
+      );
     }
 
     DateTime? actualIn = record.checkIn;
     DateTime? actualOut = record.checkOut;
-    
+
     // Night shift check-out crossing midnight check
     if (actualIn != null && actualOut != null && actualOut.isBefore(actualIn)) {
       actualOut = actualOut.add(const Duration(days: 1));
@@ -363,62 +404,72 @@ class _AttendanceVisualSummaryChartState
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Text(_formatTimeAr(startDt),
-                style: const TextStyle(fontSize: 12, color: Colors.grey),
-                textDirection: TextDirection.rtl),
-            Text(_formatTimeAr(endDt),
-                style: const TextStyle(fontSize: 12, color: Colors.grey),
-                textDirection: TextDirection.rtl),
+            Text(
+              _formatTimeAr(startDt),
+              style: const TextStyle(fontSize: 12, color: Colors.grey),
+              textDirection: TextDirection.rtl,
+            ),
+            Text(
+              _formatTimeAr(endDt),
+              style: const TextStyle(fontSize: 12, color: Colors.grey),
+              textDirection: TextDirection.rtl,
+            ),
           ],
         ),
         const SizedBox(height: 8),
-        LayoutBuilder(builder: (context, constraints) {
-          final width = constraints.maxWidth;
-          return Container(
-            height: 20,
-            width: width,
-            decoration: BoxDecoration(
-              color: Colors.grey.shade200,
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: Stack(
-              children: [
-                if (record.status == 'absent')
-                  Container(
-                    decoration: BoxDecoration(
-                      color: Colors.red,
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                  )
-                else if (actualIn != null)
-                  Positioned(
-                    right: inPos * width,
-                    width: record.checkOut == null ? 10 : workPercent * width,
-                    top: 0,
-                    bottom: 0,
-                    child: Container(
+        LayoutBuilder(
+          builder: (context, constraints) {
+            final width = constraints.maxWidth;
+            return Container(
+              height: 20,
+              width: width,
+              decoration: BoxDecoration(
+                color: Colors.grey.shade200,
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Stack(
+                children: [
+                  if (record.status == 'absent')
+                    Container(
                       decoration: BoxDecoration(
-                        color: mainColor,
+                        color: Colors.red,
                         borderRadius: BorderRadius.circular(10),
                       ),
+                    )
+                  else if (actualIn != null)
+                    Positioned(
+                      right: inPos * width,
+                      width: record.checkOut == null ? 10 : workPercent * width,
+                      top: 0,
+                      bottom: 0,
+                      child: Container(
+                        decoration: BoxDecoration(
+                          color: mainColor,
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                      ),
                     ),
-                  ),
-              ],
-            ),
-          );
-        }),
+                ],
+              ),
+            );
+          },
+        ),
         const SizedBox(height: 8),
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
             if (record.checkIn != null)
-              Text('دخول فعلي: ${_formatTimeAr(record.checkIn)}',
-                  style: TextStyle(fontSize: 12, color: mainColor),
-                  textDirection: TextDirection.rtl),
+              Text(
+                'دخول فعلي: ${_formatTimeAr(record.checkIn)}',
+                style: TextStyle(fontSize: 12, color: mainColor),
+                textDirection: TextDirection.rtl,
+              ),
             if (record.checkOut != null)
-              Text('خروج فعلي: ${_formatTimeAr(record.checkOut)}',
-                  style: TextStyle(fontSize: 12, color: mainColor),
-                  textDirection: TextDirection.rtl),
+              Text(
+                'خروج فعلي: ${_formatTimeAr(record.checkOut)}',
+                style: TextStyle(fontSize: 12, color: mainColor),
+                textDirection: TextDirection.rtl,
+              ),
           ],
         ),
       ],
@@ -427,8 +478,9 @@ class _AttendanceVisualSummaryChartState
 
   Widget _buildWeekView(List<AttendanceRecordModel> records) {
     int daysToSubtract = _currentDate.weekday == 7 ? 0 : _currentDate.weekday;
-    DateTime startOfWeek =
-        _currentDate.subtract(Duration(days: daysToSubtract));
+    DateTime startOfWeek = _currentDate.subtract(
+      Duration(days: daysToSubtract),
+    );
 
     List<Widget> dayColumns = [];
     int presentCount = 0;
@@ -443,15 +495,17 @@ class _AttendanceVisualSummaryChartState
       'أربعاء',
       'خميس',
       'جمعة',
-      'سبت'
+      'سبت',
     ];
 
     for (int i = 0; i < 7; i++) {
       DateTime dayDate = startOfWeek.add(Duration(days: i));
-      var matches = records.where((r) =>
-          r.workDate.year == dayDate.year &&
-          r.workDate.month == dayDate.month &&
-          r.workDate.day == dayDate.day);
+      var matches = records.where(
+        (r) =>
+            r.workDate.year == dayDate.year &&
+            r.workDate.month == dayDate.month &&
+            r.workDate.day == dayDate.day,
+      );
 
       AttendanceRecordModel? rec = matches.isNotEmpty ? matches.first : null;
       Color color = _getColorForRecord(rec);
@@ -463,10 +517,12 @@ class _AttendanceVisualSummaryChartState
         } else if (rec.status == 'absent') {
           absentCount++;
         }
-        
+
         bool isMissingCheckout = rec.checkIn != null && rec.checkOut == null;
         bool isMissingCheckin = rec.checkIn == null && rec.checkOut != null;
-        if (rec.status == 'needs_review' || isMissingCheckout || isMissingCheckin) {
+        if (rec.status == 'needs_review' ||
+            isMissingCheckout ||
+            isMissingCheckin) {
           reviewCount++;
         }
         totalLate += rec.lateMinutes;
@@ -478,8 +534,10 @@ class _AttendanceVisualSummaryChartState
             children: [
               Text(weekDaysAr[i], style: const TextStyle(fontSize: 12)),
               const SizedBox(height: 4),
-              Text('${dayDate.day}',
-                  style: const TextStyle(fontWeight: FontWeight.bold)),
+              Text(
+                '${dayDate.day}',
+                style: const TextStyle(fontWeight: FontWeight.bold),
+              ),
               const SizedBox(height: 8),
               Container(
                 height: 60,
@@ -491,9 +549,10 @@ class _AttendanceVisualSummaryChartState
               ),
               const SizedBox(height: 8),
               if (rec != null && rec.lateMinutes > 0)
-                Text('${rec.lateMinutes} د',
-                    style:
-                        const TextStyle(fontSize: 10, color: Colors.orange)),
+                Text(
+                  '${rec.lateMinutes} د',
+                  style: const TextStyle(fontSize: 10, color: Colors.orange),
+                ),
             ],
           ),
         ),
@@ -527,8 +586,10 @@ class _AttendanceVisualSummaryChartState
   }
 
   Widget _buildMonthView(List<AttendanceRecordModel> records) {
-    int daysInMonth =
-        DateUtils.getDaysInMonth(_currentDate.year, _currentDate.month);
+    int daysInMonth = DateUtils.getDaysInMonth(
+      _currentDate.year,
+      _currentDate.month,
+    );
 
     int presentCount = 0;
     int absentCount = 0;
@@ -540,10 +601,12 @@ class _AttendanceVisualSummaryChartState
     List<Widget> gridItems = [];
 
     for (int i = 1; i <= daysInMonth; i++) {
-      var matches = records.where((r) =>
-          r.workDate.year == _currentDate.year &&
-          r.workDate.month == _currentDate.month &&
-          r.workDate.day == i);
+      var matches = records.where(
+        (r) =>
+            r.workDate.year == _currentDate.year &&
+            r.workDate.month == _currentDate.month &&
+            r.workDate.day == i,
+      );
 
       AttendanceRecordModel? rec = matches.isNotEmpty ? matches.first : null;
       Color color = _getColorForRecord(rec);
@@ -555,10 +618,12 @@ class _AttendanceVisualSummaryChartState
         } else if (rec.status == 'absent') {
           absentCount++;
         }
-        
+
         bool isMissingCheckout = rec.checkIn != null && rec.checkOut == null;
         bool isMissingCheckin = rec.checkIn == null && rec.checkOut != null;
-        if (rec.status == 'needs_review' || isMissingCheckout || isMissingCheckin) {
+        if (rec.status == 'needs_review' ||
+            isMissingCheckout ||
+            isMissingCheckin) {
           reviewCount++;
         }
         if (rec.lateMinutes > 0) lateDaysCount++;
@@ -569,10 +634,7 @@ class _AttendanceVisualSummaryChartState
       gridItems.add(
         Container(
           margin: const EdgeInsets.all(4),
-          decoration: BoxDecoration(
-            color: color,
-            shape: BoxShape.circle,
-          ),
+          decoration: BoxDecoration(color: color, shape: BoxShape.circle),
           child: Center(
             child: Text(
               '$i',
@@ -634,7 +696,10 @@ class _AttendanceVisualSummaryChartState
           Text(
             value,
             style: TextStyle(
-                fontWeight: FontWeight.bold, fontSize: 14, color: color),
+              fontWeight: FontWeight.bold,
+              fontSize: 14,
+              color: color,
+            ),
             textAlign: TextAlign.center,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,

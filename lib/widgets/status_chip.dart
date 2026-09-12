@@ -13,10 +13,8 @@ class StatusChip extends StatelessWidget {
     return Chip(
       label: Text(statusLabel(status)),
       backgroundColor: color.withValues(alpha: .12),
-      labelStyle: TextStyle(color: color, ),
+      labelStyle: TextStyle(color: color),
       side: BorderSide(color: color.withValues(alpha: .2)),
     );
   }
 }
-
-

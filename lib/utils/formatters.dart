@@ -15,6 +15,7 @@ class Formatters {
     final period = h < 12 ? 'ص' : 'م';
     return '$h12:$m $period';
   }
+
   static String money(num value, {String currency = ''}) =>
       '${_money.format(value)} $currency'.trim();
 

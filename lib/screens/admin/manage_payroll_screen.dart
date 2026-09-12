@@ -171,8 +171,8 @@ class _ManagePayrollScreenState extends State<ManagePayrollScreen> {
     final employees = _selectedEmployeeId == null
         ? _employees
         : _employees
-            .where((employee) => employee.id == _selectedEmployeeId)
-            .toList();
+              .where((employee) => employee.id == _selectedEmployeeId)
+              .toList();
 
     setState(() {
       _isCalculating = true;
@@ -224,13 +224,14 @@ class _ManagePayrollScreenState extends State<ManagePayrollScreen> {
   Future<void> _approvePayroll(MonthlySalaryReport report) async {
     final status = _statusForReport(report);
     if (status == 'approved' || status == 'paid') {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('هذا الراتب معتمد مسبقًا.')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('هذا الراتب معتمد مسبقًا.')));
       return;
     }
 
-    final confirmed = await showDialog<bool>(
+    final confirmed =
+        await showDialog<bool>(
           context: context,
           builder: (context) => AlertDialog(
             title: const Text('اعتماد الراتب'),
@@ -279,9 +280,9 @@ class _ManagePayrollScreenState extends State<ManagePayrollScreen> {
       );
     } catch (error) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('تعذر اعتماد الراتب: $error')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('تعذر اعتماد الراتب: $error')));
       }
     } finally {
       if (mounted) setState(() => _approvingKey = null);
@@ -496,8 +497,8 @@ class _ManagePayrollScreenState extends State<ManagePayrollScreen> {
                 child: Text(
                   'الفترة والفلترة',
                   style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.bold,
-                      ),
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
               ),
               TextButton.icon(
@@ -512,7 +513,9 @@ class _ManagePayrollScreenState extends State<ManagePayrollScreen> {
             spacing: 8,
             runSpacing: 8,
             children: [
-              Chip(label: Text('السنة: ${_selectedYear?.toString() ?? 'الكل'}')),
+              Chip(
+                label: Text('السنة: ${_selectedYear?.toString() ?? 'الكل'}'),
+              ),
               Chip(
                 label: Text(
                   'الشهر: ${_selectedMonth == null ? 'الكل' : _monthNames[_selectedMonth! - 1]}',
@@ -548,9 +551,9 @@ class _ManagePayrollScreenState extends State<ManagePayrollScreen> {
               Expanded(
                 child: Text(
                   '${_monthNames[first.month - 1]} ${first.year}',
-                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                        fontWeight: FontWeight.bold,
-                      ),
+                  style: Theme.of(
+                    context,
+                  ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
                 ),
               ),
               Text('${entry.value.length} موظف'),
@@ -599,7 +602,8 @@ class _ManagePayrollScreenState extends State<ManagePayrollScreen> {
   Widget _mobilePayrollCard(MonthlySalaryReport report) {
     final status = _statusForReport(report);
     final canApprove = status != 'approved' && status != 'paid';
-    final approving = _approvingKey ==
+    final approving =
+        _approvingKey ==
         _reportKey(report.employee.id, report.year, report.month);
 
     return DecoratedBox(
@@ -631,8 +635,8 @@ class _ManagePayrollScreenState extends State<ManagePayrollScreen> {
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                              fontWeight: FontWeight.bold,
-                            ),
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
                       Text(report.employee.employeeNumber),
                     ],
@@ -647,7 +651,11 @@ class _ManagePayrollScreenState extends State<ManagePayrollScreen> {
             const SizedBox(height: 12),
             _moneyLine('الاستحقاق الكلي', report.grossSalary),
             _moneyLine('خصم الغياب', report.absenceDeduction, negative: true),
-            _moneyLine('خصم الجزاءات', report.penaltiesDeduction, negative: true),
+            _moneyLine(
+              'خصم الجزاءات',
+              report.penaltiesDeduction,
+              negative: true,
+            ),
             _moneyLine('خصم السلف', report.advanceDeduction, negative: true),
             const Divider(height: 20),
             Row(
@@ -656,8 +664,8 @@ class _ManagePayrollScreenState extends State<ManagePayrollScreen> {
                   child: Text(
                     'الصافي: ${Formatters.money(report.netSalary)}',
                     style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                          fontWeight: FontWeight.bold,
-                        ),
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                 ),
                 TextButton(
@@ -692,7 +700,9 @@ class _ManagePayrollScreenState extends State<ManagePayrollScreen> {
       child: Row(
         children: [
           Expanded(child: Text(label)),
-          Text('${negative && value != 0 ? '-' : ''}${Formatters.money(value)}'),
+          Text(
+            '${negative && value != 0 ? '-' : ''}${Formatters.money(value)}',
+          ),
         ],
       ),
     );
@@ -701,7 +711,8 @@ class _ManagePayrollScreenState extends State<ManagePayrollScreen> {
   DataRow _reportRow(MonthlySalaryReport report) {
     final status = _statusForReport(report);
     final canApprove = status != 'approved' && status != 'paid';
-    final approving = _approvingKey ==
+    final approving =
+        _approvingKey ==
         _reportKey(report.employee.id, report.year, report.month);
 
     return DataRow(
@@ -768,9 +779,8 @@ class _ManagePayrollScreenState extends State<ManagePayrollScreen> {
                       children: [
                         Text(
                           report.employee.fullName,
-                          style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                                fontWeight: FontWeight.bold,
-                              ),
+                          style: Theme.of(context).textTheme.titleLarge
+                              ?.copyWith(fontWeight: FontWeight.bold),
                         ),
                         Text(
                           '${report.employee.employeeNumber} • ${_monthNames[report.month - 1]} ${report.year}',
@@ -794,24 +804,55 @@ class _ManagePayrollScreenState extends State<ManagePayrollScreen> {
               child: ListView(
                 padding: const EdgeInsets.all(16),
                 children: [
-                  _detailRow('الراتب الأساسي', Formatters.money(report.baseSalary)),
-                  _detailRow('المكافأة الشهرية', Formatters.money(report.monthlyBonus)),
-                  _detailRow('الاستحقاق الكلي', Formatters.money(report.grossSalary)),
+                  _detailRow(
+                    'الراتب الأساسي',
+                    Formatters.money(report.baseSalary),
+                  ),
+                  _detailRow(
+                    'المكافأة الشهرية',
+                    Formatters.money(report.monthlyBonus),
+                  ),
+                  _detailRow(
+                    'الاستحقاق الكلي',
+                    Formatters.money(report.grossSalary),
+                  ),
                   _detailRow('طريقة الجمعة', report.fridayMode.label),
                   _detailRow('عدد أيام الشهر', report.daysInMonth.toString()),
                   _detailRow('أيام الجمعة', report.fridaysCount.toString()),
-                  _detailRow('أيام الراتب المعتمدة', report.salaryDays.toString()),
+                  _detailRow(
+                    'أيام الراتب المعتمدة',
+                    report.salaryDays.toString(),
+                  ),
                   _detailRow('أجر اليوم', Formatters.money(report.dailyWage)),
-                  _detailRow('ساعات العمل اليومية', report.dailyWorkHours.toString()),
+                  _detailRow(
+                    'ساعات العمل اليومية',
+                    report.dailyWorkHours.toString(),
+                  ),
                   _detailRow('أجر الساعة', Formatters.money(report.hourlyWage)),
                   _detailRow('أيام الحضور', report.presentDays.toString()),
                   _detailRow('أيام الغياب', report.absentDays.toString()),
-                  _detailRow('راتب الحضور', Formatters.money(report.attendanceSalary)),
-                  _detailRow('خصم الغياب', Formatters.money(report.absenceDeduction)),
-                  _detailRow('خصم الجزاءات', Formatters.money(report.penaltiesDeduction)),
-                  _detailRow('خصم السلف', Formatters.money(report.advanceDeduction)),
+                  _detailRow(
+                    'راتب الحضور',
+                    Formatters.money(report.attendanceSalary),
+                  ),
+                  _detailRow(
+                    'خصم الغياب',
+                    Formatters.money(report.absenceDeduction),
+                  ),
+                  _detailRow(
+                    'خصم الجزاءات',
+                    Formatters.money(report.penaltiesDeduction),
+                  ),
+                  _detailRow(
+                    'خصم السلف',
+                    Formatters.money(report.advanceDeduction),
+                  ),
                   const Divider(height: 24),
-                  _detailRow('صافي الراتب', Formatters.money(report.netSalary), strong: true),
+                  _detailRow(
+                    'صافي الراتب',
+                    Formatters.money(report.netSalary),
+                    strong: true,
+                  ),
                 ],
               ),
             ),
@@ -848,9 +889,12 @@ class _ManagePayrollScreenState extends State<ManagePayrollScreen> {
   }
 
   String _statusForReport(MonthlySalaryReport report) {
-    final status = _payrollStatusesByMonth[
-      _reportKey(report.employee.id, report.year, report.month)
-    ];
+    final status =
+        _payrollStatusesByMonth[_reportKey(
+          report.employee.id,
+          report.year,
+          report.month,
+        )];
     if (status == null || status.trim().isEmpty || status == 'draft') {
       return 'pending';
     }

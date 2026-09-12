@@ -55,16 +55,17 @@ class _AddPenaltyScreenState extends State<AddPenaltyScreen> {
 
   Future<List<ProfileModel>> _loadEmployees() async {
     final employees = await _service.getEmployees(limit: 500);
-    if (mounted) setState(() => _employees = employees.where((e) => e.active).toList());
+    if (mounted)
+      setState(() => _employees = employees.where((e) => e.active).toList());
     return _employees;
   }
 
   Future<void> _submit() async {
     final employee = _selectedEmployee;
     if (employee == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('اختر الموظف أولًا.')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('اختر الموظف أولًا.')));
       return;
     }
 
@@ -89,7 +90,8 @@ class _AddPenaltyScreenState extends State<AddPenaltyScreen> {
       return;
     }
 
-    final confirmed = await showDialog<bool>(
+    final confirmed =
+        await showDialog<bool>(
           context: context,
           builder: (context) => AlertDialog(
             title: const Text('تأكيد الجزاء'),
@@ -123,15 +125,15 @@ class _AddPenaltyScreenState extends State<AddPenaltyScreen> {
         penaltyDate: DateTime.now().toIso8601String(),
       );
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('تم اعتماد الجزاء بنجاح.')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('تم اعتماد الجزاء بنجاح.')));
       Navigator.pop(context);
     } catch (error) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('تعذر إضافة الجزاء: $error')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('تعذر إضافة الجزاء: $error')));
       }
     } finally {
       if (mounted) setState(() => _isLoading = false);
@@ -152,7 +154,8 @@ class _AddPenaltyScreenState extends State<AddPenaltyScreen> {
             return AppErrorState(
               title: 'تعذر تحميل الموظفين',
               message: '${snapshot.error}',
-              onRetry: () => setState(() => _employeesFuture = _loadEmployees()),
+              onRetry: () =>
+                  setState(() => _employeesFuture = _loadEmployees()),
             );
           }
 
@@ -161,7 +164,8 @@ class _AddPenaltyScreenState extends State<AddPenaltyScreen> {
             child: ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: 620),
               child: SingleChildScrollView(
-                keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+                keyboardDismissBehavior:
+                    ScrollViewKeyboardDismissBehavior.onDrag,
                 padding: const EdgeInsets.all(16),
                 child: AppCard(
                   padding: const EdgeInsets.all(20),
@@ -170,9 +174,8 @@ class _AddPenaltyScreenState extends State<AddPenaltyScreen> {
                     children: [
                       Text(
                         'بيانات الجزاء',
-                        style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                              fontWeight: FontWeight.bold,
-                            ),
+                        style: Theme.of(context).textTheme.titleMedium
+                            ?.copyWith(fontWeight: FontWeight.bold),
                       ),
                       const SizedBox(height: 14),
                       EmployeePickerField(
@@ -192,7 +195,9 @@ class _AddPenaltyScreenState extends State<AddPenaltyScreen> {
                       const SizedBox(height: 16),
                       AppFormField(
                         controller: _amountController,
-                        keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                        keyboardType: const TextInputType.numberWithOptions(
+                          decimal: true,
+                        ),
                         labelText: 'المبلغ المخصوم',
                         prefixIcon: Icons.money_off_outlined,
                       ),

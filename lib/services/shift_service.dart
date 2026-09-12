@@ -10,7 +10,9 @@ class ShiftService {
       tableId: AppConstants.shiftsTable,
       queries: [Query.equal('company_id', companyId)],
     );
-    return response.rows.map((r) => ShiftModel.fromMap(r.data, id: r.$id)).toList();
+    return response.rows
+        .map((r) => ShiftModel.fromMap(r.data, id: r.$id))
+        .toList();
   }
 
   Future<void> createShift(ShiftModel shift) async {
@@ -27,7 +29,9 @@ class ShiftService {
       databaseId: AppConstants.databaseId,
       tableId: AppConstants.shiftsTable,
       rowId: shift.id,
-      data: shift.toMap()..remove('id')..remove('company_id'),
+      data: shift.toMap()
+        ..remove('id')
+        ..remove('company_id'),
     );
   }
 

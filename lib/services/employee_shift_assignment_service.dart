@@ -4,20 +4,22 @@ import '../models/employee_shift_assignment_model.dart';
 import 'appwrite_service.dart';
 
 class EmployeeShiftAssignmentService {
-  Future<List<EmployeeShiftAssignmentModel>> getAssignments(String companyId) async {
+  Future<List<EmployeeShiftAssignmentModel>> getAssignments(
+    String companyId,
+  ) async {
     final response = await AppwriteService.tablesDB.listRows(
       databaseId: AppConstants.databaseId,
       tableId: AppConstants.employeeShiftAssignmentsTable,
-      queries: [
-        Query.equal('company_id', companyId),
-      ],
+      queries: [Query.equal('company_id', companyId)],
     );
     return response.rows
         .map((r) => EmployeeShiftAssignmentModel.fromMap(r.data, id: r.$id))
         .toList();
   }
 
-  Future<EmployeeShiftAssignmentModel?> getActiveAssignment(String employeeId) async {
+  Future<EmployeeShiftAssignmentModel?> getActiveAssignment(
+    String employeeId,
+  ) async {
     final response = await AppwriteService.tablesDB.listRows(
       databaseId: AppConstants.databaseId,
       tableId: AppConstants.employeeShiftAssignmentsTable,
@@ -27,13 +29,16 @@ class EmployeeShiftAssignmentService {
       ],
     );
     if (response.rows.isEmpty) return null;
-    return EmployeeShiftAssignmentModel.fromMap(response.rows.first.data, id: response.rows.first.$id);
+    return EmployeeShiftAssignmentModel.fromMap(
+      response.rows.first.data,
+      id: response.rows.first.$id,
+    );
   }
 
   Future<void> saveAssignment(EmployeeShiftAssignmentModel assignment) async {
     // Check if there is an active assignment for this employee
     final existing = await getActiveAssignment(assignment.employeeId);
-    
+
     if (existing != null) {
       if (existing.id == assignment.id) {
         // Just update it
@@ -41,7 +46,9 @@ class EmployeeShiftAssignmentService {
           databaseId: AppConstants.databaseId,
           tableId: AppConstants.employeeShiftAssignmentsTable,
           rowId: assignment.id,
-          data: assignment.toMap()..remove('id')..remove('company_id'),
+          data: assignment.toMap()
+            ..remove('id')
+            ..remove('company_id'),
         );
       } else {
         // Disable the old one

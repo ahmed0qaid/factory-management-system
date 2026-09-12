@@ -32,9 +32,9 @@ class _AttendanceRulesScreenState extends State<AttendanceRulesScreen> {
       _policy = await _employeeService.getActiveAttendancePolicy();
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('خطأ في تحميل القواعد: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('خطأ في تحميل القواعد: $e')));
       }
     } finally {
       if (mounted) setState(() => _isLoading = false);
@@ -48,47 +48,47 @@ class _AttendanceRulesScreenState extends State<AttendanceRulesScreen> {
       body: _isLoading
           ? const AppLoadingState(label: 'جاري تحميل السياسة')
           : _policy == null
-              ? const AppEmptyState(
-                  title: 'لا توجد سياسة',
-                  message: 'لا توجد سياسة دوام محددة حاليًا.',
-                  icon: Icons.rule_outlined,
-                )
-              : Align(
-                  alignment: Alignment.topCenter,
-                  child: ConstrainedBox(
-                    constraints: const BoxConstraints(maxWidth: 760),
-                    child: ListView(
-                      padding: const EdgeInsets.all(16),
-                      children: [
-                        _buildRuleCard(
-                          title: 'السماح بالتأخير',
-                          icon: Icons.timer_outlined,
-                          content: _buildLateRule(),
-                        ),
-                        const SizedBox(height: 12),
-                        _buildRuleCard(
-                          title: 'الخروج المبكر',
-                          icon: Icons.directions_run_outlined,
-                          content: _buildEarlyLeaveRule(),
-                        ),
-                        const SizedBox(height: 12),
-                        _buildRuleCard(
-                          title: 'الوقت الإضافي',
-                          icon: Icons.more_time,
-                          content: _buildOvertimeRule(),
-                        ),
-                        const SizedBox(height: 12),
-                        _buildRuleCard(
-                          title: 'نقص البصمات',
-                          icon: Icons.fingerprint,
-                          content:
-                              'في حال فقدان بصمة الدخول أو الخروج لن يكتمل احتساب اليوم، وسيظهر لك تنبيه لمراجعة الإدارة وتصحيح البصمة.',
-                          isWarning: true,
-                        ),
-                      ],
+          ? const AppEmptyState(
+              title: 'لا توجد سياسة',
+              message: 'لا توجد سياسة دوام محددة حاليًا.',
+              icon: Icons.rule_outlined,
+            )
+          : Align(
+              alignment: Alignment.topCenter,
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 760),
+                child: ListView(
+                  padding: const EdgeInsets.all(16),
+                  children: [
+                    _buildRuleCard(
+                      title: 'السماح بالتأخير',
+                      icon: Icons.timer_outlined,
+                      content: _buildLateRule(),
                     ),
-                  ),
+                    const SizedBox(height: 12),
+                    _buildRuleCard(
+                      title: 'الخروج المبكر',
+                      icon: Icons.directions_run_outlined,
+                      content: _buildEarlyLeaveRule(),
+                    ),
+                    const SizedBox(height: 12),
+                    _buildRuleCard(
+                      title: 'الوقت الإضافي',
+                      icon: Icons.more_time,
+                      content: _buildOvertimeRule(),
+                    ),
+                    const SizedBox(height: 12),
+                    _buildRuleCard(
+                      title: 'نقص البصمات',
+                      icon: Icons.fingerprint,
+                      content:
+                          'في حال فقدان بصمة الدخول أو الخروج لن يكتمل احتساب اليوم، وسيظهر لك تنبيه لمراجعة الإدارة وتصحيح البصمة.',
+                      isWarning: true,
+                    ),
+                  ],
                 ),
+              ),
+            ),
     );
   }
 

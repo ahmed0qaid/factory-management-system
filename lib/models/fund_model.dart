@@ -24,11 +24,6 @@ class FundModel {
   }
 
   Map<String, dynamic> toMap() {
-    return {
-      'name': name,
-      'type': type,
-      'balance': balance,
-      'active': active,
-    };
+    return {'name': name, 'type': type, 'balance': balance, 'active': active};
   }
 }

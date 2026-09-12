@@ -30,77 +30,76 @@ class _ReportsDashboardScreenState extends State<ReportsDashboardScreen> {
   }
 
   List<_ReportEntry> _reports(BuildContext context) => [
-        _ReportEntry(
-          title: 'التقرير الشامل للموظف',
-          description: 'ملف واحد يجمع الحضور والرواتب والسلف والجزاءات والإجازات.',
-          category: _ReportCategory.employee,
-          icon: Icons.badge_outlined,
-          enabled: AppRoles.canViewEmployeeFullReport(widget.currentProfile.role),
-          onTap: () => Navigator.of(context).push(
-            MaterialPageRoute(
-              builder: (_) => EmployeeFullReportScreen(
-                currentProfile: widget.currentProfile,
-              ),
-            ),
-          ),
+    _ReportEntry(
+      title: 'التقرير الشامل للموظف',
+      description: 'ملف واحد يجمع الحضور والرواتب والسلف والجزاءات والإجازات.',
+      category: _ReportCategory.employee,
+      icon: Icons.badge_outlined,
+      enabled: AppRoles.canViewEmployeeFullReport(widget.currentProfile.role),
+      onTap: () => Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (_) =>
+              EmployeeFullReportScreen(currentProfile: widget.currentProfile),
         ),
-        _ReportEntry(
-          title: 'الحضور والانصراف',
-          description: 'مراجعة الحضور والغياب والتأخير وساعات العمل حسب الفترة.',
-          category: _ReportCategory.employee,
-          icon: Icons.calendar_month_outlined,
-          enabled: AppRoles.canViewAttendanceReports(widget.currentProfile.role),
-          onTap: () => _openList(context, ReportKind.attendance),
-        ),
-        _ReportEntry(
-          title: 'الإجازات',
-          description: 'متابعة طلبات الإجازة وحالات الاعتماد ضمن الفترة المحددة.',
-          category: _ReportCategory.employee,
-          icon: Icons.event_available_outlined,
-          enabled: AppRoles.canViewLeavesReports(widget.currentProfile.role),
-          onTap: () => _openList(context, ReportKind.leaves),
-        ),
-        _ReportEntry(
-          title: 'العمل الإضافي',
-          description: 'عرض ساعات العمل الإضافي وقيمتها وحالة اعتمادها.',
-          category: _ReportCategory.employee,
-          icon: Icons.timer_outlined,
-          enabled: AppRoles.canViewOvertimeReports(widget.currentProfile.role),
-          onTap: () => _openList(context, ReportKind.overtime),
-        ),
-        _ReportEntry(
-          title: 'الرواتب',
-          description: 'صافي الرواتب والإضافات والخصومات حسب الموظف والفترة.',
-          category: _ReportCategory.finance,
-          icon: Icons.payments_outlined,
-          enabled: AppRoles.canViewPayrollReports(widget.currentProfile.role),
-          onTap: () => _openList(context, ReportKind.payroll),
-        ),
-        _ReportEntry(
-          title: 'السلف',
-          description: 'إجمالي السلف والأقساط والمبالغ المتبقية للموظفين.',
-          category: _ReportCategory.finance,
-          icon: Icons.account_balance_wallet_outlined,
-          enabled: AppRoles.canViewAdvancesReports(widget.currentProfile.role),
-          onTap: () => _openList(context, ReportKind.advances),
-        ),
-        _ReportEntry(
-          title: 'الجزاءات',
-          description: 'قيمة الجزاءات ودقائق الخصم وأسبابها وحالاتها.',
-          category: _ReportCategory.finance,
-          icon: Icons.gavel_outlined,
-          enabled: AppRoles.canViewPenaltiesReports(widget.currentProfile.role),
-          onTap: () => _openList(context, ReportKind.penalties),
-        ),
-        _ReportEntry(
-          title: 'مستندات الموظفين',
-          description: 'مراجعة المستندات والملفات المرفقة لكل موظف.',
-          category: _ReportCategory.documents,
-          icon: Icons.folder_copy_outlined,
-          enabled: AppRoles.canViewDocumentReports(widget.currentProfile.role),
-          onTap: () => _openList(context, ReportKind.documents),
-        ),
-      ];
+      ),
+    ),
+    _ReportEntry(
+      title: 'الحضور والانصراف',
+      description: 'مراجعة الحضور والغياب والتأخير وساعات العمل حسب الفترة.',
+      category: _ReportCategory.employee,
+      icon: Icons.calendar_month_outlined,
+      enabled: AppRoles.canViewAttendanceReports(widget.currentProfile.role),
+      onTap: () => _openList(context, ReportKind.attendance),
+    ),
+    _ReportEntry(
+      title: 'الإجازات',
+      description: 'متابعة طلبات الإجازة وحالات الاعتماد ضمن الفترة المحددة.',
+      category: _ReportCategory.employee,
+      icon: Icons.event_available_outlined,
+      enabled: AppRoles.canViewLeavesReports(widget.currentProfile.role),
+      onTap: () => _openList(context, ReportKind.leaves),
+    ),
+    _ReportEntry(
+      title: 'العمل الإضافي',
+      description: 'عرض ساعات العمل الإضافي وقيمتها وحالة اعتمادها.',
+      category: _ReportCategory.employee,
+      icon: Icons.timer_outlined,
+      enabled: AppRoles.canViewOvertimeReports(widget.currentProfile.role),
+      onTap: () => _openList(context, ReportKind.overtime),
+    ),
+    _ReportEntry(
+      title: 'الرواتب',
+      description: 'صافي الرواتب والإضافات والخصومات حسب الموظف والفترة.',
+      category: _ReportCategory.finance,
+      icon: Icons.payments_outlined,
+      enabled: AppRoles.canViewPayrollReports(widget.currentProfile.role),
+      onTap: () => _openList(context, ReportKind.payroll),
+    ),
+    _ReportEntry(
+      title: 'السلف',
+      description: 'إجمالي السلف والأقساط والمبالغ المتبقية للموظفين.',
+      category: _ReportCategory.finance,
+      icon: Icons.account_balance_wallet_outlined,
+      enabled: AppRoles.canViewAdvancesReports(widget.currentProfile.role),
+      onTap: () => _openList(context, ReportKind.advances),
+    ),
+    _ReportEntry(
+      title: 'الجزاءات',
+      description: 'قيمة الجزاءات ودقائق الخصم وأسبابها وحالاتها.',
+      category: _ReportCategory.finance,
+      icon: Icons.gavel_outlined,
+      enabled: AppRoles.canViewPenaltiesReports(widget.currentProfile.role),
+      onTap: () => _openList(context, ReportKind.penalties),
+    ),
+    _ReportEntry(
+      title: 'مستندات الموظفين',
+      description: 'مراجعة المستندات والملفات المرفقة لكل موظف.',
+      category: _ReportCategory.documents,
+      icon: Icons.folder_copy_outlined,
+      enabled: AppRoles.canViewDocumentReports(widget.currentProfile.role),
+      onTap: () => _openList(context, ReportKind.documents),
+    ),
+  ];
 
   @override
   Widget build(BuildContext context) {
@@ -121,8 +120,9 @@ class _ReportsDashboardScreenState extends State<ReportsDashboardScreen> {
           final horizontalPadding = compact
               ? AppSpacing.sm + AppSpacing.xs
               : AppSpacing.lg;
-          final maxContentWidth =
-              constraints.maxWidth > 1200 ? 1200.0 : constraints.maxWidth;
+          final maxContentWidth = constraints.maxWidth > 1200
+              ? 1200.0
+              : constraints.maxWidth;
 
           return Align(
             alignment: Alignment.topCenter,
@@ -170,12 +170,14 @@ class _ReportsDashboardScreenState extends State<ReportsDashboardScreen> {
                   else ...[
                     _ReportSection(
                       title: 'الموظفون والدوام',
-                      subtitle: 'الحضور والإجازات والعمل الإضافي والتقرير الشامل',
+                      subtitle:
+                          'الحضور والإجازات والعمل الإضافي والتقرير الشامل',
                       icon: Icons.groups_2_outlined,
                       compact: compact,
                       reports: visibleReports
-                          .where((item) =>
-                              item.category == _ReportCategory.employee)
+                          .where(
+                            (item) => item.category == _ReportCategory.employee,
+                          )
                           .toList(),
                     ),
                     const SizedBox(height: AppSpacing.lg),
@@ -185,7 +187,9 @@ class _ReportsDashboardScreenState extends State<ReportsDashboardScreen> {
                       icon: Icons.account_balance_outlined,
                       compact: compact,
                       reports: visibleReports
-                          .where((item) => item.category == _ReportCategory.finance)
+                          .where(
+                            (item) => item.category == _ReportCategory.finance,
+                          )
                           .toList(),
                     ),
                     const SizedBox(height: AppSpacing.lg),
@@ -195,8 +199,10 @@ class _ReportsDashboardScreenState extends State<ReportsDashboardScreen> {
                       icon: Icons.folder_open_outlined,
                       compact: compact,
                       reports: visibleReports
-                          .where((item) =>
-                              item.category == _ReportCategory.documents)
+                          .where(
+                            (item) =>
+                                item.category == _ReportCategory.documents,
+                          )
                           .toList(),
                     ),
                   ],
@@ -212,10 +218,8 @@ class _ReportsDashboardScreenState extends State<ReportsDashboardScreen> {
   void _openList(BuildContext context, ReportKind kind) {
     Navigator.of(context).push(
       MaterialPageRoute(
-        builder: (_) => ReportListScreen(
-          currentProfile: widget.currentProfile,
-          kind: kind,
-        ),
+        builder: (_) =>
+            ReportListScreen(currentProfile: widget.currentProfile, kind: kind),
       ),
     );
   }
@@ -364,8 +368,8 @@ class _ReportSection extends StatelessWidget {
             final columns = compact
                 ? 1
                 : constraints.maxWidth >= 980
-                    ? 3
-                    : 2;
+                ? 3
+                : 2;
             const gap = AppSpacing.sm + AppSpacing.xs;
             final itemWidth =
                 (constraints.maxWidth - gap * (columns - 1)) / columns;
@@ -444,9 +448,7 @@ class _ReportCard extends StatelessWidget {
                     ),
                     Icon(
                       report.enabled
-                          ? (isRtl
-                              ? Icons.chevron_left
-                              : Icons.chevron_right)
+                          ? (isRtl ? Icons.chevron_left : Icons.chevron_right)
                           : Icons.lock_outline,
                       size: 19,
                       color: scheme.onSurfaceVariant,

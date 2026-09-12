@@ -562,7 +562,8 @@ class AdminBiometricsService {
         return await action();
       } catch (e) {
         final message = e.toString();
-        final isRateLimit = message.contains('general_rate_limit_exceeded') ||
+        final isRateLimit =
+            message.contains('general_rate_limit_exceeded') ||
             message.contains('Rate limit');
 
         if (!isRateLimit || attempt == 4) {
@@ -617,27 +618,44 @@ class AdminBiometricsService {
         final existing = <String>{};
         String? cursor;
         while (true) {
-          final queries = [Query.equal('company_id', companyId), Query.limit(1000)];
+          final queries = [
+            Query.equal('company_id', companyId),
+            Query.limit(1000),
+          ];
           if (cursor != null) queries.add(Query.cursorAfter(cursor));
           try {
-            final res = await _retryOnRateLimit(() async => await AppwriteService.tablesDB.listRows(
-              databaseId: AppConstants.databaseId, tableId: tableId, queries: queries));
+            final res = await _retryOnRateLimit(
+              () async => await AppwriteService.tablesDB.listRows(
+                databaseId: AppConstants.databaseId,
+                tableId: tableId,
+                queries: queries,
+              ),
+            );
             for (var doc in res.rows) existing.add(doc.$id);
             if (res.rows.length < 1000) break;
             cursor = res.rows.last.$id;
           } catch (e) {
-            debugPrint('Failed to fetch cache for $tableId: $e'); break;
+            debugPrint('Failed to fetch cache for $tableId: $e');
+            break;
           }
         }
         return existing;
       }
 
-      Future<Set<String>> fetchExistingIdsWithDateRange(String tableId, String dateField, DateTime? minD, DateTime? maxD) async {
+      Future<Set<String>> fetchExistingIdsWithDateRange(
+        String tableId,
+        String dateField,
+        DateTime? minD,
+        DateTime? maxD,
+      ) async {
         final existing = <String>{};
         if (minD == null || maxD == null) return existing;
         String? cursor;
         final minStr = minD.toIso8601String().substring(0, 10);
-        final maxStr = maxD.add(const Duration(days: 1)).toIso8601String().substring(0, 10);
+        final maxStr = maxD
+            .add(const Duration(days: 1))
+            .toIso8601String()
+            .substring(0, 10);
         while (true) {
           final queries = [
             Query.equal('company_id', companyId),
@@ -647,13 +665,19 @@ class AdminBiometricsService {
           ];
           if (cursor != null) queries.add(Query.cursorAfter(cursor));
           try {
-            final res = await _retryOnRateLimit(() async => await AppwriteService.tablesDB.listRows(
-              databaseId: AppConstants.databaseId, tableId: tableId, queries: queries));
+            final res = await _retryOnRateLimit(
+              () async => await AppwriteService.tablesDB.listRows(
+                databaseId: AppConstants.databaseId,
+                tableId: tableId,
+                queries: queries,
+              ),
+            );
             for (var doc in res.rows) existing.add(doc.$id);
             if (res.rows.length < 1000) break;
             cursor = res.rows.last.$id;
           } catch (e) {
-            debugPrint('Failed to fetch cache for $tableId: $e'); break;
+            debugPrint('Failed to fetch cache for $tableId: $e');
+            break;
           }
         }
         return existing;
@@ -686,11 +710,16 @@ class AdminBiometricsService {
         String errorString = e.toString();
         String exactReason = 'Unknown error';
         if (errorString.contains('Unknown attribute')) {
-          final matches = RegExp(r'Unknown attribute "(.*?)"').firstMatch(errorString);
+          final matches = RegExp(
+            r'Unknown attribute "(.*?)"',
+          ).firstMatch(errorString);
           exactReason = 'Unknown attribute "${matches?.group(1) ?? ''}"';
         } else if (errorString.contains('Missing required attribute')) {
-          final matches = RegExp(r'Missing required attribute "(.*?)"').firstMatch(errorString);
-          exactReason = 'Missing required attribute "${matches?.group(1) ?? ''}"';
+          final matches = RegExp(
+            r'Missing required attribute "(.*?)"',
+          ).firstMatch(errorString);
+          exactReason =
+              'Missing required attribute "${matches?.group(1) ?? ''}"';
         } else {
           exactReason = errorString.split('\n').first;
         }
@@ -699,7 +728,9 @@ class AdminBiometricsService {
 
       // Preload Data (Caches)
       debugPrint('IMPORT_PRELOAD_CACHES_STARTED');
-      final existingTemporaryIds = await fetchAllExistingIds(AppConstants.temporaryBiometricEmployeesTable);
+      final existingTemporaryIds = await fetchAllExistingIds(
+        AppConstants.temporaryBiometricEmployeesTable,
+      );
 
       DateTime? minPunch, maxPunch;
       for (var log in rawLogs) {
@@ -716,9 +747,24 @@ class AdminBiometricsService {
         if (maxWork == null || d.isAfter(maxWork)) maxWork = d;
       }
 
-      final existingLogIds = await fetchExistingIdsWithDateRange(AppConstants.biometricLogsTable, 'punch_time', minPunch, maxPunch);
-      final existingAttendanceIds = await fetchExistingIdsWithDateRange(AppConstants.attendanceTable, 'work_date', minWork, maxWork);
-      final existingOvertimeIds = await fetchExistingIdsWithDateRange(AppConstants.overtimeRecordsTable, 'work_date', minWork, maxWork);
+      final existingLogIds = await fetchExistingIdsWithDateRange(
+        AppConstants.biometricLogsTable,
+        'punch_time',
+        minPunch,
+        maxPunch,
+      );
+      final existingAttendanceIds = await fetchExistingIdsWithDateRange(
+        AppConstants.attendanceTable,
+        'work_date',
+        minWork,
+        maxWork,
+      );
+      final existingOvertimeIds = await fetchExistingIdsWithDateRange(
+        AppConstants.overtimeRecordsTable,
+        'work_date',
+        minWork,
+        maxWork,
+      );
 
       final profilesResponse = await _retryOnRateLimit(() async {
         return await AppwriteService.tablesDB.listRows(
@@ -752,7 +798,7 @@ class AdminBiometricsService {
           logsSkipped++;
           continue; // Fast skip!
         }
-        
+
         try {
           await _retryOnRateLimit(() async {
             await AppwriteService.tablesDB.createRow(
@@ -784,17 +830,28 @@ class AdminBiometricsService {
             existingLogIds.add(logRowId);
           } else {
             logsFailed++;
-            if (errors.isEmpty || !errors.any((err) => err.startsWith('فشل Logs:'))) {
+            if (errors.isEmpty ||
+                !errors.any((err) => err.startsWith('فشل Logs:'))) {
               String exactReason = 'Unknown error';
-              if (e.message != null && (e.message!.contains('general_rate_limit_exceeded') || e.message!.contains('Rate limit'))) {
+              if (e.message != null &&
+                  (e.message!.contains('general_rate_limit_exceeded') ||
+                      e.message!.contains('Rate limit'))) {
                 logsFailedRateLimit++;
-                exactReason = 'تم تجاوز الحد المسموح للطلبات أثناء حفظ بعض سجلات البصمة، أعد المحاولة بعد قليل.';
-              } else if (e.message != null && e.message!.contains('Unknown attribute')) {
-                final matches = RegExp(r'Unknown attribute "(.*?)"').firstMatch(e.message!);
+                exactReason =
+                    'تم تجاوز الحد المسموح للطلبات أثناء حفظ بعض سجلات البصمة، أعد المحاولة بعد قليل.';
+              } else if (e.message != null &&
+                  e.message!.contains('Unknown attribute')) {
+                final matches = RegExp(
+                  r'Unknown attribute "(.*?)"',
+                ).firstMatch(e.message!);
                 exactReason = 'Unknown attribute "${matches?.group(1) ?? ''}"';
-              } else if (e.message != null && e.message!.contains('Missing required attribute')) {
-                final matches = RegExp(r'Missing required attribute "(.*?)"').firstMatch(e.message!);
-                exactReason = 'Missing required attribute "${matches?.group(1) ?? ''}"';
+              } else if (e.message != null &&
+                  e.message!.contains('Missing required attribute')) {
+                final matches = RegExp(
+                  r'Missing required attribute "(.*?)"',
+                ).firstMatch(e.message!);
+                exactReason =
+                    'Missing required attribute "${matches?.group(1) ?? ''}"';
               } else {
                 exactReason = e.message?.split('\n').first ?? '';
               }
@@ -803,21 +860,24 @@ class AdminBiometricsService {
           }
         } catch (e) {
           final errMsg = e.toString();
-          if (errMsg.contains('general_rate_limit_exceeded') || errMsg.contains('Rate limit')) {
-             logsFailedRateLimit++;
-             if (errors.isEmpty || !errors.any((err) => err.startsWith('فشل Logs:'))) {
-               errors.add('فشل Logs: تم تجاوز الحد المسموح للطلبات أثناء حفظ بعض سجلات البصمة، أعد المحاولة بعد قليل.');
-             }
+          if (errMsg.contains('general_rate_limit_exceeded') ||
+              errMsg.contains('Rate limit')) {
+            logsFailedRateLimit++;
+            if (errors.isEmpty ||
+                !errors.any((err) => err.startsWith('فشل Logs:'))) {
+              errors.add(
+                'فشل Logs: تم تجاوز الحد المسموح للطلبات أثناء حفظ بعض سجلات البصمة، أعد المحاولة بعد قليل.',
+              );
+            }
           } else {
-             logsFailed++;
-             if (errors.isEmpty || !errors.any((err) => err.startsWith('فشل Logs:'))) {
-               errors.add('فشل Logs: خطأ غير متوقع.');
-             }
+            logsFailed++;
+            if (errors.isEmpty ||
+                !errors.any((err) => err.startsWith('فشل Logs:'))) {
+              errors.add('فشل Logs: خطأ غير متوقع.');
+            }
           }
         }
       }
-
-
 
       // 3. Process Groups
       debugPrint('IMPORT_CREATE_ATTENDANCE_STARTED');
@@ -831,18 +891,20 @@ class AdminBiometricsService {
         if (mappedEmpId == null) {
           unmatchedBioIds.add(group.biometricId);
           final employeeNameFromDevice = group.employeeName?.trim();
-          if (employeeNameFromDevice != null && employeeNameFromDevice.isNotEmpty) {
+          if (employeeNameFromDevice != null &&
+              employeeNameFromDevice.isNotEmpty) {
             temporaryIdsWithImportedNames.add(group.biometricId);
           }
           // Unmatched employee!
           try {
             final tempId = _safeRowId('temp_${group.biometricId}');
-            
+
             // Fast Check Cache
-            if (existingTemporaryIds.contains(tempId) || updatedTempIds.contains(tempId)) {
-               temporarySkippedDuplicate++;
-               updatedTempIds.add(tempId);
-               continue;
+            if (existingTemporaryIds.contains(tempId) ||
+                updatedTempIds.contains(tempId)) {
+              temporarySkippedDuplicate++;
+              updatedTempIds.add(tempId);
+              continue;
             }
 
             final nowStr = DateTime.now().toIso8601String();
@@ -872,16 +934,25 @@ class AdminBiometricsService {
             await Future.delayed(const Duration(milliseconds: 50));
           } catch (e) {
             final msg = e.toString();
-            if (msg.contains('general_rate_limit_exceeded') || msg.contains('Rate limit')) {
-               temporaryFailedRateLimit++;
-               if (errors.isEmpty || !errors.any((err) => err.startsWith('فشل الموظفين المؤقتين:'))) {
-                 errors.add('فشل الموظفين المؤقتين: تم تجاوز الحد المسموح للطلبات أثناء تحديث بعض الموظفين المؤقتين، أعد المحاولة بعد قليل.');
-               }
+            if (msg.contains('general_rate_limit_exceeded') ||
+                msg.contains('Rate limit')) {
+              temporaryFailedRateLimit++;
+              if (errors.isEmpty ||
+                  !errors.any(
+                    (err) => err.startsWith('فشل الموظفين المؤقتين:'),
+                  )) {
+                errors.add(
+                  'فشل الموظفين المؤقتين: تم تجاوز الحد المسموح للطلبات أثناء تحديث بعض الموظفين المؤقتين، أعد المحاولة بعد قليل.',
+                );
+              }
             } else {
-               temporaryFailed++;
-               if (errors.isEmpty || !errors.any((err) => err.startsWith('فشل الموظفين المؤقتين:'))) {
-                 errors.add('فشل الموظفين المؤقتين: $msg');
-               }
+              temporaryFailed++;
+              if (errors.isEmpty ||
+                  !errors.any(
+                    (err) => err.startsWith('فشل الموظفين المؤقتين:'),
+                  )) {
+                errors.add('فشل الموظفين المؤقتين: $msg');
+              }
             }
           }
 
@@ -907,9 +978,11 @@ class AdminBiometricsService {
           reviewStatus = 'pending';
           if (group.actualCheckIn == null && group.actualCheckOut != null) {
             issueType = 'missing_check_in';
-          } else if (group.actualCheckIn != null && group.actualCheckOut == null) {
+          } else if (group.actualCheckIn != null &&
+              group.actualCheckOut == null) {
             issueType = 'missing_check_out';
-          } else if (group.actualCheckIn == null && group.actualCheckOut == null) {
+          } else if (group.actualCheckIn == null &&
+              group.actualCheckOut == null) {
             issueType = 'missing_both';
           }
         }
@@ -918,20 +991,27 @@ class AdminBiometricsService {
         int earlyLeaveMinutes = 0;
         int workedMinutes = 0;
 
-        final hasCompleteActualPunches = group.actualCheckIn != null && group.actualCheckOut != null;
+        final hasCompleteActualPunches =
+            group.actualCheckIn != null && group.actualCheckOut != null;
 
         if (hasCompleteActualPunches && group.shiftStart != null) {
-          lateMinutes = group.actualCheckIn!.difference(group.shiftStart!).inMinutes;
+          lateMinutes = group.actualCheckIn!
+              .difference(group.shiftStart!)
+              .inMinutes;
           if (lateMinutes < 0) lateMinutes = 0;
         }
 
         if (hasCompleteActualPunches && group.shiftEnd != null) {
-          earlyLeaveMinutes = group.shiftEnd!.difference(group.actualCheckOut!).inMinutes;
+          earlyLeaveMinutes = group.shiftEnd!
+              .difference(group.actualCheckOut!)
+              .inMinutes;
           if (earlyLeaveMinutes < 0) earlyLeaveMinutes = 0;
         }
 
         if (hasCompleteActualPunches) {
-          workedMinutes = group.actualCheckOut!.difference(group.actualCheckIn!).inMinutes;
+          workedMinutes = group.actualCheckOut!
+              .difference(group.actualCheckIn!)
+              .inMinutes;
           if (workedMinutes < 0) workedMinutes = 0;
         }
 
@@ -949,10 +1029,14 @@ class AdminBiometricsService {
                   'company_id': companyId,
                   'employee_id': empId,
                   'work_date': dateStr,
-                  if (group.shiftStart != null) 'scheduled_start': group.shiftStart!.toIso8601String(),
-                  if (group.shiftEnd != null) 'scheduled_end': group.shiftEnd!.toIso8601String(),
-                  if (group.actualCheckIn != null) 'check_in': group.actualCheckIn!.toIso8601String(),
-                  if (group.actualCheckOut != null) 'check_out': group.actualCheckOut!.toIso8601String(),
+                  if (group.shiftStart != null)
+                    'scheduled_start': group.shiftStart!.toIso8601String(),
+                  if (group.shiftEnd != null)
+                    'scheduled_end': group.shiftEnd!.toIso8601String(),
+                  if (group.actualCheckIn != null)
+                    'check_in': group.actualCheckIn!.toIso8601String(),
+                  if (group.actualCheckOut != null)
+                    'check_out': group.actualCheckOut!.toIso8601String(),
                   'late_minutes': lateMinutes,
                   'early_leave_minutes': earlyLeaveMinutes,
                   'worked_minutes': workedMinutes,
@@ -974,42 +1058,55 @@ class AdminBiometricsService {
               attendanceSkipped++;
               existingAttendanceIds.add(attId);
             } else {
-               attendanceFailed++;
-               final msg = e.toString();
-               if (msg.contains('general_rate_limit_exceeded') || msg.contains('Rate limit')) {
-                   attendanceFailedRateLimit++;
-                   if (errors.isEmpty || !errors.any((err) => err.startsWith('Attendance:'))) {
-                     errors.add('Attendance: تم تجاوز الحد المسموح للطلبات أثناء حفظ بعض سجلات الحضور، أعد المحاولة بعد قليل.');
-                   }
-               } else {
-                   if (errors.isEmpty || !errors.any((err) => err.startsWith('Attendance:'))) {
-                     errors.add('Attendance: $msg');
-                   }
-                   if (msg.contains('row_invalid_structure') || msg.contains('Missing required attribute')) {
-                      throw Exception('فشل خطير في الحضور يمنع الاستيراد: $msg');
-                   }
-               }
-               continue;
+              attendanceFailed++;
+              final msg = e.toString();
+              if (msg.contains('general_rate_limit_exceeded') ||
+                  msg.contains('Rate limit')) {
+                attendanceFailedRateLimit++;
+                if (errors.isEmpty ||
+                    !errors.any((err) => err.startsWith('Attendance:'))) {
+                  errors.add(
+                    'Attendance: تم تجاوز الحد المسموح للطلبات أثناء حفظ بعض سجلات الحضور، أعد المحاولة بعد قليل.',
+                  );
+                }
+              } else {
+                if (errors.isEmpty ||
+                    !errors.any((err) => err.startsWith('Attendance:'))) {
+                  errors.add('Attendance: $msg');
+                }
+                if (msg.contains('row_invalid_structure') ||
+                    msg.contains('Missing required attribute')) {
+                  throw Exception('فشل خطير في الحضور يمنع الاستيراد: $msg');
+                }
+              }
+              continue;
             }
           } catch (e) {
-               attendanceFailed++;
-               final msg = e.toString();
-               if (msg.contains('general_rate_limit_exceeded') || msg.contains('Rate limit')) {
-                   attendanceFailedRateLimit++;
-                   if (errors.isEmpty || !errors.any((err) => err.startsWith('Attendance:'))) {
-                     errors.add('Attendance: تم تجاوز الحد المسموح للطلبات أثناء حفظ بعض سجلات الحضور، أعد المحاولة بعد قليل.');
-                   }
-               } else {
-                   if (errors.isEmpty || !errors.any((err) => err.startsWith('Attendance:'))) {
-                     errors.add('Attendance: $msg');
-                   }
-               }
-               continue;
+            attendanceFailed++;
+            final msg = e.toString();
+            if (msg.contains('general_rate_limit_exceeded') ||
+                msg.contains('Rate limit')) {
+              attendanceFailedRateLimit++;
+              if (errors.isEmpty ||
+                  !errors.any((err) => err.startsWith('Attendance:'))) {
+                errors.add(
+                  'Attendance: تم تجاوز الحد المسموح للطلبات أثناء حفظ بعض سجلات الحضور، أعد المحاولة بعد قليل.',
+                );
+              }
+            } else {
+              if (errors.isEmpty ||
+                  !errors.any((err) => err.startsWith('Attendance:'))) {
+                errors.add('Attendance: $msg');
+              }
+            }
+            continue;
           }
         }
 
         // Save Overtime
-        if (group.expectedOvertimeMinutes > 0 && group.shiftStart != null && group.shiftEnd != null) {
+        if (group.expectedOvertimeMinutes > 0 &&
+            group.shiftStart != null &&
+            group.shiftEnd != null) {
           final otId = _safeRowId('ot_${empId}_${dateStr}_${sStart}_$sEnd');
           if (existingOvertimeIds.contains(otId)) {
             skippedOvertime++;
@@ -1027,7 +1124,9 @@ class AdminBiometricsService {
                     'attendance_record_id': attId,
                     'work_date': dateStr,
                     'shift_end': group.shiftEnd!.toIso8601String(),
-                    'actual_check_out': group.actualCheckOut?.toIso8601String() ?? group.shiftEnd!.toIso8601String(),
+                    'actual_check_out':
+                        group.actualCheckOut?.toIso8601String() ??
+                        group.shiftEnd!.toIso8601String(),
                     'overtime_minutes': group.expectedOvertimeMinutes,
                     'approval_status': 'pending',
                     'payment_status': 'unpaid',
@@ -1043,10 +1142,14 @@ class AdminBiometricsService {
                 skippedOvertime++;
                 existingOvertimeIds.add(otId);
               } else {
-                debugPrint('IMPORT_CREATE_OVERTIME_FAILED: overtime_records / $e');
+                debugPrint(
+                  'IMPORT_CREATE_OVERTIME_FAILED: overtime_records / $e',
+                );
               }
             } catch (e) {
-              debugPrint('IMPORT_CREATE_OVERTIME_FAILED: overtime_records / $e');
+              debugPrint(
+                'IMPORT_CREATE_OVERTIME_FAILED: overtime_records / $e',
+              );
             }
           }
         }
@@ -1055,10 +1158,14 @@ class AdminBiometricsService {
       matchedEmployees = matchedBioIds.length;
 
       // Create Summary Notification
-      if (attendanceCreated > 0 || temporaryCreated > 0 || summary.needsReviewGroups > 0 || attendanceSkipped > 0) {
+      if (attendanceCreated > 0 ||
+          temporaryCreated > 0 ||
+          summary.needsReviewGroups > 0 ||
+          attendanceSkipped > 0) {
         debugPrint('IMPORT_CREATE_NOTIFICATION_STARTED');
         try {
-          final notificationBody = '''
+          final notificationBody =
+              '''
 تم استيراد ملف البصمة.
 سجلات حضور جديدة: $attendanceCreated
 سجلات حضور موجودة مسبقًا / متخطاة: $attendanceSkipped
@@ -1068,7 +1175,8 @@ class AdminBiometricsService {
 حالات خروج بدون دخول: ${summary.missingCheckIns}
 موظفون مؤقتون جدد: $temporaryCreated
 موظفون مؤقتون موجودون مسبقًا / متخطون: $temporarySkippedDuplicate
-'''.trim();
+'''
+                  .trim();
 
           await _retryOnRateLimit(() async {
             await AppwriteService.tablesDB.createRow(
@@ -1091,8 +1199,6 @@ class AdminBiometricsService {
           debugPrint('IMPORT_CREATE_NOTIFICATION_FAILED: notifications / $e');
         }
       }
-
-
 
       debugPrint('IMPORT_COMMIT_DONE');
 

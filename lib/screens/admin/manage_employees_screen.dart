@@ -93,9 +93,9 @@ class _ManageEmployeesScreenState extends State<ManageEmployeesScreen> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('خطأ في جلب الموظفين: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('خطأ في جلب الموظفين: $e')));
       }
     } finally {
       if (mounted) setState(() => _isLoading = false);
@@ -123,9 +123,7 @@ class _ManageEmployeesScreenState extends State<ManageEmployeesScreen> {
     if (employee.isHrAdmin && !isActive) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('لا يمكن تعطيل حساب الموارد البشرية'),
-          ),
+          const SnackBar(content: Text('لا يمكن تعطيل حساب الموارد البشرية')),
         );
       }
       return;
@@ -167,8 +165,9 @@ class _ManageEmployeesScreenState extends State<ManageEmployeesScreen> {
       final names = employee.jobTitleName!.split(',');
       for (final name in names) {
         try {
-          final title =
-              _activeJobTitles.firstWhere((t) => t.name == name.trim());
+          final title = _activeJobTitles.firstWhere(
+            (t) => t.name == name.trim(),
+          );
           if (!selectedJobTitles.contains(title)) selectedJobTitles.add(title);
         } catch (_) {}
       }
@@ -313,8 +312,7 @@ class _ManageEmployeesScreenState extends State<ManageEmployeesScreen> {
                         value: isActive,
                         onChanged: employee.isHrAdmin
                             ? null
-                            : (value) =>
-                                setDialogState(() => isActive = value),
+                            : (value) => setDialogState(() => isActive = value),
                       ),
                       const Divider(height: 24),
                       Text(
@@ -340,9 +338,7 @@ class _ManageEmployeesScreenState extends State<ManageEmployeesScreen> {
                       const SizedBox(height: 8),
                       SwitchListTile(
                         contentPadding: EdgeInsets.zero,
-                        title: const Text(
-                          'إجبار الموظف على تغيير كلمة المرور',
-                        ),
+                        title: const Text('إجبار الموظف على تغيير كلمة المرور'),
                         value: mustChangePass,
                         onChanged: (value) =>
                             setDialogState(() => mustChangePass = value),
@@ -367,7 +363,8 @@ class _ManageEmployeesScreenState extends State<ManageEmployeesScreen> {
                       _showDialogMessage('رقم الموظف لا يمكن أن يكون فارغاً');
                       return;
                     }
-                    if (confirmPassCtrl.text.isNotEmpty && passCtrl.text.isEmpty) {
+                    if (confirmPassCtrl.text.isNotEmpty &&
+                        passCtrl.text.isEmpty) {
                       _showDialogMessage('أدخل كلمة المرور الجديدة أولًا.');
                       return;
                     }
@@ -383,9 +380,7 @@ class _ManageEmployeesScreenState extends State<ManageEmployeesScreen> {
                         return;
                       }
                       if (passCtrl.text != confirmPassCtrl.text) {
-                        _showDialogMessage(
-                          'كلمة المرور وتأكيدها غير متطابقين',
-                        );
+                        _showDialogMessage('كلمة المرور وتأكيدها غير متطابقين');
                         return;
                       }
                     }
@@ -401,12 +396,13 @@ class _ManageEmployeesScreenState extends State<ManageEmployeesScreen> {
                           newEmployeeNumber: empNum != employee.employeeNumber
                               ? empNum
                               : null,
-                          newPassword:
-                              passCtrl.text.isNotEmpty ? passCtrl.text : null,
+                          newPassword: passCtrl.text.isNotEmpty
+                              ? passCtrl.text
+                              : null,
                           mustChangePassword:
                               mustChangePass != employee.mustChangePassword
-                                  ? mustChangePass
-                                  : null,
+                              ? mustChangePass
+                              : null,
                         );
                       }
 
@@ -414,18 +410,20 @@ class _ManageEmployeesScreenState extends State<ManageEmployeesScreen> {
                         employee.id,
                         fullName: nameCtrl.text.trim(),
                         departmentName: deptCtrl.text.trim(),
-                        jobTitleId:
-                            selectedJobTitles.map((t) => t.id).join(','),
-                        jobTitleName:
-                            selectedJobTitles.map((t) => t.name).join(','),
+                        jobTitleId: selectedJobTitles
+                            .map((t) => t.id)
+                            .join(','),
+                        jobTitleName: selectedJobTitles
+                            .map((t) => t.name)
+                            .join(','),
                         biometricEmployeeId: biometricCtrl.text.trim(),
                         phone: phoneCtrl.text.trim(),
                         baseSalary:
                             num.tryParse(baseSalaryCtrl.text.trim()) ??
-                                employee.baseSalary,
+                            employee.baseSalary,
                         monthlyBonus:
                             num.tryParse(bonusCtrl.text.trim()) ??
-                                employee.monthlyBonus,
+                            employee.monthlyBonus,
                         dailyWorkHours:
                             num.tryParse(dailyWorkHoursCtrl.text.trim()) ?? 8,
                         active: isActive,
@@ -440,7 +438,7 @@ class _ManageEmployeesScreenState extends State<ManageEmployeesScreen> {
                       final inputBio = biometricCtrl.text.trim();
                       final savedBio =
                           verifyDoc.data['biometric_employee_id']?.toString() ??
-                              '';
+                          '';
 
                       await _loadEmployees();
                       if (context.mounted) {
@@ -479,9 +477,9 @@ class _ManageEmployeesScreenState extends State<ManageEmployeesScreen> {
   }
 
   void _showDialogMessage(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message)),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
   }
 
   void _showMobileDetails(ProfileModel employee) {
@@ -750,141 +748,137 @@ class _ManageEmployeesScreenState extends State<ManageEmployeesScreen> {
                   child: _isLoading
                       ? const AppLoadingState(label: 'جاري تحميل الموظفين')
                       : _filteredEmployees.isEmpty
-                          ? const AppEmptyState(
-                              title: 'لا يوجد موظفون',
-                              message: 'لا يوجد موظفون مطابقون لبحثك.',
-                              icon: Icons.group_off_outlined,
-                            )
-                          : LayoutBuilder(
-                              builder: (context, constraints) {
-                                if (constraints.maxWidth < 700) {
-                                  return ListView.builder(
-                                    itemCount: _filteredEmployees.length,
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 16,
+                      ? const AppEmptyState(
+                          title: 'لا يوجد موظفون',
+                          message: 'لا يوجد موظفون مطابقون لبحثك.',
+                          icon: Icons.group_off_outlined,
+                        )
+                      : LayoutBuilder(
+                          builder: (context, constraints) {
+                            if (constraints.maxWidth < 700) {
+                              return ListView.builder(
+                                itemCount: _filteredEmployees.length,
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 16,
+                                ),
+                                itemBuilder: (context, index) {
+                                  final employee = _filteredEmployees[index];
+                                  return AppListItem(
+                                    leading: CircleAvatar(
+                                      backgroundColor: scheme.primaryContainer,
+                                      foregroundColor:
+                                          scheme.onPrimaryContainer,
+                                      child: const Icon(Icons.person_outline),
                                     ),
-                                    itemBuilder: (context, index) {
-                                      final employee =
-                                          _filteredEmployees[index];
-                                      return AppListItem(
-                                        leading: CircleAvatar(
-                                          backgroundColor:
-                                              scheme.primaryContainer,
-                                          foregroundColor:
-                                              scheme.onPrimaryContainer,
-                                          child: const Icon(Icons.person_outline),
+                                    title: Text(employee.fullName),
+                                    subtitle: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          '${employee.employeeNumber} • ${employee.jobTitleName ?? 'بدون مسمى'}',
                                         ),
-                                        title: Text(employee.fullName),
-                                        subtitle: Column(
-                                          crossAxisAlignment:
-                                              CrossAxisAlignment.start,
-                                          children: [
-                                            Text(
-                                              '${employee.employeeNumber} • ${employee.jobTitleName ?? 'بدون مسمى'}',
+                                        if (employee.biometricEmployeeId ==
+                                                null ||
+                                            employee
+                                                .biometricEmployeeId!
+                                                .isEmpty)
+                                          Padding(
+                                            padding: const EdgeInsets.only(
+                                              top: 4,
                                             ),
-                                            if (employee.biometricEmployeeId ==
-                                                    null ||
-                                                employee.biometricEmployeeId!
-                                                    .isEmpty)
-                                              Padding(
-                                                padding: const EdgeInsets.only(
-                                                  top: 4,
-                                                ),
-                                                child: AppStatusPill.warning(
-                                                  'رقم البصمة غير محدد',
-                                                ),
-                                              ),
-                                          ],
-                                        ),
-                                        trailing: employee.active
-                                            ? AppStatusPill.success('نشط')
-                                            : AppStatusPill.neutral('معطل'),
-                                        onTap: () =>
-                                            _showMobileDetails(employee),
-                                      );
-                                    },
-                                  );
-                                }
-
-                                return SingleChildScrollView(
-                                  scrollDirection: Axis.horizontal,
-                                  child: SingleChildScrollView(
-                                    child: DataTable(
-                                      columns: const [
-                                        DataColumn(label: Text('الاسم')),
-                                        DataColumn(label: Text('الرقم')),
-                                        DataColumn(label: Text('الدور')),
-                                        DataColumn(label: Text('القسم')),
-                                        DataColumn(label: Text('المسمى')),
-                                        DataColumn(label: Text('الحالة')),
-                                        DataColumn(label: Text('رقم البصمة')),
-                                        DataColumn(label: Text('إجراءات')),
+                                            child: AppStatusPill.warning(
+                                              'رقم البصمة غير محدد',
+                                            ),
+                                          ),
                                       ],
-                                      rows: _filteredEmployees.map((employee) {
-                                        return DataRow(
-                                          cells: [
-                                            DataCell(Text(employee.fullName)),
-                                            DataCell(
-                                              Text(employee.employeeNumber),
-                                            ),
-                                            DataCell(Text(employee.roleLabel)),
-                                            DataCell(
-                                              Text(
-                                                employee.departmentName
-                                                            ?.isNotEmpty ==
-                                                        true
-                                                    ? employee.departmentName!
-                                                    : '-',
-                                              ),
-                                            ),
-                                            DataCell(
-                                              Text(
-                                                employee.jobTitleName
-                                                            ?.isNotEmpty ==
-                                                        true
-                                                    ? employee.jobTitleName!
-                                                    : '-',
-                                              ),
-                                            ),
-                                            DataCell(
-                                              Switch(
-                                                value: employee.active,
-                                                onChanged: employee.isHrAdmin
-                                                    ? null
-                                                    : (value) => _toggleStatus(
-                                                          employee,
-                                                          value,
-                                                        ),
-                                              ),
-                                            ),
-                                            DataCell(
-                                              Text(
-                                                employee.biometricEmployeeId
-                                                            ?.isNotEmpty ==
-                                                        true
-                                                    ? employee
-                                                        .biometricEmployeeId!
-                                                    : 'غير محدد',
-                                              ),
-                                            ),
-                                            DataCell(
-                                              IconButton(
-                                                icon: const Icon(
-                                                  Icons.edit_outlined,
-                                                ),
-                                                tooltip: 'تعديل',
-                                                onPressed: () =>
-                                                    _showEditDialog(employee),
-                                              ),
-                                            ),
-                                          ],
-                                        );
-                                      }).toList(),
                                     ),
-                                  ),
-                                );
-                              },
-                            ),
+                                    trailing: employee.active
+                                        ? AppStatusPill.success('نشط')
+                                        : AppStatusPill.neutral('معطل'),
+                                    onTap: () => _showMobileDetails(employee),
+                                  );
+                                },
+                              );
+                            }
+
+                            return SingleChildScrollView(
+                              scrollDirection: Axis.horizontal,
+                              child: SingleChildScrollView(
+                                child: DataTable(
+                                  columns: const [
+                                    DataColumn(label: Text('الاسم')),
+                                    DataColumn(label: Text('الرقم')),
+                                    DataColumn(label: Text('الدور')),
+                                    DataColumn(label: Text('القسم')),
+                                    DataColumn(label: Text('المسمى')),
+                                    DataColumn(label: Text('الحالة')),
+                                    DataColumn(label: Text('رقم البصمة')),
+                                    DataColumn(label: Text('إجراءات')),
+                                  ],
+                                  rows: _filteredEmployees.map((employee) {
+                                    return DataRow(
+                                      cells: [
+                                        DataCell(Text(employee.fullName)),
+                                        DataCell(Text(employee.employeeNumber)),
+                                        DataCell(Text(employee.roleLabel)),
+                                        DataCell(
+                                          Text(
+                                            employee
+                                                        .departmentName
+                                                        ?.isNotEmpty ==
+                                                    true
+                                                ? employee.departmentName!
+                                                : '-',
+                                          ),
+                                        ),
+                                        DataCell(
+                                          Text(
+                                            employee.jobTitleName?.isNotEmpty ==
+                                                    true
+                                                ? employee.jobTitleName!
+                                                : '-',
+                                          ),
+                                        ),
+                                        DataCell(
+                                          Switch(
+                                            value: employee.active,
+                                            onChanged: employee.isHrAdmin
+                                                ? null
+                                                : (value) => _toggleStatus(
+                                                    employee,
+                                                    value,
+                                                  ),
+                                          ),
+                                        ),
+                                        DataCell(
+                                          Text(
+                                            employee
+                                                        .biometricEmployeeId
+                                                        ?.isNotEmpty ==
+                                                    true
+                                                ? employee.biometricEmployeeId!
+                                                : 'غير محدد',
+                                          ),
+                                        ),
+                                        DataCell(
+                                          IconButton(
+                                            icon: const Icon(
+                                              Icons.edit_outlined,
+                                            ),
+                                            tooltip: 'تعديل',
+                                            onPressed: () =>
+                                                _showEditDialog(employee),
+                                          ),
+                                        ),
+                                      ],
+                                    );
+                                  }).toList(),
+                                ),
+                              ),
+                            );
+                          },
+                        ),
                 ),
               ],
             ),

@@ -36,11 +36,7 @@ class AppScaffold extends StatelessWidget {
       backgroundColor: backgroundColor ?? theme.scaffoldBackgroundColor,
       appBar: showAppBar
           ? AppBar(
-              title: Text(
-                title,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
+              title: Text(title, maxLines: 1, overflow: TextOverflow.ellipsis),
               centerTitle: centerTitle,
               actions: actions,
               bottom: bottom,

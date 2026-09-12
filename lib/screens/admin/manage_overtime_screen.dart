@@ -48,9 +48,7 @@ class _ManageOvertimeScreenState extends State<ManageOvertimeScreen> {
       if (!mounted) return;
       setState(() {
         _pendingOvertime = records;
-        _employees = {
-          for (final employee in employees) employee.id: employee,
-        };
+        _employees = {for (final employee in employees) employee.id: employee};
       });
     } catch (error) {
       if (mounted) {
@@ -120,16 +118,16 @@ class _ManageOvertimeScreenState extends State<ManageOvertimeScreen> {
       return;
     }
     if (record.paymentStatus == 'paid') {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('تم دفع هذا السجل مسبقًا.')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('تم دفع هذا السجل مسبقًا.')));
       return;
     }
 
-    final hourlyRate =
-        employee.baseSalary > 0 ? (employee.baseSalary / 30 / 8) : 0;
-    final suggestedAmount =
-        hourlyRate * 1.5 * (record.overtimeMinutes / 60);
+    final hourlyRate = employee.baseSalary > 0
+        ? (employee.baseSalary / 30 / 8)
+        : 0;
+    final suggestedAmount = hourlyRate * 1.5 * (record.overtimeMinutes / 60);
     final controller = TextEditingController(
       text: suggestedAmount.toStringAsFixed(2),
     );
@@ -176,15 +174,15 @@ class _ManageOvertimeScreenState extends State<ManageOvertimeScreen> {
             children: [
               Text(
                 employee.fullName,
-                style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.w700,
-                    ),
+                style: Theme.of(
+                  context,
+                ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
               ),
               Text(
                 '${employee.employeeNumber} • ${Formatters.date(record.workDate)}',
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: scheme.onSurfaceVariant,
-                    ),
+                style: Theme.of(
+                  context,
+                ).textTheme.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
               ),
               const SizedBox(height: 8),
               Text(
@@ -215,43 +213,44 @@ class _ManageOvertimeScreenState extends State<ManageOvertimeScreen> {
       body: _isLoading
           ? const AppLoadingState(label: 'جاري تحميل الوقت الإضافي')
           : _pendingOvertime.isEmpty
-              ? const AppEmptyState(
-                  title: 'لا توجد سجلات معلقة',
-                  message: 'لا توجد سجلات وقت إضافي تحتاج إلى متابعة.',
-                  icon: Icons.more_time_outlined,
-                )
-              : RefreshIndicator(
-                  onRefresh: _loadData,
-                  child: Align(
-                    alignment: Alignment.topCenter,
-                    child: ConstrainedBox(
-                      constraints: const BoxConstraints(maxWidth: 860),
-                      child: ListView.builder(
-                        padding: const EdgeInsets.all(16),
-                        itemCount: _pendingOvertime.length,
-                        itemBuilder: (context, index) {
-                          final record = _pendingOvertime[index];
-                          final employee = _employees[record.employeeId];
-                          final processing = _processingId == record.id;
-                          return _OvertimeCard(
-                            record: record,
-                            employee: employee,
-                            processing: processing,
-                            onApprove: () =>
-                                _confirmStatusChange(record, 'approved'),
-                            onReject: () =>
-                                _confirmStatusChange(record, 'rejected'),
-                            onPay: employee != null &&
-                                    record.approvalStatus == 'approved' &&
-                                    record.paymentStatus != 'paid'
-                                ? () => _showPayDialog(record, employee)
-                                : null,
-                          );
-                        },
-                      ),
-                    ),
+          ? const AppEmptyState(
+              title: 'لا توجد سجلات معلقة',
+              message: 'لا توجد سجلات وقت إضافي تحتاج إلى متابعة.',
+              icon: Icons.more_time_outlined,
+            )
+          : RefreshIndicator(
+              onRefresh: _loadData,
+              child: Align(
+                alignment: Alignment.topCenter,
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 860),
+                  child: ListView.builder(
+                    padding: const EdgeInsets.all(16),
+                    itemCount: _pendingOvertime.length,
+                    itemBuilder: (context, index) {
+                      final record = _pendingOvertime[index];
+                      final employee = _employees[record.employeeId];
+                      final processing = _processingId == record.id;
+                      return _OvertimeCard(
+                        record: record,
+                        employee: employee,
+                        processing: processing,
+                        onApprove: () =>
+                            _confirmStatusChange(record, 'approved'),
+                        onReject: () =>
+                            _confirmStatusChange(record, 'rejected'),
+                        onPay:
+                            employee != null &&
+                                record.approvalStatus == 'approved' &&
+                                record.paymentStatus != 'paid'
+                            ? () => _showPayDialog(record, employee)
+                            : null,
+                      );
+                    },
                   ),
                 ),
+              ),
+            ),
     );
   }
 }

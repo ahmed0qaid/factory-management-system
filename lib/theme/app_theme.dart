@@ -38,10 +38,7 @@ class AppTheme {
       dividerColor: colorScheme.outlineVariant,
       textTheme: textTheme,
       primaryTextTheme: textTheme,
-      iconTheme: IconThemeData(
-        color: colorScheme.onSurfaceVariant,
-        size: 22,
-      ),
+      iconTheme: IconThemeData(color: colorScheme.onSurfaceVariant, size: 22),
       appBarTheme: AppComponentThemes.appBar(colorScheme, textTheme),
       cardTheme: AppComponentThemes.card(colorScheme),
       inputDecorationTheme: AppComponentThemes.input(colorScheme),
@@ -54,8 +51,9 @@ class AppTheme {
       outlinedButtonTheme: AppComponentThemes.outlinedButton(colorScheme),
       textButtonTheme: AppComponentThemes.textButton(colorScheme),
       iconButtonTheme: AppComponentThemes.iconButton(colorScheme),
-      floatingActionButtonTheme:
-          AppComponentThemes.floatingActionButton(colorScheme),
+      floatingActionButtonTheme: AppComponentThemes.floatingActionButton(
+        colorScheme,
+      ),
       listTileTheme: AppComponentThemes.listTile(colorScheme, textTheme),
       switchTheme: AppComponentThemes.switchTheme(colorScheme),
       checkboxTheme: AppComponentThemes.checkbox(colorScheme),

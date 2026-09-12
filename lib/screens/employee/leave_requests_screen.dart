@@ -60,10 +60,7 @@ class _LeaveRequestsScreenState extends State<LeaveRequestsScreen> {
               value: leaveType,
               items: _leaveTypes
                   .map(
-                    (type) => DropdownMenuItem(
-                      value: type,
-                      child: Text(type),
-                    ),
+                    (type) => DropdownMenuItem(value: type, child: Text(type)),
                   )
                   .toList(),
               onChanged: (value) {

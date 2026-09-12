@@ -31,7 +31,8 @@ class AppCard extends StatelessWidget {
     final scheme = Theme.of(context).colorScheme;
     final effectiveBackground =
         backgroundColor ?? scheme.surfaceContainerLowest;
-    final effectiveBorder = borderColor ??
+    final effectiveBorder =
+        borderColor ??
         scheme.outlineVariant.withValues(alpha: elevated ? .85 : .65);
     final radius = AppRadius.card;
 
@@ -47,10 +48,7 @@ class AppCard extends StatelessWidget {
           child: DecoratedBox(
             decoration: BoxDecoration(
               borderRadius: radius,
-              border: Border.all(
-                color: effectiveBorder,
-                width: borderWidth,
-              ),
+              border: Border.all(color: effectiveBorder, width: borderWidth),
               boxShadow: elevated ? AppShadows.subtle(scheme.shadow) : null,
             ),
             child: Padding(padding: padding, child: child),

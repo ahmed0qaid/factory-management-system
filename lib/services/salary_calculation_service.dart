@@ -137,7 +137,8 @@ class SalaryCalculationService {
       (total, penalty) => total + penalty.amount,
     );
     final advanceDeduction = advancesTotal;
-    final netSalary = grossSalary - absenceDeduction - penaltiesDeduction - advanceDeduction;
+    final netSalary =
+        grossSalary - absenceDeduction - penaltiesDeduction - advanceDeduction;
 
     return MonthlySalaryReport(
       employee: employee,

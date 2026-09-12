@@ -57,9 +57,9 @@ class _AttendancePolicyScreenState extends State<AttendancePolicyScreen> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('خطأ في تحميل السياسة: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('خطأ في تحميل السياسة: $e')));
       }
     } finally {
       if (mounted) setState(() => _isLoading = false);
@@ -89,15 +89,15 @@ class _AttendancePolicyScreenState extends State<AttendancePolicyScreen> {
       await _adminService.updateAttendancePolicy(updatedPolicy);
 
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('تم حفظ السياسة بنجاح')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('تم حفظ السياسة بنجاح')));
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('خطأ في الحفظ: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('خطأ في الحفظ: $e')));
       }
     } finally {
       if (mounted) setState(() => _isSaving = false);
@@ -252,9 +252,8 @@ class _AttendancePolicyScreenState extends State<AttendancePolicyScreen> {
                           ),
                           contentPadding: EdgeInsets.zero,
                           value: _overtimeRequiresHrApproval,
-                          onChanged: (val) => setState(
-                            () => _overtimeRequiresHrApproval = val,
-                          ),
+                          onChanged: (val) =>
+                              setState(() => _overtimeRequiresHrApproval = val),
                         ),
                       ],
                     ),

@@ -38,13 +38,14 @@ class HrApp extends StatelessWidget {
             return AnnotatedRegion<SystemUiOverlayStyle>(
               value: SystemUiOverlayStyle(
                 statusBarColor: Colors.transparent,
-                statusBarIconBrightness:
-                    dark ? Brightness.light : Brightness.dark,
-                statusBarBrightness:
-                    dark ? Brightness.dark : Brightness.light,
+                statusBarIconBrightness: dark
+                    ? Brightness.light
+                    : Brightness.dark,
+                statusBarBrightness: dark ? Brightness.dark : Brightness.light,
                 systemNavigationBarColor: scheme.surface,
-                systemNavigationBarIconBrightness:
-                    dark ? Brightness.light : Brightness.dark,
+                systemNavigationBarIconBrightness: dark
+                    ? Brightness.light
+                    : Brightness.dark,
                 systemNavigationBarDividerColor: scheme.outlineVariant,
               ),
               child: child ?? const SizedBox.shrink(),

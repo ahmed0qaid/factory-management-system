@@ -64,15 +64,16 @@ class _PayrollScreenState extends State<PayrollScreen> {
     int year,
     int month,
   ) {
-    final matches = items
-        .where(
-          (item) =>
-              item.createdAt.year == year &&
-              item.createdAt.month == month &&
-              (item.status == 'approved' || item.status == 'paid'),
-        )
-        .toList()
-      ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+    final matches =
+        items
+            .where(
+              (item) =>
+                  item.createdAt.year == year &&
+                  item.createdAt.month == month &&
+                  (item.status == 'approved' || item.status == 'paid'),
+            )
+            .toList()
+          ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
     return matches.isEmpty ? null : matches.first;
   }
 
@@ -420,11 +421,7 @@ class _PayrollScreenState extends State<PayrollScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(
-            icon,
-            size: 20,
-            color: iconColor ?? scheme.onSurfaceVariant,
-          ),
+          Icon(icon, size: 20, color: iconColor ?? scheme.onSurfaceVariant),
           const SizedBox(height: 7),
           Text(
             title,
@@ -462,9 +459,7 @@ class _PayrollScreenState extends State<PayrollScreen> {
           tilePadding: EdgeInsets.zero,
           childrenPadding: EdgeInsets.zero,
           title: Text(
-            _detailsExpanded
-                ? 'إخفاء تفاصيل الراتب'
-                : 'عرض تفاصيل الراتب',
+            _detailsExpanded ? 'إخفاء تفاصيل الراتب' : 'عرض تفاصيل الراتب',
             style: TextStyle(
               color: scheme.primary,
               fontWeight: FontWeight.w700,
@@ -521,10 +516,7 @@ class _PayrollScreenState extends State<PayrollScreen> {
             _buildInfoRow('طريقة الجمعة', report.fridayMode.label),
             _buildInfoRow('أيام الشهر', report.daysInMonth.toString()),
             _buildInfoRow('أيام الجمعة', report.fridaysCount.toString()),
-            _buildInfoRow(
-              'أيام الراتب المعتمدة',
-              report.salaryDays.toString(),
-            ),
+            _buildInfoRow('أيام الراتب المعتمدة', report.salaryDays.toString()),
             const SizedBox(height: 6),
           ],
         ),
@@ -545,11 +537,7 @@ class _PayrollScreenState extends State<PayrollScreen> {
         children: [
           Row(
             children: [
-              Icon(
-                Icons.verified_outlined,
-                size: 20,
-                color: semantic.success,
-              ),
+              Icon(Icons.verified_outlined, size: 20, color: semantic.success),
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
@@ -706,13 +694,13 @@ class _MonthButton extends StatelessWidget {
     final background = selected
         ? scheme.primaryContainer
         : enabled
-            ? scheme.surfaceContainer
-            : scheme.surfaceContainerLowest;
+        ? scheme.surfaceContainer
+        : scheme.surfaceContainerLowest;
     final foreground = selected
         ? scheme.onPrimaryContainer
         : enabled
-            ? scheme.onSurface
-            : scheme.onSurfaceVariant.withValues(alpha: .45);
+        ? scheme.onSurface
+        : scheme.onSurfaceVariant.withValues(alpha: .45);
 
     return Material(
       color: background,

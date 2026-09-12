@@ -83,8 +83,7 @@ class AppActionCard extends StatelessWidget {
 
   Color _adaptColor(Color source, Brightness brightness) {
     final sourceBrightness = ThemeData.estimateBrightnessForColor(source);
-    if (brightness == Brightness.dark &&
-        sourceBrightness == Brightness.dark) {
+    if (brightness == Brightness.dark && sourceBrightness == Brightness.dark) {
       return Color.lerp(source, Colors.white, .38)!;
     }
     if (brightness == Brightness.light &&

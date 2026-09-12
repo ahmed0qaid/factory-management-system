@@ -34,9 +34,9 @@ class _ShiftsScreenState extends State<ShiftsScreen> {
 
   void _loadShifts() {
     setState(() {
-      _shiftsFuture = _shiftService
-          .getShifts(widget.profile.companyId)
-          .then((shifts) async {
+      _shiftsFuture = _shiftService.getShifts(widget.profile.companyId).then((
+        shifts,
+      ) async {
         if (shifts.isEmpty && AppRoles.isHr(widget.profile.role)) {
           await _shiftService.seedDefaultShifts(widget.profile.companyId);
           return _shiftService.getShifts(widget.profile.companyId);
@@ -121,9 +121,9 @@ class _ShiftsScreenState extends State<ShiftsScreen> {
           return true;
         } catch (e) {
           if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text('حدث خطأ: $e')),
-            );
+            ScaffoldMessenger.of(
+              context,
+            ).showSnackBar(SnackBar(content: Text('حدث خطأ: $e')));
           }
           return false;
         }
@@ -232,10 +232,7 @@ class _ShiftsScreenState extends State<ShiftsScreen> {
   TimeOfDay _parseTime(String time24) {
     final parts = time24.split(':');
     if (parts.length < 2) return const TimeOfDay(hour: 0, minute: 0);
-    return TimeOfDay(
-      hour: int.parse(parts[0]),
-      minute: int.parse(parts[1]),
-    );
+    return TimeOfDay(hour: int.parse(parts[0]), minute: int.parse(parts[1]));
   }
 
   Future<void> _toggleActive(ShiftModel shift) async {
@@ -245,9 +242,9 @@ class _ShiftsScreenState extends State<ShiftsScreen> {
       _loadShifts();
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('حدث خطأ: $e')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('حدث خطأ: $e')));
     }
   }
 
@@ -359,11 +356,7 @@ class _ShiftCard extends StatelessWidget {
           const SizedBox(height: 12),
           Row(
             children: [
-              Icon(
-                Icons.access_time,
-                size: 18,
-                color: scheme.onSurfaceVariant,
-              ),
+              Icon(Icons.access_time, size: 18, color: scheme.onSurfaceVariant),
               const SizedBox(width: 8),
               Flexible(
                 child: Text(

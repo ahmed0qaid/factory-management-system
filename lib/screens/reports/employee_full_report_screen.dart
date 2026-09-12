@@ -162,7 +162,9 @@ class _EmployeeFullReportScreenState extends State<EmployeeFullReportScreen> {
 
   void _showMessage(String message) {
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
   }
 
   String _status(String value) {
@@ -200,14 +202,38 @@ class _EmployeeFullReportScreenState extends State<EmployeeFullReportScreen> {
       subtitle: '${employee.fullName} - ${employee.employeeNumber}',
       filterSummary: period,
       metrics: [
-        ReportPdfMetric(label: 'أيام الحضور', value: report.presentDays.toString()),
-        ReportPdfMetric(label: 'أيام الغياب', value: report.absentDays.toString()),
-        ReportPdfMetric(label: 'مرات التأخير', value: report.lateCount.toString()),
-        ReportPdfMetric(label: 'إجمالي الرواتب', value: _money(report.totalPayroll)),
-        ReportPdfMetric(label: 'إجمالي السلف', value: _money(report.totalAdvances)),
-        ReportPdfMetric(label: 'السلف المتبقية', value: _money(report.remainingAdvances)),
-        ReportPdfMetric(label: 'إجمالي الجزاءات', value: _money(report.totalPenalties)),
-        ReportPdfMetric(label: 'إجمالي الإضافي', value: _money(report.totalOvertime)),
+        ReportPdfMetric(
+          label: 'أيام الحضور',
+          value: report.presentDays.toString(),
+        ),
+        ReportPdfMetric(
+          label: 'أيام الغياب',
+          value: report.absentDays.toString(),
+        ),
+        ReportPdfMetric(
+          label: 'مرات التأخير',
+          value: report.lateCount.toString(),
+        ),
+        ReportPdfMetric(
+          label: 'إجمالي الرواتب',
+          value: _money(report.totalPayroll),
+        ),
+        ReportPdfMetric(
+          label: 'إجمالي السلف',
+          value: _money(report.totalAdvances),
+        ),
+        ReportPdfMetric(
+          label: 'السلف المتبقية',
+          value: _money(report.remainingAdvances),
+        ),
+        ReportPdfMetric(
+          label: 'إجمالي الجزاءات',
+          value: _money(report.totalPenalties),
+        ),
+        ReportPdfMetric(
+          label: 'إجمالي الإضافي',
+          value: _money(report.totalOvertime),
+        ),
       ],
       sections: [
         ReportPdfSection(
@@ -289,7 +315,8 @@ class _EmployeeFullReportScreenState extends State<EmployeeFullReportScreen> {
           lines: report.overtime
               .map(
                 (row) => ReportPdfLine(
-                  title: '${(row.overtimeMinutes / 60).toStringAsFixed(1)} ساعة',
+                  title:
+                      '${(row.overtimeMinutes / 60).toStringAsFixed(1)} ساعة',
                   subtitle:
                       '${_date(row.workDate)} | الدفع: ${_status(row.paymentStatus)}',
                   trailing: row.overtimeAmount == null
@@ -306,7 +333,8 @@ class _EmployeeFullReportScreenState extends State<EmployeeFullReportScreen> {
                 (row) => ReportPdfLine(
                   title:
                       '${row.data['title'] ?? row.data['document_type'] ?? row.$id}',
-                  subtitle: '${row.data['file_name'] ?? row.data['notes'] ?? ''}',
+                  subtitle:
+                      '${row.data['file_name'] ?? row.data['notes'] ?? ''}',
                 ),
               )
               .toList(),
@@ -384,7 +412,8 @@ class _EmployeeFullReportScreenState extends State<EmployeeFullReportScreen> {
             child: ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: 1200),
               child: ListView(
-                keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+                keyboardDismissBehavior:
+                    ScrollViewKeyboardDismissBehavior.onDrag,
                 padding: EdgeInsets.all(
                   MediaQuery.sizeOf(context).width < 650 ? 10 : 16,
                 ),
@@ -402,7 +431,8 @@ class _EmployeeFullReportScreenState extends State<EmployeeFullReportScreen> {
                     FutureBuilder<EmployeeFullReport>(
                       future: _reportFuture,
                       builder: (context, reportSnapshot) {
-                        if (!reportSnapshot.hasData && !reportSnapshot.hasError) {
+                        if (!reportSnapshot.hasData &&
+                            !reportSnapshot.hasError) {
                           return const Padding(
                             padding: EdgeInsets.all(48),
                             child: Center(child: CircularProgressIndicator()),
@@ -468,8 +498,8 @@ class _EmployeeFullReportScreenState extends State<EmployeeFullReportScreen> {
                     Text(
                       'إعداد التقرير',
                       style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                            fontWeight: FontWeight.bold,
-                          ),
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                   ],
                 ),
@@ -610,7 +640,9 @@ class _EmployeeFullReportScreenState extends State<EmployeeFullReportScreen> {
               children: [
                 CircleAvatar(
                   radius: 30,
-                  child: Text(employee.fullName.isEmpty ? 'م' : employee.fullName[0]),
+                  child: Text(
+                    employee.fullName.isEmpty ? 'م' : employee.fullName[0],
+                  ),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
@@ -621,9 +653,8 @@ class _EmployeeFullReportScreenState extends State<EmployeeFullReportScreen> {
                         employee.fullName,
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
-                        style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                              fontWeight: FontWeight.bold,
-                            ),
+                        style: Theme.of(context).textTheme.titleMedium
+                            ?.copyWith(fontWeight: FontWeight.bold),
                       ),
                       Text(employee.roleLabel),
                     ],
@@ -655,7 +686,9 @@ class _EmployeeFullReportScreenState extends State<EmployeeFullReportScreen> {
                                 info.value,
                                 maxLines: 2,
                                 overflow: TextOverflow.ellipsis,
-                                style: const TextStyle(fontWeight: FontWeight.w600),
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.w600,
+                                ),
                               ),
                             ],
                           ),
@@ -673,29 +706,66 @@ class _EmployeeFullReportScreenState extends State<EmployeeFullReportScreen> {
 
   Widget _summary(EmployeeFullReport report) {
     final items = [
-      _SummaryData('أيام الحضور', report.presentDays.toString(), Icons.check_circle_outline),
-      _SummaryData('أيام الغياب', report.absentDays.toString(), Icons.cancel_outlined),
-      _SummaryData('مرات التأخير', report.lateCount.toString(), Icons.schedule_outlined),
-      _SummaryData('إجمالي الرواتب', _money(report.totalPayroll), Icons.payments_outlined),
-      _SummaryData('إجمالي السلف', _money(report.totalAdvances), Icons.account_balance_wallet_outlined),
-      _SummaryData('السلف المتبقية', _money(report.remainingAdvances), Icons.pending_actions_outlined),
-      _SummaryData('إجمالي الجزاءات', _money(report.totalPenalties), Icons.gavel_outlined),
-      _SummaryData('إجمالي الإضافي', _money(report.totalOvertime), Icons.timer_outlined),
+      _SummaryData(
+        'أيام الحضور',
+        report.presentDays.toString(),
+        Icons.check_circle_outline,
+      ),
+      _SummaryData(
+        'أيام الغياب',
+        report.absentDays.toString(),
+        Icons.cancel_outlined,
+      ),
+      _SummaryData(
+        'مرات التأخير',
+        report.lateCount.toString(),
+        Icons.schedule_outlined,
+      ),
+      _SummaryData(
+        'إجمالي الرواتب',
+        _money(report.totalPayroll),
+        Icons.payments_outlined,
+      ),
+      _SummaryData(
+        'إجمالي السلف',
+        _money(report.totalAdvances),
+        Icons.account_balance_wallet_outlined,
+      ),
+      _SummaryData(
+        'السلف المتبقية',
+        _money(report.remainingAdvances),
+        Icons.pending_actions_outlined,
+      ),
+      _SummaryData(
+        'إجمالي الجزاءات',
+        _money(report.totalPenalties),
+        Icons.gavel_outlined,
+      ),
+      _SummaryData(
+        'إجمالي الإضافي',
+        _money(report.totalOvertime),
+        Icons.timer_outlined,
+      ),
     ];
     return LayoutBuilder(
       builder: (context, constraints) {
         final columns = constraints.maxWidth < 520
             ? 2
             : constraints.maxWidth < 900
-                ? 3
-                : 4;
+            ? 3
+            : 4;
         const gap = 10.0;
         final width = (constraints.maxWidth - gap * (columns - 1)) / columns;
         return Wrap(
           spacing: gap,
           runSpacing: gap,
           children: items
-              .map((item) => SizedBox(width: width, child: _SummaryCard(data: item)))
+              .map(
+                (item) => SizedBox(
+                  width: width,
+                  child: _SummaryCard(data: item),
+                ),
+              )
               .toList(),
         );
       },
@@ -725,7 +795,8 @@ class _EmployeeFullReportScreenState extends State<EmployeeFullReportScreen> {
   }
 
   Widget _attendance(List<AttendanceRecordModel> rows) {
-    if (rows.isEmpty) return const _EmptyLine('لا توجد سجلات حضور لهذه الفترة.');
+    if (rows.isEmpty)
+      return const _EmptyLine('لا توجد سجلات حضور لهذه الفترة.');
     return Column(
       children: rows
           .map(
@@ -742,7 +813,8 @@ class _EmployeeFullReportScreenState extends State<EmployeeFullReportScreen> {
   }
 
   Widget _payroll(List<PayrollRecordModel> rows) {
-    if (rows.isEmpty) return const _EmptyLine('لا توجد سجلات رواتب لهذه الفترة.');
+    if (rows.isEmpty)
+      return const _EmptyLine('لا توجد سجلات رواتب لهذه الفترة.');
     return Column(
       children: rows
           .map(
@@ -809,7 +881,8 @@ class _EmployeeFullReportScreenState extends State<EmployeeFullReportScreen> {
   }
 
   Widget _overtime(List<OvertimeRecordModel> rows) {
-    if (rows.isEmpty) return const _EmptyLine('لا توجد سجلات عمل إضافي لهذه الفترة.');
+    if (rows.isEmpty)
+      return const _EmptyLine('لا توجد سجلات عمل إضافي لهذه الفترة.');
     return Column(
       children: rows
           .map(
@@ -836,7 +909,8 @@ class _EmployeeFullReportScreenState extends State<EmployeeFullReportScreen> {
           .map(
             (row) => _RecordTile(
               icon: Icons.description_outlined,
-              title: '${row.data['title'] ?? row.data['document_type'] ?? row.$id}',
+              title:
+                  '${row.data['title'] ?? row.data['document_type'] ?? row.$id}',
               subtitle: '${row.data['file_name'] ?? row.data['notes'] ?? ''}',
             ),
           )
@@ -903,9 +977,9 @@ class _SummaryCard extends StatelessWidget {
               data.value,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.bold,
-                  ),
+              style: Theme.of(
+                context,
+              ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 2),
             Text(
@@ -1019,4 +1093,5 @@ class _Info {
 }
 
 enum _PeriodPreset { thisMonth, lastMonth, last30Days, thisYear }
+
 enum _ExportAction { pdf, print }

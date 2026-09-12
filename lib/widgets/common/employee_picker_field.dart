@@ -76,7 +76,9 @@ class EmployeePickerField extends StatelessWidget {
                 overflow: TextOverflow.ellipsis,
                 style: theme.textTheme.bodyLarge?.copyWith(
                   color: enabled ? scheme.onSurface : scheme.onSurfaceVariant,
-                  fontWeight: selected == null ? FontWeight.w500 : FontWeight.w600,
+                  fontWeight: selected == null
+                      ? FontWeight.w500
+                      : FontWeight.w600,
                 ),
               ),
               const SizedBox(height: AppSpacing.xxs),
@@ -240,7 +242,9 @@ class _EmployeePickerSheetState extends State<_EmployeePickerSheet> {
                   ),
                 ),
                 Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: AppSpacing.md,
+                  ),
                   child: TextField(
                     controller: _searchController,
                     autofocus: true,
@@ -265,7 +269,9 @@ class _EmployeePickerSheetState extends State<_EmployeePickerSheet> {
                 const SizedBox(height: AppSpacing.sm),
                 if (widget.allowAll) ...[
                   Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: AppSpacing.sm,
+                    ),
                     child: ListTile(
                       leading: CircleAvatar(
                         backgroundColor: scheme.secondaryContainer,
@@ -281,7 +287,9 @@ class _EmployeePickerSheetState extends State<_EmployeePickerSheet> {
                               color: scheme.onSurfaceVariant,
                             ),
                       selected: widget.selectedEmployeeId == null,
-                      selectedTileColor: scheme.primaryContainer.withValues(alpha: .45),
+                      selectedTileColor: scheme.primaryContainer.withValues(
+                        alpha: .45,
+                      ),
                       onTap: () => Navigator.pop(
                         context,
                         _EmployeePickerSheet.allSentinel,
@@ -316,8 +324,8 @@ class _EmployeePickerSheetState extends State<_EmployeePickerSheet> {
                             final trimmedName = employee.fullName.trim();
                             return ListTile(
                               selected: selected,
-                              selectedTileColor:
-                                  scheme.primaryContainer.withValues(alpha: .45),
+                              selectedTileColor: scheme.primaryContainer
+                                  .withValues(alpha: .45),
                               leading: CircleAvatar(
                                 backgroundColor: selected
                                     ? scheme.primaryContainer
@@ -340,7 +348,10 @@ class _EmployeePickerSheetState extends State<_EmployeePickerSheet> {
                                 overflow: TextOverflow.ellipsis,
                               ),
                               trailing: selected
-                                  ? Icon(Icons.check_circle, color: scheme.primary)
+                                  ? Icon(
+                                      Icons.check_circle,
+                                      color: scheme.primary,
+                                    )
                                   : Icon(
                                       isRtl
                                           ? Icons.chevron_left

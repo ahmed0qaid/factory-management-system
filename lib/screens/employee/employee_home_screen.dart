@@ -277,10 +277,7 @@ class _EmployeeHomeScreenState extends State<EmployeeHomeScreen> {
 
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
-    final statusColor = _statusSemanticColor(
-      context,
-      attendance.latestStatus,
-    );
+    final statusColor = _statusSemanticColor(context, attendance.latestStatus);
 
     return AppCard(
       elevated: true,
@@ -626,8 +623,7 @@ class _CompactGrid extends StatelessWidget {
       builder: (context, constraints) {
         final columns = constraints.maxWidth >= 760 ? 4 : 2;
         final itemWidth =
-            (constraints.maxWidth - (AppSpacing.sm * (columns - 1))) /
-                columns;
+            (constraints.maxWidth - (AppSpacing.sm * (columns - 1))) / columns;
         const itemHeight = 112.0;
 
         return GridView.builder(
@@ -746,8 +742,7 @@ class _AttendanceSummary {
   static List<AttendanceRecordModel> _deduplicateAttendance(
     List<AttendanceRecordModel> items,
   ) {
-    final sorted = [...items]
-      ..sort((a, b) => b.workDate.compareTo(a.workDate));
+    final sorted = [...items]..sort((a, b) => b.workDate.compareTo(a.workDate));
     final seen = <String>{};
     final result = <AttendanceRecordModel>[];
     for (final item in sorted) {

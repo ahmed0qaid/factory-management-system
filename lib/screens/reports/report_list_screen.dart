@@ -56,78 +56,78 @@ class _ReportListScreenState extends State<ReportListScreen> {
   }
 
   _ReportMeta get _meta => switch (widget.kind) {
-        ReportKind.attendance => const _ReportMeta(
-            title: 'الحضور والانصراف',
-            description: 'الحضور والغياب والتأخير وساعات العمل',
-            icon: Icons.calendar_month_outlined,
-          ),
-        ReportKind.payroll => const _ReportMeta(
-            title: 'الرواتب',
-            description: 'صافي الرواتب والإضافات والخصومات',
-            icon: Icons.payments_outlined,
-          ),
-        ReportKind.advances => const _ReportMeta(
-            title: 'السلف',
-            description: 'السلف والأقساط والمبالغ المتبقية',
-            icon: Icons.account_balance_wallet_outlined,
-          ),
-        ReportKind.penalties => const _ReportMeta(
-            title: 'الجزاءات',
-            description: 'الجزاءات والقيم ودقائق الخصم',
-            icon: Icons.gavel_outlined,
-          ),
-        ReportKind.leaves => const _ReportMeta(
-            title: 'الإجازات',
-            description: 'طلبات الإجازة وحالات الاعتماد',
-            icon: Icons.event_available_outlined,
-          ),
-        ReportKind.overtime => const _ReportMeta(
-            title: 'العمل الإضافي',
-            description: 'الساعات الإضافية وقيمتها وحالة اعتمادها',
-            icon: Icons.timer_outlined,
-          ),
-        ReportKind.documents => const _ReportMeta(
-            title: 'مستندات الموظفين',
-            description: 'الملفات والمستندات المرتبطة بالموظفين',
-            icon: Icons.folder_copy_outlined,
-          ),
-      };
+    ReportKind.attendance => const _ReportMeta(
+      title: 'الحضور والانصراف',
+      description: 'الحضور والغياب والتأخير وساعات العمل',
+      icon: Icons.calendar_month_outlined,
+    ),
+    ReportKind.payroll => const _ReportMeta(
+      title: 'الرواتب',
+      description: 'صافي الرواتب والإضافات والخصومات',
+      icon: Icons.payments_outlined,
+    ),
+    ReportKind.advances => const _ReportMeta(
+      title: 'السلف',
+      description: 'السلف والأقساط والمبالغ المتبقية',
+      icon: Icons.account_balance_wallet_outlined,
+    ),
+    ReportKind.penalties => const _ReportMeta(
+      title: 'الجزاءات',
+      description: 'الجزاءات والقيم ودقائق الخصم',
+      icon: Icons.gavel_outlined,
+    ),
+    ReportKind.leaves => const _ReportMeta(
+      title: 'الإجازات',
+      description: 'طلبات الإجازة وحالات الاعتماد',
+      icon: Icons.event_available_outlined,
+    ),
+    ReportKind.overtime => const _ReportMeta(
+      title: 'العمل الإضافي',
+      description: 'الساعات الإضافية وقيمتها وحالة اعتمادها',
+      icon: Icons.timer_outlined,
+    ),
+    ReportKind.documents => const _ReportMeta(
+      title: 'مستندات الموظفين',
+      description: 'الملفات والمستندات المرتبطة بالموظفين',
+      icon: Icons.folder_copy_outlined,
+    ),
+  };
 
   Future<List<models.Row>> _fetchRows() => switch (widget.kind) {
-        ReportKind.attendance => _service.getAttendanceReport(
-            employeeId: _selectedEmployeeId,
-            from: _from,
-            to: _to,
-          ),
-        ReportKind.payroll => _service.getPayrollReport(
-            employeeId: _selectedEmployeeId,
-            from: _from,
-            to: _to,
-          ),
-        ReportKind.advances => _service.getAdvancesReport(
-            employeeId: _selectedEmployeeId,
-            from: _from,
-            to: _to,
-          ),
-        ReportKind.penalties => _service.getPenaltiesReport(
-            employeeId: _selectedEmployeeId,
-            from: _from,
-            to: _to,
-          ),
-        ReportKind.leaves => _service.getLeavesReport(
-            employeeId: _selectedEmployeeId,
-            from: _from,
-            to: _to,
-          ),
-        ReportKind.overtime => _service.getOvertimeReport(
-            employeeId: _selectedEmployeeId,
-            from: _from,
-            to: _to,
-          ),
-        ReportKind.documents => _service.getDocumentsReport(
-            employeeId: _selectedEmployeeId,
-          ),
-      };
+    ReportKind.attendance => _service.getAttendanceReport(
+      employeeId: _selectedEmployeeId,
+      from: _from,
+      to: _to,
+    ),
+    ReportKind.payroll => _service.getPayrollReport(
+      employeeId: _selectedEmployeeId,
+      from: _from,
+      to: _to,
+    ),
+    ReportKind.advances => _service.getAdvancesReport(
+      employeeId: _selectedEmployeeId,
+      from: _from,
+      to: _to,
+    ),
+    ReportKind.penalties => _service.getPenaltiesReport(
+      employeeId: _selectedEmployeeId,
+      from: _from,
+      to: _to,
+    ),
+    ReportKind.leaves => _service.getLeavesReport(
+      employeeId: _selectedEmployeeId,
+      from: _from,
+      to: _to,
+    ),
+    ReportKind.overtime => _service.getOvertimeReport(
+      employeeId: _selectedEmployeeId,
+      from: _from,
+      to: _to,
+    ),
+    ReportKind.documents => _service.getDocumentsReport(
+      employeeId: _selectedEmployeeId,
+    ),
+  };
 
   void _loadRows() {
     if (_from != null && _to != null && _from!.isAfter(_to!)) {
@@ -295,7 +295,9 @@ class _ReportListScreenState extends State<ReportListScreen> {
 
   void _showMessage(String message) {
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
   }
 
   @override
@@ -366,7 +368,8 @@ class _ReportListScreenState extends State<ReportListScreen> {
             child: ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: 1200),
               child: ListView(
-                keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+                keyboardDismissBehavior:
+                    ScrollViewKeyboardDismissBehavior.onDrag,
                 padding: EdgeInsets.all(compact ? 10 : 18),
                 children: [
                   _ReportHeader(meta: meta),
@@ -395,7 +398,8 @@ class _ReportListScreenState extends State<ReportListScreen> {
                         return _StateMessage(
                           icon: meta.icon,
                           title: 'لا توجد بيانات',
-                          message: _selectedEmployeeId == null &&
+                          message:
+                              _selectedEmployeeId == null &&
                                   _from == null &&
                                   _to == null
                               ? 'لا توجد سجلات متاحة حاليًا لهذا التقرير.'
@@ -413,9 +417,7 @@ class _ReportListScreenState extends State<ReportListScreen> {
                               Expanded(
                                 child: Text(
                                   'تفاصيل السجلات',
-                                  style: Theme.of(context)
-                                      .textTheme
-                                      .titleMedium
+                                  style: Theme.of(context).textTheme.titleMedium
                                       ?.copyWith(fontWeight: FontWeight.bold),
                                 ),
                               ),
@@ -500,8 +502,8 @@ class _ReportListScreenState extends State<ReportListScreen> {
                     Text(
                       'تصفية التقرير',
                       style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                            fontWeight: FontWeight.bold,
-                          ),
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                   ],
                 ),
@@ -565,140 +567,171 @@ class _ReportListScreenState extends State<ReportListScreen> {
     );
   }
 
-  List<_SummaryData> _summaryData(List<models.Row> rows) => switch (widget.kind) {
-        ReportKind.attendance => [
-            _SummaryData('السجلات', rows.length.toString(), Icons.list_alt_outlined),
-            _SummaryData(
-              'الحضور',
-              rows
-                  .where((row) =>
-                      row.data['status'] == 'present' || row.data['check_in'] != null)
-                  .length
-                  .toString(),
-              Icons.check_circle_outline,
-            ),
-            _SummaryData(
-              'الغياب',
-              rows.where((row) => row.data['status'] == 'absent').length.toString(),
-              Icons.cancel_outlined,
-            ),
-            _SummaryData(
-              'التأخير',
-              rows.where((row) => _num(row.data, 'late_minutes') > 0).length.toString(),
-              Icons.schedule_outlined,
-            ),
-          ],
-        ReportKind.payroll => [
-            _SummaryData('السجلات', rows.length.toString(), Icons.list_alt_outlined),
-            _SummaryData(
-              'صافي الرواتب',
-              _money(rows.fold<num>(0, (sum, row) => sum + _num(row.data, 'net_salary'))),
-              Icons.payments_outlined,
-            ),
-            _SummaryData(
-              'الإضافات',
-              _money(rows.fold<num>(
-                0,
-                (sum, row) =>
-                    sum +
-                    _num(row.data, 'allowances') +
-                    _num(row.data, 'bonuses') +
-                    _num(row.data, 'overtime_amount'),
-              )),
-              Icons.add_circle_outline,
-            ),
-            _SummaryData(
-              'الخصومات',
-              _money(rows.fold<num>(
-                0,
-                (sum, row) =>
-                    sum +
-                    _num(row.data, 'absence_deductions') +
-                    _num(row.data, 'late_deductions') +
-                    _num(row.data, 'penalties_amount') +
-                    _num(row.data, 'advance_installments') +
-                    _num(row.data, 'other_deductions'),
-              )),
-              Icons.remove_circle_outline,
-            ),
-          ],
-        ReportKind.advances => [
-            _SummaryData('السجلات', rows.length.toString(), Icons.list_alt_outlined),
-            _SummaryData(
-              'إجمالي السلف',
-              _money(rows.fold<num>(
-                0,
-                (sum, row) => sum + _num(row.data, 'principal_amount'),
-              )),
-              Icons.account_balance_wallet_outlined,
-            ),
-            _SummaryData(
-              'المتبقي',
-              _money(rows.fold<num>(
-                0,
-                (sum, row) => sum + _num(row.data, 'remaining_amount'),
-              )),
-              Icons.pending_actions_outlined,
-            ),
-          ],
-        ReportKind.penalties => [
-            _SummaryData('السجلات', rows.length.toString(), Icons.list_alt_outlined),
-            _SummaryData(
-              'إجمالي الجزاءات',
-              _money(rows.fold<num>(0, (sum, row) => sum + _num(row.data, 'amount'))),
-              Icons.gavel_outlined,
-            ),
-            _SummaryData(
-              'دقائق الخصم',
-              rows
-                  .fold<num>(0, (sum, row) => sum + _num(row.data, 'minutes_deducted'))
-                  .toString(),
-              Icons.timer_off_outlined,
-            ),
-          ],
-        ReportKind.leaves => [
-            _SummaryData('الطلبات', rows.length.toString(), Icons.event_available_outlined),
-            _SummaryData(
-              'المعتمدة',
-              rows.where((row) => row.data['status'] == 'approved').length.toString(),
-              Icons.check_circle_outline,
-            ),
-            _SummaryData(
-              'المعلقة',
-              rows.where((row) => row.data['status'] == 'pending').length.toString(),
-              Icons.pending_actions_outlined,
-            ),
-          ],
-        ReportKind.overtime => [
-            _SummaryData('السجلات', rows.length.toString(), Icons.list_alt_outlined),
-            _SummaryData(
-              'الساعات',
-              (rows.fold<num>(
-                        0,
-                        (sum, row) => sum + _num(row.data, 'overtime_minutes'),
-                      ) /
-                      60)
-                  .toStringAsFixed(1),
-              Icons.timer_outlined,
-            ),
-            _SummaryData(
-              'القيمة',
-              _money(rows.fold<num>(
-                0,
-                (sum, row) => sum + _num(row.data, 'overtime_amount'),
-              )),
-              Icons.payments_outlined,
-            ),
-          ],
-        ReportKind.documents => [
-            _SummaryData('المستندات', rows.length.toString(), Icons.folder_copy_outlined),
-            _SummaryData(
-              'لها ملف',
-              rows.where((row) => row.data['file_id'] != null).length.toString(),
-              Icons.attach_file_outlined,
-            ),
-          ],
-      };
+  List<_SummaryData> _summaryData(
+    List<models.Row> rows,
+  ) => switch (widget.kind) {
+    ReportKind.attendance => [
+      _SummaryData('السجلات', rows.length.toString(), Icons.list_alt_outlined),
+      _SummaryData(
+        'الحضور',
+        rows
+            .where(
+              (row) =>
+                  row.data['status'] == 'present' ||
+                  row.data['check_in'] != null,
+            )
+            .length
+            .toString(),
+        Icons.check_circle_outline,
+      ),
+      _SummaryData(
+        'الغياب',
+        rows.where((row) => row.data['status'] == 'absent').length.toString(),
+        Icons.cancel_outlined,
+      ),
+      _SummaryData(
+        'التأخير',
+        rows
+            .where((row) => _num(row.data, 'late_minutes') > 0)
+            .length
+            .toString(),
+        Icons.schedule_outlined,
+      ),
+    ],
+    ReportKind.payroll => [
+      _SummaryData('السجلات', rows.length.toString(), Icons.list_alt_outlined),
+      _SummaryData(
+        'صافي الرواتب',
+        _money(
+          rows.fold<num>(0, (sum, row) => sum + _num(row.data, 'net_salary')),
+        ),
+        Icons.payments_outlined,
+      ),
+      _SummaryData(
+        'الإضافات',
+        _money(
+          rows.fold<num>(
+            0,
+            (sum, row) =>
+                sum +
+                _num(row.data, 'allowances') +
+                _num(row.data, 'bonuses') +
+                _num(row.data, 'overtime_amount'),
+          ),
+        ),
+        Icons.add_circle_outline,
+      ),
+      _SummaryData(
+        'الخصومات',
+        _money(
+          rows.fold<num>(
+            0,
+            (sum, row) =>
+                sum +
+                _num(row.data, 'absence_deductions') +
+                _num(row.data, 'late_deductions') +
+                _num(row.data, 'penalties_amount') +
+                _num(row.data, 'advance_installments') +
+                _num(row.data, 'other_deductions'),
+          ),
+        ),
+        Icons.remove_circle_outline,
+      ),
+    ],
+    ReportKind.advances => [
+      _SummaryData('السجلات', rows.length.toString(), Icons.list_alt_outlined),
+      _SummaryData(
+        'إجمالي السلف',
+        _money(
+          rows.fold<num>(
+            0,
+            (sum, row) => sum + _num(row.data, 'principal_amount'),
+          ),
+        ),
+        Icons.account_balance_wallet_outlined,
+      ),
+      _SummaryData(
+        'المتبقي',
+        _money(
+          rows.fold<num>(
+            0,
+            (sum, row) => sum + _num(row.data, 'remaining_amount'),
+          ),
+        ),
+        Icons.pending_actions_outlined,
+      ),
+    ],
+    ReportKind.penalties => [
+      _SummaryData('السجلات', rows.length.toString(), Icons.list_alt_outlined),
+      _SummaryData(
+        'إجمالي الجزاءات',
+        _money(rows.fold<num>(0, (sum, row) => sum + _num(row.data, 'amount'))),
+        Icons.gavel_outlined,
+      ),
+      _SummaryData(
+        'دقائق الخصم',
+        rows
+            .fold<num>(
+              0,
+              (sum, row) => sum + _num(row.data, 'minutes_deducted'),
+            )
+            .toString(),
+        Icons.timer_off_outlined,
+      ),
+    ],
+    ReportKind.leaves => [
+      _SummaryData(
+        'الطلبات',
+        rows.length.toString(),
+        Icons.event_available_outlined,
+      ),
+      _SummaryData(
+        'المعتمدة',
+        rows.where((row) => row.data['status'] == 'approved').length.toString(),
+        Icons.check_circle_outline,
+      ),
+      _SummaryData(
+        'المعلقة',
+        rows.where((row) => row.data['status'] == 'pending').length.toString(),
+        Icons.pending_actions_outlined,
+      ),
+    ],
+    ReportKind.overtime => [
+      _SummaryData('السجلات', rows.length.toString(), Icons.list_alt_outlined),
+      _SummaryData(
+        'الساعات',
+        (rows.fold<num>(
+                  0,
+                  (sum, row) => sum + _num(row.data, 'overtime_minutes'),
+                ) /
+                60)
+            .toStringAsFixed(1),
+        Icons.timer_outlined,
+      ),
+      _SummaryData(
+        'القيمة',
+        _money(
+          rows.fold<num>(
+            0,
+            (sum, row) => sum + _num(row.data, 'overtime_amount'),
+          ),
+        ),
+        Icons.payments_outlined,
+      ),
+    ],
+    ReportKind.documents => [
+      _SummaryData(
+        'المستندات',
+        rows.length.toString(),
+        Icons.folder_copy_outlined,
+      ),
+      _SummaryData(
+        'لها ملف',
+        rows.where((row) => row.data['file_id'] != null).length.toString(),
+        Icons.attach_file_outlined,
+      ),
+    ],
+  };
 
   Widget _summary(List<models.Row> rows) {
     final cards = _summaryData(rows);
@@ -707,15 +740,20 @@ class _ReportListScreenState extends State<ReportListScreen> {
         final columns = constraints.maxWidth < 520
             ? 2
             : constraints.maxWidth < 900
-                ? 3
-                : 4;
+            ? 3
+            : 4;
         const gap = 10.0;
         final width = (constraints.maxWidth - gap * (columns - 1)) / columns;
         return Wrap(
           spacing: gap,
           runSpacing: gap,
           children: cards
-              .map((card) => SizedBox(width: width, child: _SummaryCard(data: card)))
+              .map(
+                (card) => SizedBox(
+                  width: width,
+                  child: _SummaryCard(data: card),
+                ),
+              )
               .toList(),
         );
       },
@@ -724,7 +762,8 @@ class _ReportListScreenState extends State<ReportListScreen> {
 
   Widget _rowTile(models.Row row, Map<String, String> employeeNames) {
     final data = row.data;
-    final employee = employeeNames[data['employee_id']] ?? data['employee_id'] ?? '-';
+    final employee =
+        employeeNames[data['employee_id']] ?? data['employee_id'] ?? '-';
     return Card(
       margin: const EdgeInsets.only(bottom: 8),
       child: ListTile(
@@ -750,44 +789,44 @@ class _ReportListScreenState extends State<ReportListScreen> {
   }
 
   String _title(Map<String, dynamic> data) => switch (widget.kind) {
-        ReportKind.attendance => 'تاريخ الدوام: ${_dateValue(data['work_date'])}',
-        ReportKind.payroll =>
-          '${data['period_name'] ?? 'مسير راتب'} - صافي ${_money(_num(data, 'net_salary'))}',
-        ReportKind.advances => 'سلفة ${_money(_num(data, 'principal_amount'))}',
-        ReportKind.penalties => '${data['category'] ?? 'جزاء'}',
-        ReportKind.leaves => '${data['leave_type'] ?? 'إجازة'}',
-        ReportKind.overtime =>
-          'عمل إضافي ${(_num(data, 'overtime_minutes') / 60).toStringAsFixed(1)} ساعة',
-        ReportKind.documents =>
-          '${data['title'] ?? data['document_type'] ?? data['file_name'] ?? 'مستند'}',
-      };
+    ReportKind.attendance => 'تاريخ الدوام: ${_dateValue(data['work_date'])}',
+    ReportKind.payroll =>
+      '${data['period_name'] ?? 'مسير راتب'} - صافي ${_money(_num(data, 'net_salary'))}',
+    ReportKind.advances => 'سلفة ${_money(_num(data, 'principal_amount'))}',
+    ReportKind.penalties => '${data['category'] ?? 'جزاء'}',
+    ReportKind.leaves => '${data['leave_type'] ?? 'إجازة'}',
+    ReportKind.overtime =>
+      'عمل إضافي ${(_num(data, 'overtime_minutes') / 60).toStringAsFixed(1)} ساعة',
+    ReportKind.documents =>
+      '${data['title'] ?? data['document_type'] ?? data['file_name'] ?? 'مستند'}',
+  };
 
   String _subtitle(Map<String, dynamic> data) => switch (widget.kind) {
-        ReportKind.attendance =>
-          'دخول: ${_dateValue(data['check_in'])} | خروج: ${_dateValue(data['check_out'])} | ساعات: ${(_num(data, 'worked_minutes') / 60).toStringAsFixed(1)}',
-        ReportKind.payroll =>
-          'أساسي: ${_money(_num(data, 'base_salary'))} | إضافات: ${_money(_num(data, 'allowances') + _num(data, 'bonuses') + _num(data, 'overtime_amount'))} | خصومات: ${_money(_num(data, 'absence_deductions') + _num(data, 'late_deductions') + _num(data, 'penalties_amount') + _num(data, 'advance_installments') + _num(data, 'other_deductions'))}',
-        ReportKind.advances =>
-          'التاريخ: ${_dateValue(data['created_at'])} | القسط: ${_money(_num(data, 'installment_amount'))} | المتبقي: ${_money(_num(data, 'remaining_amount'))}',
-        ReportKind.penalties =>
-          'التاريخ: ${_dateValue(data['penalty_date'])} | السبب: ${data['reason'] ?? '-'} | القيمة: ${_money(_num(data, 'amount'))}',
-        ReportKind.leaves =>
-          'من ${_dateValue(data['start_date'])} إلى ${_dateValue(data['end_date'])} | السبب: ${data['reason'] ?? '-'}',
-        ReportKind.overtime =>
-          'التاريخ: ${_dateValue(data['work_date'])} | القيمة: ${_money(_num(data, 'overtime_amount'))} | الدفع: ${_localizedStatus('${data['payment_status'] ?? '-'}')}',
-        ReportKind.documents =>
-          'النوع: ${data['document_type'] ?? '-'} | الملف: ${data['file_name'] ?? data['file_id'] ?? '-'}',
-      };
+    ReportKind.attendance =>
+      'دخول: ${_dateValue(data['check_in'])} | خروج: ${_dateValue(data['check_out'])} | ساعات: ${(_num(data, 'worked_minutes') / 60).toStringAsFixed(1)}',
+    ReportKind.payroll =>
+      'أساسي: ${_money(_num(data, 'base_salary'))} | إضافات: ${_money(_num(data, 'allowances') + _num(data, 'bonuses') + _num(data, 'overtime_amount'))} | خصومات: ${_money(_num(data, 'absence_deductions') + _num(data, 'late_deductions') + _num(data, 'penalties_amount') + _num(data, 'advance_installments') + _num(data, 'other_deductions'))}',
+    ReportKind.advances =>
+      'التاريخ: ${_dateValue(data['created_at'])} | القسط: ${_money(_num(data, 'installment_amount'))} | المتبقي: ${_money(_num(data, 'remaining_amount'))}',
+    ReportKind.penalties =>
+      'التاريخ: ${_dateValue(data['penalty_date'])} | السبب: ${data['reason'] ?? '-'} | القيمة: ${_money(_num(data, 'amount'))}',
+    ReportKind.leaves =>
+      'من ${_dateValue(data['start_date'])} إلى ${_dateValue(data['end_date'])} | السبب: ${data['reason'] ?? '-'}',
+    ReportKind.overtime =>
+      'التاريخ: ${_dateValue(data['work_date'])} | القيمة: ${_money(_num(data, 'overtime_amount'))} | الدفع: ${_localizedStatus('${data['payment_status'] ?? '-'}')}',
+    ReportKind.documents =>
+      'النوع: ${data['document_type'] ?? '-'} | الملف: ${data['file_name'] ?? data['file_id'] ?? '-'}',
+  };
 
   String _trailing(Map<String, dynamic> data) => switch (widget.kind) {
-        ReportKind.attendance => '${data['status'] ?? '-'}',
-        ReportKind.payroll => '${data['status'] ?? '-'}',
-        ReportKind.advances => '${data['status'] ?? '-'}',
-        ReportKind.penalties => '${data['status'] ?? '-'}',
-        ReportKind.leaves => '${data['status'] ?? '-'}',
-        ReportKind.overtime => '${data['approval_status'] ?? '-'}',
-        ReportKind.documents => data['file_id'] == null ? '-' : 'ملف',
-      };
+    ReportKind.attendance => '${data['status'] ?? '-'}',
+    ReportKind.payroll => '${data['status'] ?? '-'}',
+    ReportKind.advances => '${data['status'] ?? '-'}',
+    ReportKind.penalties => '${data['status'] ?? '-'}',
+    ReportKind.leaves => '${data['status'] ?? '-'}',
+    ReportKind.overtime => '${data['approval_status'] ?? '-'}',
+    ReportKind.documents => data['file_id'] == null ? '-' : 'ملف',
+  };
 
   String _localizedStatus(String status) {
     switch (status) {
@@ -837,11 +876,14 @@ class _ReportHeader extends StatelessWidget {
                   Text(
                     meta.title,
                     style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                          fontWeight: FontWeight.bold,
-                        ),
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                   const SizedBox(height: 3),
-                  Text(meta.description, style: Theme.of(context).textTheme.bodySmall),
+                  Text(
+                    meta.description,
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
                 ],
               ),
             ),
@@ -906,10 +948,9 @@ class _SummaryCard extends StatelessWidget {
             const SizedBox(height: 8),
             Text(
               data.value,
-              style: Theme.of(context)
-                  .textTheme
-                  .titleMedium
-                  ?.copyWith(fontWeight: FontWeight.bold),
+              style: Theme.of(
+                context,
+              ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
             ),
@@ -946,6 +987,7 @@ class _ReportMeta {
 }
 
 enum _PeriodPreset { today, thisWeek, thisMonth, lastMonth }
+
 enum _ExportAction { pdf, print }
 
 class _StateMessage extends StatelessWidget {

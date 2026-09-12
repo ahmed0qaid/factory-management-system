@@ -115,9 +115,7 @@ class _FactoryStoppagesScreenState extends State<FactoryStoppagesScreen> {
                       context,
                       Icons.calendar_today_outlined,
                       'من',
-                      Formatters.date(
-                        DateTime.parse(stoppage['start_date']),
-                      ),
+                      Formatters.date(DateTime.parse(stoppage['start_date'])),
                     ),
                     _line(
                       context,

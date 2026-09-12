@@ -6,7 +6,7 @@ import '../../../services/admin_biometrics_service.dart';
 import '../../../widgets/common/app_empty_state.dart';
 import '../../../widgets/common/app_list_item.dart';
 import '../../../widgets/common/app_loading_state.dart';
-import '../../../widgets/common/app_status_pill.dart';
+
 import 'temporary_employee_details_dialog.dart';
 
 class TemporaryEmployeesListView extends StatefulWidget {
@@ -47,9 +47,9 @@ class _TemporaryEmployeesListViewState
       if (mounted) setState(() => _employees = emps);
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('خطأ: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('خطأ: $e')));
       }
     } finally {
       if (mounted) setState(() => _isLoading = false);
@@ -108,83 +108,82 @@ class _TemporaryEmployeesListViewState
           child: _isLoading
               ? const AppLoadingState(label: 'جاري تحميل الموظفين')
               : _employees.isEmpty
-                  ? AppEmptyState(
-                      title: 'لا يوجد موظفون',
-                      message: _getEmptyMessage(),
-                      icon: Icons.person_off_outlined,
-                    )
-                  : Align(
-                      alignment: Alignment.topCenter,
-                      child: ConstrainedBox(
-                        constraints: const BoxConstraints(maxWidth: 900),
-                        child: ListView.builder(
-                          padding: const EdgeInsets.fromLTRB(12, 4, 12, 20),
-                          itemCount: _employees.length,
-                          itemBuilder: (context, index) {
-                            final emp = _employees[index];
-                            final importedName =
-                                emp.employeeNameFromDevice?.trim();
-                            final hasImportedName = importedName != null &&
-                                importedName.isNotEmpty;
+              ? AppEmptyState(
+                  title: 'لا يوجد موظفون',
+                  message: _getEmptyMessage(),
+                  icon: Icons.person_off_outlined,
+                )
+              : Align(
+                  alignment: Alignment.topCenter,
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 900),
+                    child: ListView.builder(
+                      padding: const EdgeInsets.fromLTRB(12, 4, 12, 20),
+                      itemCount: _employees.length,
+                      itemBuilder: (context, index) {
+                        final emp = _employees[index];
+                        final importedName = emp.employeeNameFromDevice?.trim();
+                        final hasImportedName =
+                            importedName != null && importedName.isNotEmpty;
 
-                            return AppListItem(
-                              leading: CircleAvatar(
-                                backgroundColor: scheme.primaryContainer,
-                                foregroundColor: scheme.onPrimaryContainer,
-                                child: const Icon(Icons.person_outline),
-                              ),
-                              title: Text(
-                                hasImportedName
-                                    ? importedName
-                                    : 'رقم البصمة: ${emp.biometricEmployeeId}',
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: theme.textTheme.bodyLarge?.copyWith(
-                                  fontWeight: FontWeight.w600,
+                        return AppListItem(
+                          leading: CircleAvatar(
+                            backgroundColor: scheme.primaryContainer,
+                            foregroundColor: scheme.onPrimaryContainer,
+                            child: const Icon(Icons.person_outline),
+                          ),
+                          title: Text(
+                            hasImportedName
+                                ? importedName
+                                : 'رقم البصمة: ${emp.biometricEmployeeId}',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: theme.textTheme.bodyLarge?.copyWith(
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          subtitle: Padding(
+                            padding: const EdgeInsets.only(top: 6),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                if (hasImportedName)
+                                  Text(
+                                    'رقم البصمة: ${emp.biometricEmployeeId}',
+                                  ),
+                                Text(
+                                  'أول ظهور: ${emp.firstSeenAt != null ? DateFormat('yyyy-MM-dd HH:mm').format(emp.firstSeenAt!) : 'غير محدد'}',
+                                ),
+                                Text(
+                                  'آخر ظهور: ${emp.lastSeenAt != null ? DateFormat('yyyy-MM-dd HH:mm').format(emp.lastSeenAt!) : 'غير محدد'}',
+                                ),
+                              ],
+                            ),
+                          ),
+                          trailing: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(
+                                '${emp.punchesCount}',
+                                style: theme.textTheme.titleMedium?.copyWith(
+                                  fontWeight: FontWeight.w700,
                                 ),
                               ),
-                              subtitle: Padding(
-                                padding: const EdgeInsets.only(top: 6),
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    if (hasImportedName)
-                                      Text(
-                                        'رقم البصمة: ${emp.biometricEmployeeId}',
-                                      ),
-                                    Text(
-                                      'أول ظهور: ${emp.firstSeenAt != null ? DateFormat('yyyy-MM-dd HH:mm').format(emp.firstSeenAt!) : 'غير محدد'}',
-                                    ),
-                                    Text(
-                                      'آخر ظهور: ${emp.lastSeenAt != null ? DateFormat('yyyy-MM-dd HH:mm').format(emp.lastSeenAt!) : 'غير محدد'}',
-                                    ),
-                                  ],
+                              Text(
+                                'حركات',
+                                style: theme.textTheme.labelSmall?.copyWith(
+                                  color: scheme.onSurfaceVariant,
                                 ),
                               ),
-                              trailing: Column(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Text(
-                                    '${emp.punchesCount}',
-                                    style: theme.textTheme.titleMedium?.copyWith(
-                                      fontWeight: FontWeight.w700,
-                                    ),
-                                  ),
-                                  Text(
-                                    'حركات',
-                                    style: theme.textTheme.labelSmall?.copyWith(
-                                      color: scheme.onSurfaceVariant,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              onTap: () => _showDetails(emp),
-                            );
-                          },
-                        ),
-                      ),
+                            ],
+                          ),
+                          onTap: () => _showDetails(emp),
+                        );
+                      },
                     ),
+                  ),
+                ),
         ),
       ],
     );

@@ -47,11 +47,13 @@ class _AdvancesScreenState extends State<AdvancesScreen> {
   void _primeBalance() {
     final future = _service.getAdvanceBalance();
     _balanceFuture = future;
-    future.then((balance) {
-      _balanceCache = balance;
-    }).catchError((_) {
-      // Keep the screen usable. A later request retries the balance fetch.
-    });
+    future
+        .then((balance) {
+          _balanceCache = balance;
+        })
+        .catchError((_) {
+          // Keep the screen usable. A later request retries the balance fetch.
+        });
   }
 
   void _reload() {
@@ -79,9 +81,9 @@ class _AdvancesScreenState extends State<AdvancesScreen> {
       });
     } catch (error) {
       if (mounted && widget.isActive) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('تعذر تحديث السلف: $error')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('تعذر تحديث السلف: $error')));
       }
     }
   }
@@ -111,9 +113,7 @@ class _AdvancesScreenState extends State<AdvancesScreen> {
 
     try {
       final balance = await _getBalanceForRequest();
-      if (!mounted ||
-          !widget.isActive ||
-          requestToken != _requestGeneration) {
+      if (!mounted || !widget.isActive || requestToken != _requestGeneration) {
         return;
       }
 
@@ -252,9 +252,7 @@ class _AdvancesScreenState extends State<AdvancesScreen> {
               );
               if (mounted && widget.isActive) {
                 ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('تم إرسال طلب السلفة للإدارة.'),
-                  ),
+                  const SnackBar(content: Text('تم إرسال طلب السلفة للإدارة.')),
                 );
                 await _refresh();
               }
@@ -274,9 +272,7 @@ class _AdvancesScreenState extends State<AdvancesScreen> {
         reason.dispose();
       }
     } catch (error) {
-      if (mounted &&
-          widget.isActive &&
-          requestToken == _requestGeneration) {
+      if (mounted && widget.isActive && requestToken == _requestGeneration) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('تعذر حساب الرصيد المتاح: $error')),
         );

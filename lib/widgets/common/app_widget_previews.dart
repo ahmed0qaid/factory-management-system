@@ -18,10 +18,7 @@ class AppWidgetPreviewsScreen extends StatelessWidget {
       body: ListView(
         padding: const EdgeInsets.all(AppSpacing.md),
         children: [
-          const Text(
-            '1. AppStatCard Variants',
-            style: TextStyle( fontSize: 16),
-          ),
+          const Text('1. AppStatCard Variants', style: TextStyle(fontSize: 16)),
           const SizedBox(height: AppSpacing.sm),
           Wrap(
             spacing: AppSpacing.sm,
@@ -63,7 +60,7 @@ class AppWidgetPreviewsScreen extends StatelessWidget {
           const SizedBox(height: AppSpacing.xl),
           const Text(
             '2. AppStatusBadge Variants',
-            style: TextStyle( fontSize: 16),
+            style: TextStyle(fontSize: 16),
           ),
           const SizedBox(height: AppSpacing.sm),
           const Wrap(
@@ -95,7 +92,7 @@ class AppWidgetPreviewsScreen extends StatelessWidget {
           const SizedBox(height: AppSpacing.xl),
           const Text(
             '3. AppActionCard Variants',
-            style: TextStyle( fontSize: 16),
+            style: TextStyle(fontSize: 16),
           ),
           const SizedBox(height: AppSpacing.sm),
           AppActionCard(
@@ -116,7 +113,7 @@ class AppWidgetPreviewsScreen extends StatelessWidget {
           const SizedBox(height: AppSpacing.xl),
           const Text(
             '4. Form Inputs & Buttons',
-            style: TextStyle( fontSize: 16),
+            style: TextStyle(fontSize: 16),
           ),
           const SizedBox(height: AppSpacing.sm),
           const TextField(
@@ -143,5 +140,3 @@ class AppWidgetPreviewsScreen extends StatelessWidget {
     );
   }
 }
-
-

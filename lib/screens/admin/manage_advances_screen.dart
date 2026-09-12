@@ -87,8 +87,7 @@ class _ManageAdvancesScreenState extends State<ManageAdvancesScreen> {
           fundId: fund.id,
           type: 'out',
           amount: amount,
-          description:
-              'صرف سلفة للموظف ${employee?.fullName ?? employeeId}',
+          description: 'صرف سلفة للموظف ${employee?.fullName ?? employeeId}',
           createdBy: widget.currentProfile.id,
           referenceId: id,
         );
@@ -108,9 +107,9 @@ class _ManageAdvancesScreenState extends State<ManageAdvancesScreen> {
       }
     } catch (error) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('تعذر تحديث السلفة: $error')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('تعذر تحديث السلفة: $error')));
       }
     }
   }
@@ -127,7 +126,9 @@ class _ManageAdvancesScreenState extends State<ManageAdvancesScreen> {
     if (funds.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('لا توجد صناديق متاحة. أنشئ صندوقًا قبل اعتماد السلفة.'),
+          content: Text(
+            'لا توجد صناديق متاحة. أنشئ صندوقًا قبل اعتماد السلفة.',
+          ),
         ),
       );
       return;
@@ -154,15 +155,15 @@ class _ManageAdvancesScreenState extends State<ManageAdvancesScreen> {
                   Text(
                     employee?.fullName ?? employeeId,
                     style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                          fontWeight: FontWeight.w700,
-                        ),
+                      fontWeight: FontWeight.w700,
+                    ),
                   ),
                   const SizedBox(height: 4),
                   Text(
                     'قيمة السلفة: ${Formatters.money(amount)}',
                     style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          color: scheme.onSurfaceVariant,
-                        ),
+                      color: scheme.onSurfaceVariant,
+                    ),
                   ),
                 ],
               ),
@@ -173,10 +174,8 @@ class _ManageAdvancesScreenState extends State<ManageAdvancesScreen> {
               value: selectedFund,
               items: funds
                   .map(
-                    (fund) => DropdownMenuItem(
-                      value: fund,
-                      child: Text(fund.name),
-                    ),
+                    (fund) =>
+                        DropdownMenuItem(value: fund, child: Text(fund.name)),
                   )
                   .toList(),
               onChanged: (value) => setDialogState(() => selectedFund = value),
@@ -224,65 +223,61 @@ class _ManageAdvancesScreenState extends State<ManageAdvancesScreen> {
       body: _loading
           ? const AppLoadingState(label: 'جاري تحميل الطلبات')
           : !_canManage
-              ? const AppEmptyState(
-                  title: 'لا توجد صلاحية للإدارة',
-                  message: 'يمكنك استخدام التقارير للاطلاع على بيانات السلف.',
-                  icon: Icons.lock_outline,
-                )
-              : _advances.isEmpty
-                  ? const AppEmptyState(
-                      title: 'لا توجد طلبات سلف',
-                      message: 'لا توجد سلف قيد المراجعة في الوقت الحالي.',
-                      icon: Icons.account_balance_wallet_outlined,
-                    )
-                  : Align(
-                      alignment: Alignment.topCenter,
-                      child: ConstrainedBox(
-                        constraints: const BoxConstraints(maxWidth: 900),
-                        child: ListView.builder(
-                          padding: const EdgeInsets.all(16),
-                          itemCount: _advances.length,
-                          itemBuilder: (context, index) {
-                            final item = _advances[index];
-                            final data = item.data;
-                            final employeeId =
-                                data['employee_id']?.toString() ?? '';
-                            final employee = _employeesById[employeeId];
-                            final employeeName =
-                                employee?.fullName ?? 'موظف غير معروف';
-                            final employeeMeta = <String>[
-                              if (employee != null) employee.employeeNumber,
-                              if (employee?.departmentName?.trim().isNotEmpty ==
-                                  true)
-                                employee!.departmentName!.trim(),
-                            ].join(' • ');
-                            final amount =
-                                (data['principal_amount'] ?? 0).toDouble();
+          ? const AppEmptyState(
+              title: 'لا توجد صلاحية للإدارة',
+              message: 'يمكنك استخدام التقارير للاطلاع على بيانات السلف.',
+              icon: Icons.lock_outline,
+            )
+          : _advances.isEmpty
+          ? const AppEmptyState(
+              title: 'لا توجد طلبات سلف',
+              message: 'لا توجد سلف قيد المراجعة في الوقت الحالي.',
+              icon: Icons.account_balance_wallet_outlined,
+            )
+          : Align(
+              alignment: Alignment.topCenter,
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 900),
+                child: ListView.builder(
+                  padding: const EdgeInsets.all(16),
+                  itemCount: _advances.length,
+                  itemBuilder: (context, index) {
+                    final item = _advances[index];
+                    final data = item.data;
+                    final employeeId = data['employee_id']?.toString() ?? '';
+                    final employee = _employeesById[employeeId];
+                    final employeeName = employee?.fullName ?? 'موظف غير معروف';
+                    final employeeMeta = <String>[
+                      if (employee != null) employee.employeeNumber,
+                      if (employee?.departmentName?.trim().isNotEmpty == true)
+                        employee!.departmentName!.trim(),
+                    ].join(' • ');
+                    final amount = (data['principal_amount'] ?? 0).toDouble();
 
-                            return _AdvanceReviewCard(
-                              employeeName: employeeName,
-                              employeeMeta: employeeMeta,
-                              amount: amount,
-                              requestDate: DateTime.parse(data['created_at']),
-                              installmentAmount: data['installment_amount'],
-                              reason: data['reason']?.toString(),
-                              onApprove: () => _approveWithFund(
-                                item.$id,
-                                data['company_id'],
-                                employeeId,
-                                amount,
-                              ),
-                              onReject: () => _reject(
-                                item.$id,
-                                data['company_id'],
-                                employeeId,
-                                amount,
-                              ),
-                            );
-                          },
-                        ),
+                    return _AdvanceReviewCard(
+                      employeeName: employeeName,
+                      employeeMeta: employeeMeta,
+                      amount: amount,
+                      requestDate: DateTime.parse(data['created_at']),
+                      installmentAmount: data['installment_amount'],
+                      reason: data['reason']?.toString(),
+                      onApprove: () => _approveWithFund(
+                        item.$id,
+                        data['company_id'],
+                        employeeId,
+                        amount,
                       ),
-                    ),
+                      onReject: () => _reject(
+                        item.$id,
+                        data['company_id'],
+                        employeeId,
+                        amount,
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ),
     );
   }
 }
@@ -428,7 +423,9 @@ class _AdvanceReviewCard extends StatelessWidget {
                   onPressed: onReject,
                   style: OutlinedButton.styleFrom(
                     foregroundColor: scheme.error,
-                    side: BorderSide(color: scheme.error.withValues(alpha: .55)),
+                    side: BorderSide(
+                      color: scheme.error.withValues(alpha: .55),
+                    ),
                   ),
                   icon: const Icon(Icons.close),
                   label: const Text('رفض'),

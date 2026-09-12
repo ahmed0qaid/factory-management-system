@@ -21,15 +21,22 @@ class EmployeeWorkScheduleModel {
     this.notes,
   });
 
-  factory EmployeeWorkScheduleModel.fromMap(Map<String, dynamic> map, {String? id}) {
+  factory EmployeeWorkScheduleModel.fromMap(
+    Map<String, dynamic> map, {
+    String? id,
+  }) {
     return EmployeeWorkScheduleModel(
       id: id ?? map['\$id'] ?? map['id'] ?? '',
       companyId: map['company_id'] ?? '',
       employeeId: map['employee_id'] ?? '',
       workDate: DateTime.parse(map['work_date']),
       shiftId: map['shift_id'],
-      scheduledStart: map['scheduled_start'] != null ? DateTime.parse(map['scheduled_start']) : null,
-      scheduledEnd: map['scheduled_end'] != null ? DateTime.parse(map['scheduled_end']) : null,
+      scheduledStart: map['scheduled_start'] != null
+          ? DateTime.parse(map['scheduled_start'])
+          : null,
+      scheduledEnd: map['scheduled_end'] != null
+          ? DateTime.parse(map['scheduled_end'])
+          : null,
       isWorkingDay: map['is_working_day'] ?? true,
       notes: map['notes'],
     );

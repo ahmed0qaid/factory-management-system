@@ -61,7 +61,9 @@ class _PenaltiesScreenState extends State<PenaltiesScreen> {
         final theme = Theme.of(context);
         final scheme = theme.colorScheme;
         final semantic = context.semanticColors;
-        final accent = hasPenalties ? semantic.warning : scheme.onSurfaceVariant;
+        final accent = hasPenalties
+            ? semantic.warning
+            : scheme.onSurfaceVariant;
 
         return ListView(
           padding: const EdgeInsets.fromLTRB(16, 12, 16, 84),

@@ -259,8 +259,9 @@ class _TemporaryEmployeeDetailsDialogState
         role: 'employee',
         biometricEmployeeId: widget.employee.biometricEmployeeId,
         phone: phone.trim().isNotEmpty ? phone.trim() : null,
-        departmentName:
-            departmentName.trim().isNotEmpty ? departmentName.trim() : null,
+        departmentName: departmentName.trim().isNotEmpty
+            ? departmentName.trim()
+            : null,
         jobTitleId: selectedJobTitle?.id,
         jobTitleName: selectedJobTitle?.name,
         baseSalary: baseSalary ?? 0.0,

@@ -112,9 +112,9 @@ class _ManageLeavesScreenState extends State<ManageLeavesScreen> {
       }
     } catch (error) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('تعذر تحديث الطلب: $error')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('تعذر تحديث الطلب: $error')));
       }
     }
   }
@@ -126,66 +126,60 @@ class _ManageLeavesScreenState extends State<ManageLeavesScreen> {
       body: _loading
           ? const AppLoadingState(label: 'جاري تحميل الطلبات')
           : !_canManage
-              ? const AppEmptyState(
-                  title: 'لا توجد صلاحية للإدارة',
-                  message:
-                      'يمكنك الرجوع إلى التقارير للاطلاع على بيانات الإجازات.',
-                  icon: Icons.lock_outline,
-                )
-              : _leaves.isEmpty
-                  ? const AppEmptyState(
-                      title: 'لا توجد طلبات',
-                      message:
-                          'لا توجد إجازات قيد المراجعة في الوقت الحالي.',
-                      icon: Icons.beach_access_outlined,
-                    )
-                  : Align(
-                      alignment: Alignment.topCenter,
-                      child: ConstrainedBox(
-                        constraints: const BoxConstraints(maxWidth: 900),
-                        child: ListView.builder(
-                          padding: const EdgeInsets.all(16),
-                          itemCount: _leaves.length,
-                          itemBuilder: (context, index) {
-                            final item = _leaves[index];
-                            final data = item.data;
-                            final employeeId =
-                                data['employee_id']?.toString() ?? '';
-                            final employee = _employeesById[employeeId];
-                            final employeeName =
-                                employee?.fullName ?? 'موظف غير معروف';
-                            final employeeMeta = <String>[
-                              if (employee != null) employee.employeeNumber,
-                              if (employee?.departmentName?.trim().isNotEmpty ==
-                                  true)
-                                employee!.departmentName!.trim(),
-                            ].join(' • ');
+          ? const AppEmptyState(
+              title: 'لا توجد صلاحية للإدارة',
+              message: 'يمكنك الرجوع إلى التقارير للاطلاع على بيانات الإجازات.',
+              icon: Icons.lock_outline,
+            )
+          : _leaves.isEmpty
+          ? const AppEmptyState(
+              title: 'لا توجد طلبات',
+              message: 'لا توجد إجازات قيد المراجعة في الوقت الحالي.',
+              icon: Icons.beach_access_outlined,
+            )
+          : Align(
+              alignment: Alignment.topCenter,
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 900),
+                child: ListView.builder(
+                  padding: const EdgeInsets.all(16),
+                  itemCount: _leaves.length,
+                  itemBuilder: (context, index) {
+                    final item = _leaves[index];
+                    final data = item.data;
+                    final employeeId = data['employee_id']?.toString() ?? '';
+                    final employee = _employeesById[employeeId];
+                    final employeeName = employee?.fullName ?? 'موظف غير معروف';
+                    final employeeMeta = <String>[
+                      if (employee != null) employee.employeeNumber,
+                      if (employee?.departmentName?.trim().isNotEmpty == true)
+                        employee!.departmentName!.trim(),
+                    ].join(' • ');
 
-                            return _LeaveReviewCard(
-                              employeeName: employeeName,
-                              employeeMeta: employeeMeta,
-                              leaveType:
-                                  data['leave_type']?.toString() ?? 'غير محدد',
-                              startDate: DateTime.parse(data['start_date']),
-                              endDate: DateTime.parse(data['end_date']),
-                              reason: data['reason']?.toString(),
-                              onApprove: () => _updateStatus(
-                                item.$id,
-                                data['company_id'],
-                                employeeId,
-                                'approved',
-                              ),
-                              onReject: () => _updateStatus(
-                                item.$id,
-                                data['company_id'],
-                                employeeId,
-                                'rejected',
-                              ),
-                            );
-                          },
-                        ),
+                    return _LeaveReviewCard(
+                      employeeName: employeeName,
+                      employeeMeta: employeeMeta,
+                      leaveType: data['leave_type']?.toString() ?? 'غير محدد',
+                      startDate: DateTime.parse(data['start_date']),
+                      endDate: DateTime.parse(data['end_date']),
+                      reason: data['reason']?.toString(),
+                      onApprove: () => _updateStatus(
+                        item.$id,
+                        data['company_id'],
+                        employeeId,
+                        'approved',
                       ),
-                    ),
+                      onReject: () => _updateStatus(
+                        item.$id,
+                        data['company_id'],
+                        employeeId,
+                        'rejected',
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ),
     );
   }
 }

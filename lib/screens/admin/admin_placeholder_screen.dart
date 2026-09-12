@@ -63,10 +63,7 @@ class AdminPlaceholderScreen extends StatelessWidget {
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Icon(
-                      Icons.info_outline,
-                      color: scheme.onSurfaceVariant,
-                    ),
+                    Icon(Icons.info_outline, color: scheme.onSurfaceVariant),
                     const SizedBox(width: AppSpacing.sm),
                     Expanded(
                       child: Text(

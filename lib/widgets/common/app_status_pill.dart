@@ -51,10 +51,11 @@ class AppStatusPill extends StatelessWidget {
       AppStatusTone.warning when color == null => semantic.warningContainer,
       AppStatusTone.danger when color == null => scheme.errorContainer,
       AppStatusTone.info when color == null => scheme.primaryContainer,
-      AppStatusTone.neutral when color == null => scheme.surfaceContainerHighest,
+      AppStatusTone.neutral when color == null =>
+        scheme.surfaceContainerHighest,
       _ => effectiveColor.withValues(
-          alpha: theme.brightness == Brightness.dark ? .18 : .10,
-        ),
+        alpha: theme.brightness == Brightness.dark ? .18 : .10,
+      ),
     };
 
     return Container(
@@ -76,8 +77,7 @@ class AppStatusPill extends StatelessWidget {
 
   Color _adaptCustomColor(Color source, Brightness brightness) {
     final sourceBrightness = ThemeData.estimateBrightnessForColor(source);
-    if (brightness == Brightness.dark &&
-        sourceBrightness == Brightness.dark) {
+    if (brightness == Brightness.dark && sourceBrightness == Brightness.dark) {
       return Color.lerp(source, Colors.white, .38)!;
     }
     if (brightness == Brightness.light &&
