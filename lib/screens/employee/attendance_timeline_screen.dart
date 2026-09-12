@@ -1,12 +1,15 @@
 import 'package:flutter/material.dart';
 
 import '../../services/employee_tab_navigation.dart';
+import '../../widgets/common/app_loading_state.dart';
+import '../../widgets/common/app_scaffold.dart';
 
 class AttendanceTimelineScreen extends StatefulWidget {
   const AttendanceTimelineScreen({super.key});
 
   @override
-  State<AttendanceTimelineScreen> createState() => _AttendanceTimelineScreenState();
+  State<AttendanceTimelineScreen> createState() =>
+      _AttendanceTimelineScreenState();
 }
 
 class _AttendanceTimelineScreenState extends State<AttendanceTimelineScreen> {
@@ -23,8 +26,9 @@ class _AttendanceTimelineScreenState extends State<AttendanceTimelineScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return const Scaffold(
-      body: Center(child: CircularProgressIndicator()),
+    return const AppScaffold(
+      title: 'سجل الدوام',
+      body: AppLoadingState(label: 'جاري فتح سجل الدوام'),
     );
   }
 }
