@@ -8,14 +8,18 @@ class AppComponentThemes {
 
   static AppBarTheme appBar(ColorScheme scheme, TextTheme textTheme) {
     return AppBarTheme(
-      centerTitle: true,
+      centerTitle: false,
       backgroundColor: scheme.surface,
       foregroundColor: scheme.onSurface,
+      surfaceTintColor: scheme.surface,
       elevation: 0,
       scrolledUnderElevation: 0,
+      titleSpacing: AppSpacing.md,
+      iconTheme: IconThemeData(color: scheme.onSurfaceVariant, size: 24),
+      actionsIconTheme: IconThemeData(color: scheme.onSurfaceVariant, size: 24),
       titleTextStyle: textTheme.titleLarge?.copyWith(
         color: scheme.onSurface,
-        
+        fontWeight: FontWeight.w700,
       ),
     );
   }
@@ -23,12 +27,12 @@ class AppComponentThemes {
   static CardThemeData card(ColorScheme scheme) {
     return CardThemeData(
       elevation: 0,
-      color: scheme.surface,
+      color: scheme.surfaceContainerLowest,
       surfaceTintColor: Colors.transparent,
       margin: EdgeInsets.zero,
       shape: RoundedRectangleBorder(
         borderRadius: AppRadius.card,
-        side: BorderSide(color: scheme.outlineVariant.withValues(alpha: .7)),
+        side: BorderSide(color: scheme.outlineVariant.withValues(alpha: .72)),
       ),
     );
   }
@@ -38,24 +42,24 @@ class AppComponentThemes {
     TextTheme textTheme,
   ) {
     return NavigationBarThemeData(
-      height: 64,
+      height: 68,
       elevation: 0,
-      backgroundColor: scheme.surface,
+      backgroundColor: scheme.surfaceContainerLowest,
       indicatorColor: scheme.primaryContainer,
+      surfaceTintColor: Colors.transparent,
       iconTheme: WidgetStateProperty.resolveWith((states) {
         final selected = states.contains(WidgetState.selected);
         return IconThemeData(
           color: selected ? scheme.onPrimaryContainer : scheme.onSurfaceVariant,
-          size: selected ? 22 : 20,
+          size: selected ? 23 : 21,
         );
       }),
       labelTextStyle: WidgetStateProperty.resolveWith((states) {
         final selected = states.contains(WidgetState.selected);
         return textTheme.labelSmall?.copyWith(
-          fontSize: 11,
-          
           color: selected ? scheme.primary : scheme.onSurfaceVariant,
-          height: 1.1,
+          fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+          height: 1.2,
         );
       }),
     );
@@ -64,11 +68,15 @@ class AppComponentThemes {
   static InputDecorationTheme input(ColorScheme scheme) {
     return InputDecorationTheme(
       filled: true,
-      fillColor: scheme.surfaceContainerHigh,
+      fillColor: scheme.surfaceContainerLowest,
       contentPadding: const EdgeInsets.symmetric(
         horizontal: AppSpacing.md,
-        vertical: AppSpacing.sm,
+        vertical: AppSpacing.sm + 2,
       ),
+      labelStyle: TextStyle(color: scheme.onSurfaceVariant),
+      hintStyle: TextStyle(color: scheme.onSurfaceVariant.withValues(alpha: .76)),
+      prefixIconColor: scheme.onSurfaceVariant,
+      suffixIconColor: scheme.onSurfaceVariant,
       border: OutlineInputBorder(
         borderRadius: AppRadius.control,
         borderSide: BorderSide(color: scheme.outlineVariant),
@@ -79,11 +87,15 @@ class AppComponentThemes {
       ),
       focusedBorder: OutlineInputBorder(
         borderRadius: AppRadius.control,
-        borderSide: BorderSide(color: scheme.primary, width: 1.4),
+        borderSide: BorderSide(color: scheme.primary, width: 1.5),
       ),
       errorBorder: OutlineInputBorder(
         borderRadius: AppRadius.control,
         borderSide: BorderSide(color: scheme.error),
+      ),
+      focusedErrorBorder: OutlineInputBorder(
+        borderRadius: AppRadius.control,
+        borderSide: BorderSide(color: scheme.error, width: 1.5),
       ),
     );
   }
@@ -92,8 +104,13 @@ class AppComponentThemes {
     return FilledButtonThemeData(
       style: FilledButton.styleFrom(
         minimumSize: const Size(48, 48),
+        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
         shape: const RoundedRectangleBorder(borderRadius: AppRadius.control),
-        textStyle: const TextStyle(fontFamily: 'Cairo', fontSize: 15, fontWeight: FontWeight.normal),
+        textStyle: const TextStyle(
+          fontFamily: 'Cairo',
+          fontSize: 14,
+          fontWeight: FontWeight.w600,
+        ),
       ),
     );
   }
@@ -102,21 +119,75 @@ class AppComponentThemes {
     return OutlinedButtonThemeData(
       style: OutlinedButton.styleFrom(
         minimumSize: const Size(48, 48),
-        side: BorderSide(color: scheme.outlineVariant),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        foregroundColor: scheme.primary,
+        side: BorderSide(color: scheme.outline),
         shape: const RoundedRectangleBorder(borderRadius: AppRadius.control),
-        textStyle: const TextStyle(fontFamily: 'Cairo', fontSize: 15, fontWeight: FontWeight.normal),
+        textStyle: const TextStyle(
+          fontFamily: 'Cairo',
+          fontSize: 14,
+          fontWeight: FontWeight.w600,
+        ),
       ),
     );
   }
 
-  static TextButtonThemeData textButton() {
+  static TextButtonThemeData textButton(ColorScheme scheme) {
     return TextButtonThemeData(
       style: TextButton.styleFrom(
         minimumSize: const Size(44, 44),
-        textStyle: const TextStyle(fontFamily: 'Cairo', fontSize: 15, fontWeight: FontWeight.normal),
+        foregroundColor: scheme.primary,
+        textStyle: const TextStyle(
+          fontFamily: 'Cairo',
+          fontSize: 14,
+          fontWeight: FontWeight.w600,
+        ),
       ),
     );
   }
+
+  static FloatingActionButtonThemeData floatingActionButton(ColorScheme scheme) {
+    return FloatingActionButtonThemeData(
+      elevation: 1,
+      focusElevation: 1,
+      hoverElevation: 2,
+      highlightElevation: 1,
+      backgroundColor: scheme.primaryContainer,
+      foregroundColor: scheme.onPrimaryContainer,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+    );
+  }
+
+  static ListTileThemeData listTile(ColorScheme scheme, TextTheme textTheme) {
+    return ListTileThemeData(
+      iconColor: scheme.onSurfaceVariant,
+      textColor: scheme.onSurface,
+      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
+      titleTextStyle: textTheme.bodyLarge?.copyWith(
+        color: scheme.onSurface,
+        fontWeight: FontWeight.w600,
+      ),
+      subtitleTextStyle: textTheme.bodySmall?.copyWith(
+        color: scheme.onSurfaceVariant,
+      ),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+    );
+  }
+
+  static SwitchThemeData switchTheme(ColorScheme scheme) {
+    return SwitchThemeData(
+      thumbColor: WidgetStateProperty.resolveWith((states) {
+        if (states.contains(WidgetState.selected)) return scheme.onPrimary;
+        return scheme.outline;
+      }),
+      trackColor: WidgetStateProperty.resolveWith((states) {
+        if (states.contains(WidgetState.selected)) return scheme.primary;
+        return scheme.surfaceContainerHighest;
+      }),
+      trackOutlineColor: WidgetStateProperty.resolveWith((states) {
+        if (states.contains(WidgetState.selected)) return scheme.primary;
+        return scheme.outline;
+      }),
+    );
+  }
 }
-
-
