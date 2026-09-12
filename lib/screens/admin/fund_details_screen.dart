@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+
 import '../../models/fund_model.dart';
 import '../../models/fund_transaction_model.dart';
 import '../../models/profile_model.dart';
@@ -7,9 +8,11 @@ import '../../services/fund_service.dart';
 import '../../utils/formatters.dart';
 import '../../widgets/common/app_card.dart';
 import '../../widgets/common/app_confirm_dialog.dart';
+import '../../widgets/common/app_empty_state.dart';
 import '../../widgets/common/app_form_dialog.dart';
 import '../../widgets/common/app_form_field.dart';
 import '../../widgets/common/app_list_item.dart';
+import '../../widgets/common/app_loading_state.dart';
 import '../../widgets/common/app_scaffold.dart';
 
 class FundDetailsScreen extends StatefulWidget {
@@ -97,11 +100,13 @@ class _FundDetailsScreenState extends State<FundDetailsScreen> {
               controller: amountCtrl,
               keyboardType: const TextInputType.numberWithOptions(decimal: true),
               labelText: 'المبلغ',
+              prefixIcon: Icons.payments_outlined,
             ),
             const SizedBox(height: 16),
             AppFormField(
               controller: descCtrl,
               labelText: 'البيان / الوصف',
+              prefixIcon: Icons.notes_outlined,
             ),
           ],
         );
@@ -113,7 +118,8 @@ class _FundDetailsScreenState extends State<FundDetailsScreen> {
     final confirm = await AppConfirmDialog.show(
       context,
       title: 'تصفية الحركة اليومية',
-      content: 'هل أنت متأكد من تصفية حركة الصندوق وفتح حركة ليوم جديد؟ لا يمكن التراجع عن هذه الخطوة.',
+      content:
+          'هل أنت متأكد من تصفية حركة الصندوق وفتح حركة ليوم جديد؟ لا يمكن التراجع عن هذه الخطوة.',
       confirmText: 'تصفية وإغلاق',
       isDestructive: true,
     );
@@ -121,7 +127,10 @@ class _FundDetailsScreenState extends State<FundDetailsScreen> {
     if (confirm != true) return;
 
     try {
-      await _service.closeDailyMovement(widget.fund.id, widget.currentProfile.id);
+      await _service.closeDailyMovement(
+        widget.fund.id,
+        widget.currentProfile.id,
+      );
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('تمت تصفية حركة الصندوق بنجاح')),
@@ -139,10 +148,10 @@ class _FundDetailsScreenState extends State<FundDetailsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // We calculate a running balance assuming the latest transaction is first.
-    // However, the DB stores the current total balance in widget.fund.balance.
-    // For proper running balance, we'd iterate backwards, but for now we just show list.
-    
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    final negativeBalance = widget.fund.balance < 0;
+
     return AppScaffold(
       title: widget.fund.name,
       actions: [
@@ -150,100 +159,140 @@ class _FundDetailsScreenState extends State<FundDetailsScreen> {
           icon: const Icon(Icons.done_all),
           tooltip: 'تصفية الحركة اليومية',
           onPressed: _closeMovement,
-        )
+        ),
       ],
-      body: Column(
-        children: [
-          Padding(
-            padding: const EdgeInsets.all(16),
-            child: AppCard(
-              padding: const EdgeInsets.all(16),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  const Text('الرصيد الحالي:', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                  Text(
-                    Formatters.money(widget.fund.balance),
-                    style: TextStyle(
-                      fontSize: 20, 
-                      fontWeight: FontWeight.bold, 
-                      color: Theme.of(context).colorScheme.primary
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.all(16),
-            child: Row(
-              children: [
-                Expanded(
-                  child: ElevatedButton.icon(
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.green.shade100,
-                      foregroundColor: Colors.green.shade900,
-                      elevation: 0,
-                    ),
-                    onPressed: () => _showAddTransactionDialog('in'),
-                    icon: const Icon(Icons.arrow_downward),
-                    label: const Text('إيداع (وارد)'),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: ElevatedButton.icon(
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.red.shade100,
-                      foregroundColor: Colors.red.shade900,
-                      elevation: 0,
-                    ),
-                    onPressed: () => _showAddTransactionDialog('out'),
-                    icon: const Icon(Icons.arrow_upward),
-                    label: const Text('سحب (منصرف)'),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const Divider(height: 1),
-          Expanded(
-            child: _loading
-                ? const Center(child: CircularProgressIndicator())
-                : _transactions.isEmpty
-                    ? const Center(child: Text('لا توجد حركات مسجلة'))
-                    : ListView.builder(
-                        padding: const EdgeInsets.all(16),
-                        itemCount: _transactions.length,
-                        itemBuilder: (context, index) {
-                          final tx = _transactions[index];
-                          final isIn = tx.type == 'in';
-                          return Padding(
-                            padding: const EdgeInsets.only(bottom: 12),
-                            child: AppListItem(
-                              leading: CircleAvatar(
-                                backgroundColor: isIn ? Colors.green.shade100 : Colors.red.shade100,
-                                child: Icon(
-                                  isIn ? Icons.arrow_downward : Icons.arrow_upward,
-                                  color: isIn ? Colors.green.shade900 : Colors.red.shade900,
-                                ),
-                              ),
-                            title: Text(tx.description),
-                            subtitle: Text(DateFormat('yyyy/MM/dd HH:mm').format(tx.date)),
-                            trailing: Text(
-                              (isIn ? '+' : '-') + Formatters.money(tx.amount),
-                              style: TextStyle(
-                                fontWeight: FontWeight.bold,
-                                fontSize: 16,
-                                color: isIn ? Colors.green : Colors.red,
-                              ),
-                            ),
-                            ),
-                          );
-                        },
+      body: Align(
+        alignment: Alignment.topCenter,
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 900),
+          child: Column(
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+                child: AppCard(
+                  elevated: true,
+                  padding: const EdgeInsets.all(16),
+                  child: Row(
+                    children: [
+                      Container(
+                        width: 42,
+                        height: 42,
+                        decoration: BoxDecoration(
+                          color: scheme.primaryContainer,
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Icon(
+                          Icons.account_balance_wallet_outlined,
+                          color: scheme.onPrimaryContainer,
+                        ),
                       ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'الرصيد الحالي',
+                              style: theme.textTheme.bodySmall?.copyWith(
+                                color: scheme.onSurfaceVariant,
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              Formatters.money(widget.fund.balance),
+                              style: theme.textTheme.titleLarge?.copyWith(
+                                fontWeight: FontWeight.w700,
+                                color: negativeBalance
+                                    ? scheme.error
+                                    : scheme.onSurface,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: FilledButton.tonalIcon(
+                        onPressed: () => _showAddTransactionDialog('in'),
+                        icon: const Icon(Icons.arrow_downward),
+                        label: const Text('إيداع (وارد)'),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: scheme.error,
+                          side: BorderSide(
+                            color: scheme.error.withValues(alpha: .55),
+                          ),
+                        ),
+                        onPressed: () => _showAddTransactionDialog('out'),
+                        icon: const Icon(Icons.arrow_upward),
+                        label: const Text('سحب (منصرف)'),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const Divider(height: 1),
+              Expanded(
+                child: _loading
+                    ? const AppLoadingState(label: 'جاري تحميل الحركات')
+                    : _transactions.isEmpty
+                        ? const AppEmptyState(
+                            title: 'لا توجد حركات',
+                            message: 'لم يتم تسجيل حركات مالية في هذا الصندوق بعد.',
+                            icon: Icons.receipt_long_outlined,
+                          )
+                        : ListView.builder(
+                            padding: const EdgeInsets.all(16),
+                            itemCount: _transactions.length,
+                            itemBuilder: (context, index) {
+                              final tx = _transactions[index];
+                              final isIn = tx.type == 'in';
+                              final accent = isIn ? scheme.primary : scheme.error;
+                              final background = isIn
+                                  ? scheme.primaryContainer
+                                  : scheme.errorContainer;
+                              final foreground = isIn
+                                  ? scheme.onPrimaryContainer
+                                  : scheme.onErrorContainer;
+                              return AppListItem(
+                                leading: CircleAvatar(
+                                  backgroundColor: background,
+                                  foregroundColor: foreground,
+                                  child: Icon(
+                                    isIn
+                                        ? Icons.arrow_downward
+                                        : Icons.arrow_upward,
+                                  ),
+                                ),
+                                title: Text(tx.description),
+                                subtitle: Text(
+                                  DateFormat('yyyy/MM/dd HH:mm').format(tx.date),
+                                ),
+                                trailing: Text(
+                                  '${isIn ? '+' : '-'}${Formatters.money(tx.amount)}',
+                                  style: theme.textTheme.titleSmall?.copyWith(
+                                    fontWeight: FontWeight.w700,
+                                    color: accent,
+                                  ),
+                                ),
+                              );
+                            },
+                          ),
+              ),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }
