@@ -23,11 +23,11 @@ class AppSemanticColors extends ThemeExtension<AppSemanticColors> {
   });
 
   static const light = AppSemanticColors(
-    success: Color(0xFF2E7D32),
+    success: Color(0xFF287A32),
     onSuccess: Colors.white,
     successContainer: Color(0xFFDDF6E0),
     onSuccessContainer: Color(0xFF0A3A17),
-    warning: Color(0xFF9A6200),
+    warning: Color(0xFF815100),
     onWarning: Colors.white,
     warningContainer: Color(0xFFFFE8B2),
     onWarningContainer: Color(0xFF3A2500),
