@@ -12,10 +12,7 @@ enum SummaryPeriod { day, week, month }
 class AttendanceVisualSummaryChart extends StatefulWidget {
   final List<AttendanceRecordModel> records;
 
-  const AttendanceVisualSummaryChart({
-    super.key,
-    required this.records,
-  });
+  const AttendanceVisualSummaryChart({super.key, required this.records});
 
   @override
   State<AttendanceVisualSummaryChart> createState() =>
@@ -76,6 +73,19 @@ class _AttendanceVisualSummaryChartState
     final end = start.add(const Duration(days: 6));
 
     return widget.records.where((record) {
+      if (_statusFilter != 'all') {
+        if (_statusFilter == 'present' &&
+            record.status != 'present' &&
+            (record.checkIn == null || record.checkOut == null))
+          return false;
+        if (_statusFilter == 'absent' && record.status != 'absent')
+          return false;
+        if (_statusFilter == 'late' && record.lateMinutes == 0) return false;
+        if (_statusFilter == 'needs_review' &&
+            record.status != 'needs_review' &&
+            record.status != 'incomplete')
+          return false;
+      }
       final date = _dateOnly(record.workDate);
       switch (_period) {
         case SummaryPeriod.day:
@@ -232,10 +242,7 @@ class _AttendanceVisualSummaryChartState
     }
   }
 
-  Widget _dayView(
-    BuildContext context,
-    List<AttendanceRecordModel> records,
-  ) {
+  Widget _dayView(BuildContext context, List<AttendanceRecordModel> records) {
     if (records.isEmpty) return _empty(context);
 
     final record = records.first;
@@ -256,9 +263,9 @@ class _AttendanceVisualSummaryChartState
                     child: Text(
                       statusLabel(record.status),
                       style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                            color: color,
-                            fontWeight: FontWeight.w700,
-                          ),
+                        color: color,
+                        fontWeight: FontWeight.w700,
+                      ),
                     ),
                   ),
                   Text(
@@ -297,10 +304,7 @@ class _AttendanceVisualSummaryChartState
     );
   }
 
-  Widget _weekView(
-    BuildContext context,
-    List<AttendanceRecordModel> records,
-  ) {
+  Widget _weekView(BuildContext context, List<AttendanceRecordModel> records) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
     final semantic = context.semanticColors;
@@ -343,10 +347,7 @@ class _AttendanceVisualSummaryChartState
         Expanded(
           child: Column(
             children: [
-              FittedBox(
-                fit: BoxFit.scaleDown,
-                child: Text(_weekDaysAr[index]),
-              ),
+              FittedBox(fit: BoxFit.scaleDown, child: Text(_weekDaysAr[index])),
               const SizedBox(height: AppSpacing.xxs),
               Text(
                 '${date.day}',
@@ -414,10 +415,7 @@ class _AttendanceVisualSummaryChartState
     );
   }
 
-  Widget _monthView(
-    BuildContext context,
-    List<AttendanceRecordModel> records,
-  ) {
+  Widget _monthView(BuildContext context, List<AttendanceRecordModel> records) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
     final semantic = context.semanticColors;
@@ -455,8 +453,7 @@ class _AttendanceVisualSummaryChartState
         if (record.lateMinutes > 0) lateDays++;
         lateMinutes += record.lateMinutes;
         earlyMinutes += record.earlyLeaveMinutes;
-        if (record.status == 'needs_review' ||
-            record.status == 'incomplete') {
+        if (record.status == 'needs_review' || record.status == 'incomplete') {
           review++;
         }
       }
@@ -585,6 +582,28 @@ class _AttendanceVisualSummaryChartState
     );
   }
 
+  Widget _filterChip(String label, String value) {
+    final selected = _statusFilter == value;
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    return FilterChip(
+      label: Text(label),
+      selected: selected,
+      onSelected: (_) => setState(() => _statusFilter = value),
+      backgroundColor: scheme.surfaceContainerHighest,
+      selectedColor: scheme.primaryContainer,
+      labelStyle: theme.textTheme.labelMedium?.copyWith(
+        color: selected ? scheme.onPrimaryContainer : scheme.onSurfaceVariant,
+        fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+      ),
+      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xs),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(AppRadius.full),
+        side: BorderSide(color: selected ? scheme.primary : Colors.transparent),
+      ),
+    );
+  }
+
   Widget _empty(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: AppSpacing.xl),
@@ -592,8 +611,8 @@ class _AttendanceVisualSummaryChartState
         'لا توجد بيانات دوام لهذه الفترة',
         textAlign: TextAlign.center,
         style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-              color: Theme.of(context).colorScheme.onSurfaceVariant,
-            ),
+          color: Theme.of(context).colorScheme.onSurfaceVariant,
+        ),
       ),
     );
   }

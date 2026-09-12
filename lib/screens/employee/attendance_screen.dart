@@ -10,6 +10,7 @@ import '../../utils/formatters.dart';
 import '../../widgets/attendance/attendance_visual_summary_chart.dart';
 import '../../widgets/common/app_bottom_sheet.dart';
 import '../../widgets/common/app_card.dart';
+import '../../widgets/common/app_dropdown_field.dart';
 import '../../widgets/common/app_empty_state.dart';
 import '../../widgets/common/app_error_state.dart';
 import '../../widgets/common/app_loading_state.dart';
@@ -30,8 +31,8 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
 
   AttendanceViewType _viewType = AttendanceViewType.timeline;
   String _statusFilter = 'all';
-  int? _yearFilter;
-  int? _monthFilter;
+  int? _selectedYear;
+  int? _selectedMonth;
   bool _sortDescending = true;
 
   static const _monthsAr = <String>[
@@ -64,8 +65,6 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
   int _activeFiltersCount() {
     var count = 0;
     if (_statusFilter != 'all') count++;
-    if (_yearFilter != null) count++;
-    if (_monthFilter != null) count++;
     if (!_sortDescending) count++;
     return count;
   }
@@ -73,13 +72,11 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
   void _resetFilters() {
     setState(() {
       _statusFilter = 'all';
-      _yearFilter = null;
-      _monthFilter = null;
       _sortDescending = true;
     });
   }
 
-  void _showFilterBottomSheet(List<int> availableYears) {
+  void _showFilterBottomSheet() {
     var tempStatus = _statusFilter;
     var tempYear = _yearFilter;
     var tempMonth = _monthFilter;
@@ -298,8 +295,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
                               ? 'الفلاتر'
                               : 'الفلاتر ($activeCount)',
                         ),
-                        onPressed: () =>
-                            _showFilterBottomSheet(availableYears),
+                        onPressed: () => _showFilterBottomSheet(availableYears),
                       ),
                       if (activeCount > 0) ...[
                         const SizedBox(width: AppSpacing.xs),
@@ -317,31 +313,31 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
               child: _viewType == AttendanceViewType.visual
                   ? AttendanceVisualSummaryChart(records: items)
                   : items.isEmpty
-                      ? const AppEmptyState(
-                          title: 'لا توجد سجلات مطابقة',
-                          message: 'غيّر الفلاتر أو أعد تعيينها لعرض سجلات أخرى.',
-                          icon: Icons.event_busy_outlined,
-                        )
-                      : RefreshIndicator(
-                          onRefresh: () async {
-                            _reload();
-                            await _future;
-                          },
-                          child: ListView.builder(
-                            physics: const AlwaysScrollableScrollPhysics(),
-                            padding: const EdgeInsetsDirectional.fromSTEB(
-                              AppSpacing.md,
-                              AppSpacing.xxs,
-                              AppSpacing.md,
-                              AppSpacing.xl,
-                            ),
-                            itemCount: items.length,
-                            itemBuilder: (context, index) => _TimelineItem(
-                              record: items[index],
-                              isLast: index == items.length - 1,
-                            ),
-                          ),
+                  ? const AppEmptyState(
+                      title: 'لا توجد سجلات مطابقة',
+                      message: 'غيّر الفلاتر أو أعد تعيينها لعرض سجلات أخرى.',
+                      icon: Icons.event_busy_outlined,
+                    )
+                  : RefreshIndicator(
+                      onRefresh: () async {
+                        _reload();
+                        await _future;
+                      },
+                      child: ListView.builder(
+                        physics: const AlwaysScrollableScrollPhysics(),
+                        padding: const EdgeInsetsDirectional.fromSTEB(
+                          AppSpacing.md,
+                          AppSpacing.xxs,
+                          AppSpacing.md,
+                          AppSpacing.xl,
                         ),
+                        itemCount: items.length,
+                        itemBuilder: (context, index) => _TimelineItem(
+                          record: items[index],
+                          isLast: index == items.length - 1,
+                        ),
+                      ),
+                    ),
             ),
           ],
         );
@@ -358,9 +354,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
       items = items.where((item) => item.status == _statusFilter).toList();
     }
     if (_yearFilter != null) {
-      items = items
-          .where((item) => item.workDate.year == _yearFilter)
-          .toList();
+      items = items.where((item) => item.workDate.year == _yearFilter).toList();
     }
     if (_monthFilter != null) {
       items = items
@@ -395,10 +389,7 @@ class _TimelineItem extends StatelessWidget {
   final AttendanceRecordModel record;
   final bool isLast;
 
-  const _TimelineItem({
-    required this.record,
-    required this.isLast,
-  });
+  const _TimelineItem({required this.record, required this.isLast});
 
   String _dayMonth(DateTime value) {
     final day = value.day.toString().padLeft(2, '0');
