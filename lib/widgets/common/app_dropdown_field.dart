@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import '../../theme/app_colors.dart';
 
 class AppDropdownField<T> extends StatelessWidget {
   final String? labelText;
@@ -12,7 +11,7 @@ class AppDropdownField<T> extends StatelessWidget {
   final IconData? prefixIcon;
 
   const AppDropdownField({
-    Key? key,
+    super.key,
     this.labelText,
     this.hintText,
     required this.items,
@@ -21,22 +20,26 @@ class AppDropdownField<T> extends StatelessWidget {
     this.onSaved,
     this.validator,
     this.prefixIcon,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+
     return DropdownButtonFormField<T>(
       initialValue: value,
       items: items,
       onChanged: onChanged,
       onSaved: onSaved,
       validator: validator,
-      icon: const Icon(Icons.expand_more, color: AppColors.secondary),
+      isExpanded: true,
+      icon: Icon(Icons.expand_more, color: scheme.onSurfaceVariant),
+      dropdownColor: scheme.surfaceContainer,
       decoration: InputDecoration(
         labelText: labelText,
         hintText: hintText,
         prefixIcon: prefixIcon != null
-            ? Icon(prefixIcon, color: AppColors.secondary)
+            ? Icon(prefixIcon, color: scheme.onSurfaceVariant)
             : null,
       ),
     );
