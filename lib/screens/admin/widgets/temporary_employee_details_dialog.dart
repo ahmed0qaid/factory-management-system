@@ -1,12 +1,15 @@
 import 'package:flutter/material.dart';
+
+import '../../../models/job_title_model.dart';
 import '../../../models/temporary_employee_model.dart';
 import '../../../services/admin_biometrics_service.dart';
 import '../../../services/admin_service.dart';
 import '../../../services/job_title_service.dart';
-import '../../../models/job_title_model.dart';
+import '../../../widgets/common/app_confirm_dialog.dart';
 import '../../../widgets/common/app_dropdown_field.dart';
 import '../../../widgets/common/app_form_field.dart';
 import '../../../widgets/common/app_loading_state.dart';
+import '../../../widgets/common/app_status_pill.dart';
 
 class TemporaryEmployeeDetailsDialog extends StatefulWidget {
   final TemporaryEmployeeModel employee;
@@ -51,7 +54,7 @@ class _TemporaryEmployeeDetailsDialogState
           _isLoadingTitles = false;
         });
       }
-    } catch (e) {
+    } catch (_) {
       if (mounted) setState(() => _isLoadingTitles = false);
     }
   }
@@ -63,27 +66,13 @@ class _TemporaryEmployeeDetailsDialogState
   }
 
   Future<void> _reject() async {
-    final confirm = await showDialog<bool>(
-      context: context,
-      builder: (_) => AlertDialog(
-        title: const Text('تأكيد الرفض'),
-        content: const Text(
-          'هل تريد رفض رقم البصمة هذا؟ لن يتم إنشاء موظف رسمي له.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('إلغاء'),
-          ),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-            onPressed: () => Navigator.pop(context, true),
-            child: const Text('رفض', style: TextStyle(color: Colors.white)),
-          ),
-        ],
-      ),
+    final confirm = await AppConfirmDialog.show(
+      context,
+      title: 'تأكيد الرفض',
+      content: 'هل تريد رفض رقم البصمة هذا؟ لن يتم إنشاء موظف رسمي له.',
+      confirmText: 'رفض',
+      isDestructive: true,
     );
-
     if (confirm != true) return;
 
     setState(() => _isLoading = true);
@@ -99,7 +88,6 @@ class _TemporaryEmployeeDetailsDialogState
   }
 
   Future<void> _approveNew() async {
-    // Show form to create new employee
     final formKey = GlobalKey<FormState>();
     String empNum = '';
     final nameController = TextEditingController(
@@ -107,7 +95,6 @@ class _TemporaryEmployeeDetailsDialogState
     );
     String name = '';
     String pwd = '';
-
     String phone = '';
     String departmentName = '';
     JobTitleModel? selectedJobTitle;
@@ -116,100 +103,144 @@ class _TemporaryEmployeeDetailsDialogState
 
     final result = await showDialog<bool>(
       context: context,
-      builder: (_) {
-        return AlertDialog(
-          title: const Text('اعتماد كموظف رسمي جديد'),
-          content: Form(
-            key: formKey,
-            child: SingleChildScrollView(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  AppFormField(
-                    labelText: 'الرقم الوظيفي *',
-                    validator: (v) => v!.isEmpty ? 'مطلوب' : null,
-                    onSaved: (v) => empNum = v!,
-                  ),
-                  const SizedBox(height: 8),
-                  AppFormField(
-                    controller: nameController,
-                    labelText: 'الاسم الكامل *',
-                    validator: (v) => v!.isEmpty ? 'مطلوب' : null,
-                    onSaved: (v) => name = v!,
-                  ),
-                  const SizedBox(height: 8),
-                  AppFormField(
-                    labelText: 'كلمة المرور المؤقتة *',
-                    validator: (v) => v!.length < 8 ? '8 أحرف على الأقل' : null,
-                    onSaved: (v) => pwd = v!,
-                    isPassword: true,
-                  ),
-                  const SizedBox(height: 8),
-                  AppFormField(
-                    labelText: 'رقم الهاتف (اختياري)',
-                    keyboardType: TextInputType.phone,
-                    validator: _phoneValidator,
-                    onSaved: (v) => phone = v ?? '',
-                  ),
-                  const SizedBox(height: 8),
-                  AppFormField(
-                    labelText: 'القسم (اختياري)',
-                    onSaved: (v) => departmentName = v ?? '',
-                  ),
-                  const SizedBox(height: 8),
-                  if (_isLoadingTitles)
-                    const CircularProgressIndicator()
-                  else
-                    AppDropdownField<JobTitleModel>(
-                      labelText: 'المسمى الوظيفي (اختياري)',
-                      value: selectedJobTitle,
-                      items: _activeJobTitles.map((title) {
-                        return DropdownMenuItem(
-                          value: title,
-                          child: Text(title.name),
-                        );
-                      }).toList(),
-                      onChanged: (val) => setState(() => selectedJobTitle = val),
+      builder: (dialogContext) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            final theme = Theme.of(context);
+            final scheme = theme.colorScheme;
+            return AlertDialog(
+              title: const Text('اعتماد كموظف رسمي جديد'),
+              content: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 520),
+                child: Form(
+                  key: formKey,
+                  child: SingleChildScrollView(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        AppFormField(
+                          labelText: 'الرقم الوظيفي *',
+                          prefixIcon: Icons.badge_outlined,
+                          validator: (v) => v!.isEmpty ? 'مطلوب' : null,
+                          onSaved: (v) => empNum = v!,
+                        ),
+                        const SizedBox(height: 12),
+                        AppFormField(
+                          controller: nameController,
+                          labelText: 'الاسم الكامل *',
+                          prefixIcon: Icons.person_outline,
+                          validator: (v) => v!.isEmpty ? 'مطلوب' : null,
+                          onSaved: (v) => name = v!,
+                        ),
+                        const SizedBox(height: 12),
+                        AppFormField(
+                          labelText: 'كلمة المرور المؤقتة *',
+                          prefixIcon: Icons.lock_outline,
+                          validator: (v) =>
+                              v!.length < 8 ? '8 أحرف على الأقل' : null,
+                          onSaved: (v) => pwd = v!,
+                          isPassword: true,
+                        ),
+                        const SizedBox(height: 12),
+                        AppFormField(
+                          labelText: 'رقم الهاتف (اختياري)',
+                          prefixIcon: Icons.phone_outlined,
+                          keyboardType: TextInputType.phone,
+                          validator: _phoneValidator,
+                          onSaved: (v) => phone = v ?? '',
+                        ),
+                        const SizedBox(height: 12),
+                        AppFormField(
+                          labelText: 'القسم (اختياري)',
+                          prefixIcon: Icons.apartment_outlined,
+                          onSaved: (v) => departmentName = v ?? '',
+                        ),
+                        const SizedBox(height: 12),
+                        if (_isLoadingTitles)
+                          const SizedBox(
+                            height: 84,
+                            child: AppLoadingState(
+                              label: 'جاري تحميل المسميات الوظيفية',
+                              fallbackHeight: 84,
+                            ),
+                          )
+                        else
+                          AppDropdownField<JobTitleModel>(
+                            labelText: 'المسمى الوظيفي (اختياري)',
+                            prefixIcon: Icons.work_outline,
+                            value: selectedJobTitle,
+                            items: _activeJobTitles.map((title) {
+                              return DropdownMenuItem(
+                                value: title,
+                                child: Text(title.name),
+                              );
+                            }).toList(),
+                            onChanged: (val) =>
+                                setDialogState(() => selectedJobTitle = val),
+                          ),
+                        const SizedBox(height: 12),
+                        AppFormField(
+                          labelText: 'الراتب الأساسي (اختياري)',
+                          prefixIcon: Icons.payments_outlined,
+                          keyboardType: TextInputType.number,
+                          onSaved: (v) => baseSalary = num.tryParse(v ?? ''),
+                        ),
+                        const SizedBox(height: 12),
+                        AppFormField(
+                          labelText: 'المكافأة الشهرية (اختياري)',
+                          prefixIcon: Icons.card_giftcard_outlined,
+                          keyboardType: TextInputType.number,
+                          onSaved: (v) => bonus = num.tryParse(v ?? ''),
+                        ),
+                        const SizedBox(height: 16),
+                        Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: scheme.surfaceContainer,
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(color: scheme.outlineVariant),
+                          ),
+                          child: Row(
+                            children: [
+                              Icon(
+                                Icons.fingerprint,
+                                color: scheme.onSurfaceVariant,
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  'رقم البصمة: ${widget.employee.biometricEmployeeId}',
+                                  style: theme.textTheme.bodyMedium?.copyWith(
+                                    color: scheme.onSurfaceVariant,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
                     ),
-                  const SizedBox(height: 8),
-                  AppFormField(
-                    labelText: 'الراتب الأساسي (اختياري)',
-                    keyboardType: TextInputType.number,
-                    onSaved: (v) => baseSalary = num.tryParse(v ?? ''),
                   ),
-                  const SizedBox(height: 8),
-                  AppFormField(
-                    labelText: 'المكافأة الشهرية (اختياري)',
-                    keyboardType: TextInputType.number,
-                    onSaved: (v) => bonus = num.tryParse(v ?? ''),
-                  ),
-                  const SizedBox(height: 16),
-                  Text(
-                    'رقم البصمة: ${widget.employee.biometricEmployeeId}',
-                    style: const TextStyle(
-                      
-                      color: Colors.blue,
-                    ),
-                  ),
-                ],
+                ),
               ),
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context, false),
-              child: const Text('إلغاء'),
-            ),
-            ElevatedButton(
-              onPressed: () {
-                if (formKey.currentState!.validate()) {
-                  formKey.currentState!.save();
-                  Navigator.pop(context, true);
-                }
-              },
-              child: const Text('حفظ واعتماد'),
-            ),
-          ],
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(dialogContext, false),
+                  child: const Text('إلغاء'),
+                ),
+                FilledButton(
+                  onPressed: () {
+                    if (formKey.currentState!.validate()) {
+                      formKey.currentState!.save();
+                      Navigator.pop(dialogContext, true);
+                    }
+                  },
+                  child: const Text('حفظ واعتماد'),
+                ),
+              ],
+            );
+          },
         );
       },
     );
@@ -228,9 +259,8 @@ class _TemporaryEmployeeDetailsDialogState
         role: 'employee',
         biometricEmployeeId: widget.employee.biometricEmployeeId,
         phone: phone.trim().isNotEmpty ? phone.trim() : null,
-        departmentName: departmentName.trim().isNotEmpty
-            ? departmentName.trim()
-            : null,
+        departmentName:
+            departmentName.trim().isNotEmpty ? departmentName.trim() : null,
         jobTitleId: selectedJobTitle?.id,
         jobTitleName: selectedJobTitle?.name,
         baseSalary: baseSalary ?? 0.0,
@@ -260,82 +290,86 @@ class _TemporaryEmployeeDetailsDialogState
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    final pending = widget.employee.status == 'pending';
+
     return AlertDialog(
       title: const Text('تفاصيل رقم البصمة غير المعروف'),
       content: _isLoading
           ? const SizedBox(
-              height: 100,
-              child: AppLoadingState(label: 'جاري الحفظ...'),
+              height: 120,
+              child: AppLoadingState(
+                label: 'جاري الحفظ...',
+                fallbackHeight: 120,
+              ),
             )
-          : SingleChildScrollView(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  ListTile(
-                    title: const Text('رقم البصمة'),
-                    trailing: Text(
+          : ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 520),
+              child: SingleChildScrollView(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    _detailTile(
+                      context,
+                      'رقم البصمة',
                       widget.employee.biometricEmployeeId,
-                      style: const TextStyle(),
+                      Icons.fingerprint,
                     ),
-                  ),
-                  ListTile(
-                    title: const Text('الاسم من ملف البصمة'),
-                    trailing: Text(
+                    _detailTile(
+                      context,
+                      'الاسم من ملف البصمة',
                       widget.employee.employeeNameFromDevice
                                   ?.trim()
                                   .isNotEmpty ==
                               true
                           ? widget.employee.employeeNameFromDevice!.trim()
                           : 'غير متوفر',
-                      style: const TextStyle(),
+                      Icons.person_outline,
                     ),
-                  ),
-                  ListTile(
-                    title: const Text('عدد الحركات'),
-                    trailing: Text('${widget.employee.punchesCount}'),
-                  ),
-                  if (widget.employee.sourceBatchId != null)
-                    ListTile(
-                      title: const Text('ملف الاستيراد'),
-                      trailing: Text(
+                    _detailTile(
+                      context,
+                      'عدد الحركات',
+                      '${widget.employee.punchesCount}',
+                      Icons.touch_app_outlined,
+                    ),
+                    if (widget.employee.sourceBatchId != null)
+                      _detailTile(
+                        context,
+                        'ملف الاستيراد',
                         widget.employee.sourceBatchId!.substring(0, 8),
+                        Icons.file_present_outlined,
                       ),
+                    const Divider(height: 24),
+                    Align(
+                      alignment: AlignmentDirectional.centerStart,
+                      child: pending
+                          ? AppStatusPill.warning('بحاجة اعتماد')
+                          : AppStatusPill.neutral(widget.employee.status),
                     ),
-                  const Divider(),
-                  if (widget.employee.status == 'pending') ...[
-                    SizedBox(
-                      width: double.infinity,
-                      child: ElevatedButton.icon(
+                    if (pending) ...[
+                      const SizedBox(height: 16),
+                      FilledButton.icon(
                         onPressed: _approveNew,
-                        icon: const Icon(Icons.person_add),
+                        icon: const Icon(Icons.person_add_alt_1_outlined),
                         label: const Text('اعتماد كموظف رسمي جديد'),
                       ),
-                    ),
-                    const SizedBox(height: 8),
-                    SizedBox(
-                      width: double.infinity,
-                      child: TextButton.icon(
+                      const SizedBox(height: 8),
+                      OutlinedButton.icon(
                         onPressed: _reject,
-                        icon: const Icon(Icons.delete, color: Colors.red),
-                        label: const Text(
-                          'رفض رقم البصمة',
-                          style: TextStyle(color: Colors.red),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: scheme.error,
+                          side: BorderSide(
+                            color: scheme.error.withValues(alpha: .55),
+                          ),
                         ),
+                        icon: const Icon(Icons.close),
+                        label: const Text('رفض رقم البصمة'),
                       ),
-                    ),
-                  ] else ...[
-                    Center(
-                      child: Text(
-                        'الحالة الحالية: ${widget.employee.status}',
-                        style: const TextStyle(
-                          
-                          fontSize: 16,
-                        ),
-                      ),
-                    ),
+                    ],
                   ],
-                ],
+                ),
               ),
             ),
       actions: [
@@ -344,6 +378,32 @@ class _TemporaryEmployeeDetailsDialogState
           child: const Text('إغلاق'),
         ),
       ],
+    );
+  }
+
+  Widget _detailTile(
+    BuildContext context,
+    String label,
+    String value,
+    IconData icon,
+  ) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    return ListTile(
+      contentPadding: EdgeInsets.zero,
+      leading: CircleAvatar(
+        backgroundColor: scheme.surfaceContainerHighest,
+        foregroundColor: scheme.onSurfaceVariant,
+        child: Icon(icon),
+      ),
+      title: Text(label),
+      subtitle: Text(
+        value,
+        style: theme.textTheme.bodyMedium?.copyWith(
+          color: scheme.onSurface,
+          fontWeight: FontWeight.w600,
+        ),
+      ),
     );
   }
 
@@ -356,5 +416,3 @@ class _TemporaryEmployeeDetailsDialogState
     return null;
   }
 }
-
-
