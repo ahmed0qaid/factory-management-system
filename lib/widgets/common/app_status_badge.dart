@@ -17,32 +17,54 @@ class AppStatusBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final effectiveColor = _adaptCustomColor(color, theme.brightness);
+
     return Container(
       padding: const EdgeInsets.symmetric(
         horizontal: AppSpacing.sm,
         vertical: AppSpacing.xs,
       ),
       decoration: BoxDecoration(
-        color: color.withValues(alpha: .10),
+        color: effectiveColor.withValues(
+          alpha: theme.brightness == Brightness.dark ? .18 : .10,
+        ),
         borderRadius: BorderRadius.circular(AppRadius.pill),
-        border: Border.all(color: color.withValues(alpha: .28)),
+        border: Border.all(
+          color: effectiveColor.withValues(
+            alpha: theme.brightness == Brightness.dark ? .48 : .30,
+          ),
+        ),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
           if (icon != null) ...[
-            Icon(icon, size: 16, color: color),
+            Icon(icon, size: 16, color: effectiveColor),
             const SizedBox(width: AppSpacing.xs),
           ],
           Text(
             label,
-            style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                  color: color,
-                  fontWeight: FontWeight.w700,
-                ),
+            style: theme.textTheme.labelMedium?.copyWith(
+              color: effectiveColor,
+              fontWeight: FontWeight.w700,
+            ),
           ),
         ],
       ),
     );
+  }
+
+  Color _adaptCustomColor(Color source, Brightness brightness) {
+    final sourceBrightness = ThemeData.estimateBrightnessForColor(source);
+    if (brightness == Brightness.dark &&
+        sourceBrightness == Brightness.dark) {
+      return Color.lerp(source, Colors.white, .38)!;
+    }
+    if (brightness == Brightness.light &&
+        sourceBrightness == Brightness.light) {
+      return Color.lerp(source, Colors.black, .36)!;
+    }
+    return source;
   }
 }
