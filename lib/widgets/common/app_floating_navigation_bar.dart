@@ -37,7 +37,7 @@ class AppFloatingNavigationBar extends StatelessWidget {
 
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
-    final safeIndex = selectedIndex.clamp(0, items.length - 1);
+    final safeIndex = selectedIndex.clamp(0, items.length - 1).toInt();
     final isRtl = Directionality.of(context) == TextDirection.rtl;
 
     return Material(
