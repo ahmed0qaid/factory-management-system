@@ -1,8 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../../theme/app_colors.dart';
 import '../../theme/app_spacing.dart';
-import 'app_card.dart';
 
 class AppErrorState extends StatelessWidget {
   final String title;
@@ -18,28 +16,58 @@ class AppErrorState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final textTheme = Theme.of(context).textTheme;
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
 
-    return AppCard(
-      backgroundColor: AppColors.semanticBackground(AppColors.danger),
-      borderColor: AppColors.infoCardBorder(AppColors.danger),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Icon(Icons.error_outline, color: AppColors.danger),
-          const SizedBox(height: AppSpacing.sm),
-          Text(title, style: textTheme.titleSmall),
-          const SizedBox(height: AppSpacing.xs),
-          Text(message, style: textTheme.bodySmall),
-          if (onRetry != null) ...[
-            const SizedBox(height: AppSpacing.sm),
-            TextButton.icon(
-              onPressed: onRetry,
-              icon: const Icon(Icons.refresh, size: 18),
-              label: const Text('إعادة المحاولة'),
-            ),
-          ],
-        ],
+    return Center(
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 460),
+        child: Padding(
+          padding: const EdgeInsets.all(AppSpacing.lg),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 56,
+                height: 56,
+                decoration: BoxDecoration(
+                  color: scheme.errorContainer,
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  Icons.error_outline,
+                  color: scheme.onErrorContainer,
+                  size: 28,
+                ),
+              ),
+              const SizedBox(height: AppSpacing.md),
+              Text(
+                title,
+                textAlign: TextAlign.center,
+                style: theme.textTheme.titleMedium?.copyWith(
+                  color: scheme.onSurface,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              const SizedBox(height: AppSpacing.xs),
+              Text(
+                message,
+                textAlign: TextAlign.center,
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: scheme.onSurfaceVariant,
+                ),
+              ),
+              if (onRetry != null) ...[
+                const SizedBox(height: AppSpacing.md),
+                FilledButton.tonalIcon(
+                  onPressed: onRetry,
+                  icon: const Icon(Icons.refresh, size: 18),
+                  label: const Text('إعادة المحاولة'),
+                ),
+              ],
+            ],
+          ),
+        ),
       ),
     );
   }
