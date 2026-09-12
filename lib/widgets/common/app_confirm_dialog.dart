@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../../theme/app_colors.dart';
+
 import '../../theme/app_spacing.dart';
 
 class AppConfirmDialog extends StatelessWidget {
@@ -11,14 +11,14 @@ class AppConfirmDialog extends StatelessWidget {
   final bool isDestructive;
 
   const AppConfirmDialog({
-    Key? key,
+    super.key,
     required this.title,
     required this.content,
     required this.onConfirm,
     this.confirmText = 'تأكيد',
     this.cancelText = 'إلغاء',
     this.isDestructive = false,
-  }) : super(key: key);
+  });
 
   static Future<bool?> show(
     BuildContext context, {
@@ -43,25 +43,39 @@ class AppConfirmDialog extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+
     return AlertDialog(
       title: Text(
         title,
-        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+        style: theme.textTheme.titleLarge?.copyWith(
+          color: scheme.onSurface,
+          fontWeight: FontWeight.w700,
+        ),
       ),
       content: Text(
         content,
-        style: const TextStyle(color: AppColors.textSecondary, fontSize: 14),
+        style: theme.textTheme.bodyMedium?.copyWith(
+          color: scheme.onSurfaceVariant,
+        ),
       ),
-      actionsPadding: const EdgeInsets.symmetric(horizontal: AppSpacing.md, vertical: AppSpacing.sm),
+      actionsPadding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.md,
+        vertical: AppSpacing.sm,
+      ),
       actions: [
         TextButton(
           onPressed: () => Navigator.of(context).pop(false),
-          child: Text(cancelText, style: const TextStyle(color: AppColors.secondary)),
+          child: Text(cancelText),
         ),
         FilledButton(
           onPressed: onConfirm,
           style: isDestructive
-              ? FilledButton.styleFrom(backgroundColor: AppColors.danger)
+              ? FilledButton.styleFrom(
+                  backgroundColor: scheme.error,
+                  foregroundColor: scheme.onError,
+                )
               : null,
           child: Text(confirmText),
         ),
