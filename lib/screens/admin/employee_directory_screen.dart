@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../models/profile_model.dart';
 import '../../services/admin_service.dart';
 import '../../widgets/common/app_empty_state.dart';
+import '../../widgets/common/app_error_state.dart';
 import '../../widgets/common/app_loading_state.dart';
 import '../../widgets/common/app_scaffold.dart';
 import '../../widgets/common/app_status_pill.dart';
@@ -36,6 +37,9 @@ class _EmployeeDirectoryScreenState extends State<EmployeeDirectoryScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+
     return AppScaffold(
       title: 'دليل الموظفين',
       body: FutureBuilder<List<ProfileModel>>(
@@ -45,12 +49,10 @@ class _EmployeeDirectoryScreenState extends State<EmployeeDirectoryScreen> {
             return const AppLoadingState(label: 'جاري تحميل الموظفين');
           }
           if (snapshot.hasError) {
-            return Center(
-              child: FilledButton.icon(
-                onPressed: _reload,
-                icon: const Icon(Icons.refresh),
-                label: const Text('إعادة المحاولة'),
-              ),
+            return AppErrorState(
+              title: 'تعذر تحميل الموظفين',
+              message: 'تحقق من الاتصال ثم أعد المحاولة.',
+              onRetry: _reload,
             );
           }
 
@@ -93,15 +95,22 @@ class _EmployeeDirectoryScreenState extends State<EmployeeDirectoryScreen> {
                                 },
                                 icon: const Icon(Icons.close),
                               ),
-                        border: const OutlineInputBorder(),
                       ),
                     ),
                   ),
                   Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 4,
+                    ),
                     child: Align(
-                      alignment: Alignment.centerRight,
-                      child: Text('${employees.length} موظف'),
+                      alignment: AlignmentDirectional.centerStart,
+                      child: Text(
+                        '${employees.length} موظف',
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: scheme.onSurfaceVariant,
+                        ),
+                      ),
                     ),
                   ),
                   Expanded(
@@ -116,21 +125,28 @@ class _EmployeeDirectoryScreenState extends State<EmployeeDirectoryScreen> {
                                 ScrollViewKeyboardDismissBehavior.onDrag,
                             padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
                             itemCount: employees.length,
-                            separatorBuilder: (_, __) => const SizedBox(height: 6),
+                            separatorBuilder: (_, __) =>
+                                const SizedBox(height: 6),
                             itemBuilder: (context, index) {
                               final employee = employees[index];
                               final details = <String>[
                                 employee.employeeNumber,
-                                if (employee.jobTitleName?.trim().isNotEmpty == true)
+                                if (employee.jobTitleName?.trim().isNotEmpty ==
+                                    true)
                                   employee.jobTitleName!.trim(),
-                                if (employee.departmentName?.trim().isNotEmpty == true)
+                                if (employee.departmentName?.trim().isNotEmpty ==
+                                    true)
                                   employee.departmentName!.trim(),
                               ].join(' • ');
                               return Card(
                                 child: ListTile(
                                   leading: CircleAvatar(
+                                    backgroundColor: scheme.primaryContainer,
+                                    foregroundColor: scheme.onPrimaryContainer,
                                     child: Text(
-                                      employee.fullName.isEmpty ? 'م' : employee.fullName[0],
+                                      employee.fullName.isEmpty
+                                          ? 'م'
+                                          : employee.fullName[0],
                                     ),
                                   ),
                                   title: Text(
@@ -143,12 +159,9 @@ class _EmployeeDirectoryScreenState extends State<EmployeeDirectoryScreen> {
                                     maxLines: 2,
                                     overflow: TextOverflow.ellipsis,
                                   ),
-                                  trailing: AppStatusPill(
-                                    label: employee.active ? employee.roleLabel : 'موقوف',
-                                    color: employee.active
-                                        ? Theme.of(context).colorScheme.primary
-                                        : Theme.of(context).colorScheme.error,
-                                  ),
+                                  trailing: employee.active
+                                      ? AppStatusPill.neutral(employee.roleLabel)
+                                      : AppStatusPill.danger('موقوف'),
                                 ),
                               );
                             },
