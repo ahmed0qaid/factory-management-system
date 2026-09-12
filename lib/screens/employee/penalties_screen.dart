@@ -3,12 +3,15 @@ import 'package:flutter/material.dart';
 import '../../models/advance_model.dart';
 import '../../models/penalty_model.dart';
 import '../../services/employee_service.dart';
-import '../../theme/app_colors.dart';
+import '../../theme/app_semantic_colors.dart';
 import '../../utils/formatters.dart';
 import '../../widgets/common/app_card.dart';
+import '../../widgets/common/app_empty_state.dart';
+import '../../widgets/common/app_error_state.dart';
 import '../../widgets/common/app_list_item.dart';
-import '../../widgets/common/app_status_pill.dart';
+import '../../widgets/common/app_loading_state.dart';
 import '../../widgets/common/app_scaffold.dart';
+import '../../widgets/common/app_status_pill.dart';
 
 class PenaltiesScreen extends StatefulWidget {
   final bool showAppBar;
@@ -27,83 +30,102 @@ class _PenaltiesScreenState extends State<PenaltiesScreen> {
   @override
   void initState() {
     super.initState();
+    _reload();
+  }
+
+  void _reload() {
     _penaltiesFuture = _service.getMyPenalties();
     _balanceFuture = _service.getAdvanceBalance();
   }
 
   @override
   Widget build(BuildContext context) {
-    final content = FutureBuilder(
-      future: Future.wait([_penaltiesFuture, _balanceFuture]),
-      builder: (context, AsyncSnapshot<List<dynamic>> snapshot) {
-        if (!snapshot.hasData) {
-          return const Center(child: CircularProgressIndicator());
+    final content = FutureBuilder<List<dynamic>>(
+      future: Future.wait<dynamic>([_penaltiesFuture, _balanceFuture]),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState != ConnectionState.done) {
+          return const AppLoadingState(label: 'جاري تحميل الجزاءات');
+        }
+        if (snapshot.hasError) {
+          return AppErrorState(
+            title: 'تعذر تحميل الجزاءات',
+            message: '${snapshot.error}',
+            onRetry: () => setState(_reload),
+          );
         }
 
         final items = snapshot.data![0] as List<PenaltyModel>;
         final balance = snapshot.data![1] as AdvanceBalanceInfo;
-        final hasPenalties = balance.penaltiesCount > 0 || balance.penaltiesAmount > 0;
+        final hasPenalties =
+            balance.penaltiesCount > 0 || balance.penaltiesAmount > 0;
+        final theme = Theme.of(context);
+        final scheme = theme.colorScheme;
+        final semantic = context.semanticColors;
+        final accent = hasPenalties ? semantic.warning : scheme.onSurfaceVariant;
 
         return ListView(
-          padding: const EdgeInsets.all(8),
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 84),
           children: [
             AppCard(
-              backgroundColor: Colors.white,
               borderColor: hasPenalties
-                  ? AppColors.tertiary.withValues(alpha: .35)
-                  : AppColors.border,
-              borderWidth: 1.2,
+                  ? accent.withValues(alpha: .32)
+                  : scheme.outlineVariant,
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
                     'ملخص الفترة الحالية',
-                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      color: AppColors.textPrimary,
+                    style: theme.textTheme.titleMedium?.copyWith(
+                      color: scheme.onSurface,
+                      fontWeight: FontWeight.w700,
                     ),
                   ),
                   const SizedBox(height: 8),
-                  _line('عدد الجزاءات', '${balance.penaltiesCount}', hasPenalties),
                   _line(
+                    context,
+                    'عدد الجزاءات',
+                    '${balance.penaltiesCount}',
+                    accent: hasPenalties ? accent : null,
+                  ),
+                  _line(
+                    context,
                     'إجمالي مبالغ الجزاءات',
                     Formatters.money(balance.penaltiesAmount),
-                    hasPenalties,
+                    accent: hasPenalties ? accent : null,
                   ),
                 ],
               ),
             ),
-            const Padding(
-              padding: EdgeInsets.symmetric(horizontal: 8, vertical: 12),
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 14),
               child: Text(
                 'السجل الكامل',
-                style: TextStyle(fontSize: 16),
+                style: theme.textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.w700,
+                ),
               ),
             ),
             if (items.isEmpty)
-              const Center(
-                child: Padding(
-                  padding: EdgeInsets.all(24),
-                  child: Text('لا توجد جزاءات.'),
-                ),
+              const AppEmptyState(
+                title: 'لا توجد جزاءات',
+                message: 'لا توجد جزاءات مسجلة على حسابك في الوقت الحالي.',
+                icon: Icons.gavel_outlined,
               )
             else
               ...items.map(
-                (p) => AppListItem(
-                  title: Text(p.category),
+                (penalty) => AppListItem(
+                  title: Text(penalty.category),
                   subtitle: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text('التاريخ: ${Formatters.date(p.penaltyDate)}'),
-                      Text('السبب: ${p.reason}'),
-                      Text('المبلغ: ${Formatters.money(p.amount)}'),
-                      if (p.minutesDeducted > 0)
-                        Text('دقائق مخصومة: ${p.minutesDeducted}'),
+                      Text('التاريخ: ${Formatters.date(penalty.penaltyDate)}'),
+                      Text('السبب: ${penalty.reason}'),
+                      Text('المبلغ: ${Formatters.money(penalty.amount)}'),
+                      if (penalty.minutesDeducted > 0)
+                        Text('دقائق مخصومة: ${penalty.minutesDeducted}'),
                     ],
                   ),
-                  trailing: AppStatusPill(
-                    label: p.status == 'approved' ? 'موافق عليها' : p.status == 'rejected' ? 'مرفوضة' : 'قيد المراجعة',
-                    color: p.status == 'approved' ? AppColors.success : p.status == 'rejected' ? AppColors.danger : AppColors.warning,
-                  ),
+                  trailing: _status(penalty.status),
                 ),
               ),
           ],
@@ -113,23 +135,45 @@ class _PenaltiesScreenState extends State<PenaltiesScreen> {
 
     if (!widget.showAppBar) return content;
 
-    return AppScaffold(
-      title: 'الجزاءات',
-      body: content,
-    );
+    return AppScaffold(title: 'الجزاءات', body: content);
   }
 
-  Widget _line(String title, String value, [bool isActive = false]) {
+  Widget _status(String status) {
+    return switch (status) {
+      'approved' => AppStatusPill.success('موافق عليها'),
+      'rejected' => AppStatusPill.danger('مرفوضة'),
+      _ => AppStatusPill.warning('قيد المراجعة'),
+    };
+  }
+
+  Widget _line(
+    BuildContext context,
+    String title,
+    String value, {
+    Color? accent,
+  }) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(title, style: TextStyle(color: isActive ? AppColors.tertiary : AppColors.textSecondary)),
+          Expanded(
+            child: Text(
+              title,
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: scheme.onSurfaceVariant,
+              ),
+            ),
+          ),
+          const SizedBox(width: 12),
           Text(
             value,
-            style: TextStyle(
-              color: isActive ? AppColors.tertiary : AppColors.textPrimary,
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: accent ?? scheme.onSurface,
+              fontWeight: FontWeight.w700,
             ),
           ),
         ],
@@ -137,5 +181,3 @@ class _PenaltiesScreenState extends State<PenaltiesScreen> {
     );
   }
 }
-
-
