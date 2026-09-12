@@ -5,8 +5,8 @@ import '../../models/attendance_model.dart';
 import '../../models/profile_model.dart';
 import '../../services/employee_service.dart';
 import '../../services/employee_tab_navigation.dart';
-import '../../theme/app_colors.dart';
 import '../../theme/app_radius.dart';
+import '../../theme/app_semantic_colors.dart';
 import '../../theme/app_spacing.dart';
 import '../../utils/attendance_display.dart';
 import '../../utils/formatters.dart';
@@ -15,6 +15,7 @@ import '../../widgets/common/app_empty_state.dart';
 import '../../widgets/common/app_error_state.dart';
 import '../../widgets/common/app_loading_state.dart';
 import '../../widgets/common/app_section_header.dart';
+import '../../widgets/common/app_stat_card.dart';
 import '../../widgets/common/app_status_badge.dart';
 import 'advance_balance_details_screen.dart';
 import 'factory_stoppages_screen.dart';
@@ -96,6 +97,7 @@ class _EmployeeHomeScreenState extends State<EmployeeHomeScreen> {
         future: _summaryFuture,
         builder: (context, snapshot) {
           return ListView(
+            physics: const AlwaysScrollableScrollPhysics(),
             padding: const EdgeInsets.fromLTRB(
               AppSpacing.screenHorizontal,
               AppSpacing.sm,
@@ -150,8 +152,9 @@ class _EmployeeHomeScreenState extends State<EmployeeHomeScreen> {
   }
 
   Widget _employeeHeader(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    final textTheme = Theme.of(context).textTheme;
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    final textTheme = theme.textTheme;
     final name = widget.profile.fullName.trim().isNotEmpty
         ? widget.profile.fullName.trim()
         : widget.profile.employeeNumber;
@@ -173,11 +176,12 @@ class _EmployeeHomeScreenState extends State<EmployeeHomeScreen> {
           CircleAvatar(
             radius: 21,
             backgroundColor: scheme.primaryContainer,
+            foregroundColor: scheme.onPrimaryContainer,
             child: Text(
               _employeeInitial,
               style: textTheme.titleMedium?.copyWith(
                 color: scheme.onPrimaryContainer,
-                fontWeight: FontWeight.bold,
+                fontWeight: FontWeight.w700,
               ),
             ),
           ),
@@ -194,7 +198,8 @@ class _EmployeeHomeScreenState extends State<EmployeeHomeScreen> {
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: textTheme.titleSmall?.copyWith(
-                          fontWeight: FontWeight.bold,
+                          color: scheme.onSurface,
+                          fontWeight: FontWeight.w700,
                         ),
                       ),
                     ),
@@ -272,7 +277,10 @@ class _EmployeeHomeScreenState extends State<EmployeeHomeScreen> {
 
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
-    final statusColor = _statusSemanticColor(attendance.latestStatus);
+    final statusColor = _statusSemanticColor(
+      context,
+      attendance.latestStatus,
+    );
 
     return AppCard(
       elevated: true,
@@ -305,7 +313,7 @@ class _EmployeeHomeScreenState extends State<EmployeeHomeScreen> {
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: theme.textTheme.titleSmall?.copyWith(
-                        fontWeight: FontWeight.bold,
+                        fontWeight: FontWeight.w700,
                       ),
                     ),
                     Text(
@@ -348,7 +356,7 @@ class _EmployeeHomeScreenState extends State<EmployeeHomeScreen> {
           ),
           const SizedBox(height: AppSpacing.sm),
           SizedBox(
-            height: 36,
+            height: 40,
             child: FilledButton.tonalIcon(
               onPressed: _openAttendanceDetails,
               icon: const Icon(Icons.timeline_outlined, size: 17),
@@ -361,13 +369,16 @@ class _EmployeeHomeScreenState extends State<EmployeeHomeScreen> {
   }
 
   Widget _periodGrid(BuildContext context, _HomeSummary summary) {
+    final scheme = Theme.of(context).colorScheme;
+    final semantic = context.semanticColors;
+
     final items = [
       _DashboardItem(
         title: 'رصيد السلفة',
         value: Formatters.money(summary.balance.availableBalance),
         subtitle: 'المتاح حاليًا',
         icon: Icons.account_balance_wallet_outlined,
-        color: AppColors.secondary,
+        color: scheme.primary,
         isActive: summary.balance.availableBalance > 0,
         onTap: () => Navigator.push(
           context,
@@ -381,7 +392,7 @@ class _EmployeeHomeScreenState extends State<EmployeeHomeScreen> {
         value: summary.stoppagesCount.toString(),
         subtitle: 'الحالات المسجلة',
         icon: Icons.factory_outlined,
-        color: AppColors.tertiary,
+        color: semantic.warning,
         isActive: summary.stoppagesCount > 0,
         onTap: () => Navigator.push(
           context,
@@ -393,7 +404,7 @@ class _EmployeeHomeScreenState extends State<EmployeeHomeScreen> {
         value: summary.leavesCount.toString(),
         subtitle: 'الطلبات المسجلة',
         icon: Icons.event_available_outlined,
-        color: AppColors.primary,
+        color: scheme.primary,
         isActive: summary.leavesCount > 0,
         onTap: () => Navigator.push(
           context,
@@ -405,7 +416,9 @@ class _EmployeeHomeScreenState extends State<EmployeeHomeScreen> {
         value: summary.balance.penaltiesCount.toString(),
         subtitle: Formatters.money(summary.balance.penaltiesAmount),
         icon: Icons.gavel_outlined,
-        color: AppColors.tertiary,
+        color: summary.balance.penaltiesCount > 0
+            ? semantic.warning
+            : scheme.onSurfaceVariant,
         isActive: summary.balance.penaltiesCount > 0,
         onTap: () => Navigator.push(
           context,
@@ -431,13 +444,15 @@ class _EmployeeHomeScreenState extends State<EmployeeHomeScreen> {
       );
     }
 
+    final scheme = Theme.of(context).colorScheme;
+    final semantic = context.semanticColors;
     final items = [
       _DashboardItem(
         title: 'أيام الدوام',
         value: attendance.workDays.toString(),
         subtitle: 'في الفترة الحالية',
         icon: Icons.calendar_today_outlined,
-        color: AppColors.primary,
+        color: scheme.primary,
         isActive: attendance.workDays > 0,
         onTap: _openAttendanceDetails,
       ),
@@ -446,7 +461,7 @@ class _EmployeeHomeScreenState extends State<EmployeeHomeScreen> {
         value: attendance.absentDays.toString(),
         subtitle: 'أيام الغياب',
         icon: Icons.event_busy_outlined,
-        color: AppColors.danger,
+        color: scheme.error,
         isActive: attendance.absentDays > 0,
         onTap: _openAttendanceDetails,
       ),
@@ -455,7 +470,7 @@ class _EmployeeHomeScreenState extends State<EmployeeHomeScreen> {
         value: attendance.reviewDays.toString(),
         subtitle: 'تحتاج مراجعة',
         icon: Icons.fact_check_outlined,
-        color: AppColors.warning,
+        color: semantic.warning,
         isActive: attendance.reviewDays > 0,
         onTap: _openAttendanceDetails,
       ),
@@ -464,8 +479,7 @@ class _EmployeeHomeScreenState extends State<EmployeeHomeScreen> {
         value: attendance.latestWorkDateText,
         subtitle: _localizedStatusLabel(attendance.latestStatus),
         icon: Icons.history_toggle_off_outlined,
-        color: AppColors.secondary,
-        isActive: true,
+        color: scheme.primary,
         onTap: _openAttendanceDetails,
       ),
     ];
@@ -484,24 +498,26 @@ class _EmployeeHomeScreenState extends State<EmployeeHomeScreen> {
     return employeeNumber.isNotEmpty ? employeeNumber.substring(0, 1) : 'م';
   }
 
-  Color _statusSemanticColor(String status) {
+  Color _statusSemanticColor(BuildContext context, String status) {
+    final scheme = Theme.of(context).colorScheme;
+    final semantic = context.semanticColors;
     switch (status) {
       case 'present':
       case 'approved':
       case 'paid':
       case 'completed':
-        return AppColors.success;
+        return semantic.success;
       case 'late':
       case 'pending':
       case 'incomplete':
       case 'needs_review':
-        return AppColors.warning;
+        return semantic.warning;
       case 'absent':
       case 'rejected':
       case 'cancelled':
-        return AppColors.danger;
+        return scheme.error;
       default:
-        return AppColors.secondary;
+        return scheme.onSurfaceVariant;
     }
   }
 
@@ -549,7 +565,7 @@ class _MiniMetric extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final colors = theme.colorScheme;
+    final scheme = theme.colorScheme;
 
     return Container(
       constraints: const BoxConstraints(minHeight: 54),
@@ -558,13 +574,13 @@ class _MiniMetric extends StatelessWidget {
         vertical: AppSpacing.xs,
       ),
       decoration: BoxDecoration(
-        color: colors.surfaceContainer,
+        color: scheme.surfaceContainer,
         borderRadius: BorderRadius.circular(AppRadius.md),
-        border: Border.all(color: colors.outlineVariant),
+        border: Border.all(color: scheme.outlineVariant),
       ),
       child: Row(
         children: [
-          Icon(icon, size: 16, color: colors.primary),
+          Icon(icon, size: 16, color: scheme.primary),
           const SizedBox(width: AppSpacing.xs),
           Expanded(
             child: Column(
@@ -576,7 +592,7 @@ class _MiniMetric extends StatelessWidget {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: theme.textTheme.bodySmall?.copyWith(
-                    color: colors.onSurfaceVariant,
+                    color: scheme.onSurfaceVariant,
                     fontSize: 11,
                   ),
                 ),
@@ -585,7 +601,8 @@ class _MiniMetric extends StatelessWidget {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: theme.textTheme.titleSmall?.copyWith(
-                    fontWeight: FontWeight.bold,
+                    color: scheme.onSurface,
+                    fontWeight: FontWeight.w700,
                     fontSize: 13,
                   ),
                 ),
@@ -609,7 +626,8 @@ class _CompactGrid extends StatelessWidget {
       builder: (context, constraints) {
         final columns = constraints.maxWidth >= 760 ? 4 : 2;
         final itemWidth =
-            (constraints.maxWidth - (AppSpacing.sm * (columns - 1))) / columns;
+            (constraints.maxWidth - (AppSpacing.sm * (columns - 1))) /
+                columns;
         const itemHeight = 112.0;
 
         return GridView.builder(
@@ -622,84 +640,20 @@ class _CompactGrid extends StatelessWidget {
             crossAxisSpacing: AppSpacing.sm,
             childAspectRatio: itemWidth / itemHeight,
           ),
-          itemBuilder: (context, index) => _HomeSummaryCard(item: items[index]),
+          itemBuilder: (context, index) {
+            final item = items[index];
+            return AppStatCard(
+              title: item.title,
+              value: item.value,
+              subtitle: item.subtitle,
+              icon: item.icon,
+              color: item.color,
+              isActive: item.isActive,
+              onTap: item.onTap,
+            );
+          },
         );
       },
-    );
-  }
-}
-
-class _HomeSummaryCard extends StatelessWidget {
-  final _DashboardItem item;
-
-  const _HomeSummaryCard({required this.item});
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final colors = theme.colorScheme;
-    final borderColor = item.isActive
-        ? item.color.withValues(alpha: .30)
-        : colors.outlineVariant;
-    final valueColor = item.isActive ? item.color : colors.onSurfaceVariant;
-
-    return AppCard(
-      onTap: item.onTap,
-      padding: const EdgeInsets.all(AppSpacing.sm),
-      borderColor: borderColor,
-      elevated: item.isActive,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Container(
-                width: 27,
-                height: 27,
-                decoration: BoxDecoration(
-                  color: item.color.withValues(alpha: .09),
-                  borderRadius: BorderRadius.circular(AppRadius.sm),
-                ),
-                child: Icon(item.icon, size: 16, color: item.color),
-              ),
-              const SizedBox(width: AppSpacing.xs),
-              Expanded(
-                child: Text(
-                  item.title,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const Spacer(),
-          Text(
-            item.value,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: theme.textTheme.titleMedium?.copyWith(
-              color: valueColor,
-              fontWeight: FontWeight.bold,
-              fontSize: 16,
-            ),
-          ),
-          if (item.subtitle != null) ...[
-            const SizedBox(height: 2),
-            Text(
-              item.subtitle!,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: theme.textTheme.bodySmall?.copyWith(
-                color: colors.onSurfaceVariant,
-                fontSize: 10.5,
-              ),
-            ),
-          ],
-        ],
-      ),
     );
   }
 }
@@ -792,7 +746,8 @@ class _AttendanceSummary {
   static List<AttendanceRecordModel> _deduplicateAttendance(
     List<AttendanceRecordModel> items,
   ) {
-    final sorted = [...items]..sort((a, b) => b.workDate.compareTo(a.workDate));
+    final sorted = [...items]
+      ..sort((a, b) => b.workDate.compareTo(a.workDate));
     final seen = <String>{};
     final result = <AttendanceRecordModel>[];
     for (final item in sorted) {
