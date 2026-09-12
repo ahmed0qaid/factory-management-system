@@ -8,6 +8,7 @@ import '../../services/auth_service.dart';
 import '../../services/employee_service.dart';
 import '../../services/employee_tab_navigation.dart';
 import '../../widgets/common/app_error_state.dart';
+import '../../widgets/common/app_floating_navigation_bar.dart';
 import '../../widgets/common/app_loading_button.dart';
 import '../../widgets/common/app_loading_state.dart';
 import '../../widgets/common/app_scaffold.dart';
@@ -211,28 +212,28 @@ class _EmployeeShellState extends State<EmployeeShell> {
           ProfileScreen(profile: profile),
         ];
 
-        const destinations = <NavigationDestination>[
-          NavigationDestination(
+        const destinations = <AppFloatingNavigationItem>[
+          AppFloatingNavigationItem(
             icon: Icon(Icons.home_outlined),
             selectedIcon: Icon(Icons.home),
             label: 'الرئيسية',
           ),
-          NavigationDestination(
+          AppFloatingNavigationItem(
             icon: Icon(Icons.calendar_month_outlined),
             selectedIcon: Icon(Icons.calendar_month),
             label: 'الدوام',
           ),
-          NavigationDestination(
+          AppFloatingNavigationItem(
             icon: Icon(Icons.payments_outlined),
             selectedIcon: Icon(Icons.payments),
             label: 'الراتب',
           ),
-          NavigationDestination(
+          AppFloatingNavigationItem(
             icon: Icon(Icons.account_balance_wallet_outlined),
             selectedIcon: Icon(Icons.account_balance_wallet),
             label: 'السلف',
           ),
-          NavigationDestination(
+          AppFloatingNavigationItem(
             icon: Icon(Icons.person_outline),
             selectedIcon: Icon(Icons.person),
             label: 'حسابي',
@@ -252,10 +253,10 @@ class _EmployeeShellState extends State<EmployeeShell> {
           ],
           drawer: _buildDrawer(profile),
           body: IndexedStack(index: _index, children: pages),
-          bottomNavigationBar: NavigationBar(
+          bottomNavigationBar: AppFloatingNavigationBar(
             selectedIndex: _index,
             onDestinationSelected: (index) => setState(() => _index = index),
-            destinations: destinations,
+            items: destinations,
           ),
         );
       },
