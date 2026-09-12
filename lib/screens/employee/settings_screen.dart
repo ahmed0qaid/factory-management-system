@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:local_auth/local_auth.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../theme/app_theme_controller.dart';
 import '../../widgets/common/app_card.dart';
+import '../../widgets/common/app_loading_state.dart';
 import '../../widgets/common/app_scaffold.dart';
 
 class SettingsScreen extends StatefulWidget {
@@ -89,7 +91,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(
-          enabled ? 'تم تفعيل حماية التطبيق بالبصمة.' : 'تم تعطيل حماية التطبيق بالبصمة.',
+          enabled
+              ? 'تم تفعيل حماية التطبيق بالبصمة.'
+              : 'تم تعطيل حماية التطبيق بالبصمة.',
         ),
       ),
     );
@@ -100,7 +104,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     return AppScaffold(
       title: 'الإعدادات',
       body: _loading
-          ? const Center(child: CircularProgressIndicator())
+          ? const AppLoadingState(label: 'جاري تحميل الإعدادات')
           : Align(
               alignment: Alignment.topCenter,
               child: ConstrainedBox(
@@ -108,12 +112,83 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 child: ListView(
                   padding: const EdgeInsets.all(16),
                   children: [
-                    Text(
-                      'الأمان والدخول',
-                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                            fontWeight: FontWeight.bold,
-                          ),
+                    _sectionTitle(context, 'المظهر'),
+                    const SizedBox(height: 8),
+                    AppCard(
+                      child: ValueListenableBuilder<ThemeMode>(
+                        valueListenable: AppThemeController.mode,
+                        builder: (context, mode, _) {
+                          return Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              Row(
+                                children: [
+                                  Icon(
+                                    Icons.palette_outlined,
+                                    color: Theme.of(context)
+                                        .colorScheme
+                                        .onSurfaceVariant,
+                                  ),
+                                  const SizedBox(width: 10),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          'مظهر التطبيق',
+                                          style: Theme.of(context)
+                                              .textTheme
+                                              .titleSmall,
+                                        ),
+                                        const SizedBox(height: 2),
+                                        Text(
+                                          'اختر المظهر المناسب أو اجعله يتبع إعداد الجهاز.',
+                                          style: Theme.of(context)
+                                              .textTheme
+                                              .bodySmall
+                                              ?.copyWith(
+                                                color: Theme.of(context)
+                                                    .colorScheme
+                                                    .onSurfaceVariant,
+                                              ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 14),
+                              SegmentedButton<ThemeMode>(
+                                segments: const [
+                                  ButtonSegment(
+                                    value: ThemeMode.system,
+                                    icon: Icon(Icons.brightness_auto_outlined),
+                                    label: Text('النظام'),
+                                  ),
+                                  ButtonSegment(
+                                    value: ThemeMode.light,
+                                    icon: Icon(Icons.light_mode_outlined),
+                                    label: Text('فاتح'),
+                                  ),
+                                  ButtonSegment(
+                                    value: ThemeMode.dark,
+                                    icon: Icon(Icons.dark_mode_outlined),
+                                    label: Text('داكن'),
+                                  ),
+                                ],
+                                selected: {mode},
+                                showSelectedIcon: false,
+                                onSelectionChanged: (selection) {
+                                  AppThemeController.setMode(selection.first);
+                                },
+                              ),
+                            ],
+                          );
+                        },
+                      ),
                     ),
+                    const SizedBox(height: 18),
+                    _sectionTitle(context, 'الأمان والدخول'),
                     const SizedBox(height: 8),
                     AppCard(
                       child: SwitchListTile(
@@ -126,29 +201,36 @@ class _SettingsScreenState extends State<SettingsScreen> {
                               : 'البصمة غير متاحة أو غير مهيأة على هذا الجهاز.',
                         ),
                         value: _biometricsEnabled,
-                        onChanged: _biometricsAvailable ? _toggleBiometrics : null,
+                        onChanged:
+                            _biometricsAvailable ? _toggleBiometrics : null,
                       ),
                     ),
                     const SizedBox(height: 18),
-                    Text(
-                      'حول النظام',
-                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                            fontWeight: FontWeight.bold,
-                          ),
-                    ),
+                    _sectionTitle(context, 'حول النظام'),
                     const SizedBox(height: 8),
                     const AppCard(
                       child: ListTile(
                         contentPadding: EdgeInsets.zero,
                         leading: Icon(Icons.factory_outlined),
                         title: Text('نظام إدارة موظفي المصنع'),
-                        subtitle: Text('إدارة الموظفين والدوام والرواتب والسلف والتقارير.'),
+                        subtitle: Text(
+                          'إدارة الموظفين والدوام والرواتب والسلف والتقارير.',
+                        ),
                       ),
                     ),
                   ],
                 ),
               ),
             ),
+    );
+  }
+
+  Widget _sectionTitle(BuildContext context, String title) {
+    return Text(
+      title,
+      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+            fontWeight: FontWeight.w700,
+          ),
     );
   }
 }
