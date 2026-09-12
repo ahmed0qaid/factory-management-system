@@ -5,7 +5,6 @@ import '../../services/employee_service.dart';
 import '../../theme/app_colors.dart';
 import '../../utils/formatters.dart';
 import '../../widgets/common/app_card.dart';
-import '../../widgets/common/app_empty_state.dart';
 import '../../widgets/common/app_error_state.dart';
 import '../../widgets/common/app_form_dialog.dart';
 import '../../widgets/common/app_form_field.dart';
@@ -13,7 +12,9 @@ import '../../widgets/common/app_loading_state.dart';
 import '../../widgets/common/app_status_pill.dart';
 
 class AdvancesScreen extends StatefulWidget {
-  const AdvancesScreen({super.key});
+  final bool isActive;
+
+  const AdvancesScreen({super.key, this.isActive = true});
 
   @override
   State<AdvancesScreen> createState() => _AdvancesScreenState();
@@ -22,23 +23,62 @@ class AdvancesScreen extends StatefulWidget {
 class _AdvancesScreenState extends State<AdvancesScreen> {
   final _service = EmployeeService();
   late Future<List<AdvanceModel>> _future;
+  late Future<AdvanceBalanceInfo> _balanceFuture;
+  AdvanceBalanceInfo? _balanceCache;
   bool _loadingRequestForm = false;
+  int _requestGeneration = 0;
 
   @override
   void initState() {
     super.initState();
     _future = _service.getMyAdvances();
+    _primeBalance();
   }
 
-  void _reload() => setState(() => _future = _service.getMyAdvances());
+  @override
+  void didUpdateWidget(covariant AdvancesScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.isActive && !widget.isActive) {
+      _requestGeneration++;
+      _loadingRequestForm = false;
+    }
+  }
+
+  void _primeBalance() {
+    final future = _service.getAdvanceBalance();
+    _balanceFuture = future;
+    future.then((balance) {
+      _balanceCache = balance;
+    }).catchError((_) {
+      // Keep the screen usable. A later request retries the balance fetch.
+    });
+  }
+
+  void _reload() {
+    setState(() {
+      _future = _service.getMyAdvances();
+      _balanceCache = null;
+      _primeBalance();
+    });
+  }
 
   Future<void> _refresh() async {
     try {
-      final items = await _service.getMyAdvances();
+      final results = await Future.wait<dynamic>([
+        _service.getMyAdvances(),
+        _service.getAdvanceBalance(),
+      ]);
       if (!mounted) return;
-      setState(() => _future = Future.value(items));
+
+      final items = results[0] as List<AdvanceModel>;
+      final balance = results[1] as AdvanceBalanceInfo;
+      setState(() {
+        _future = Future.value(items);
+        _balanceCache = balance;
+        _balanceFuture = Future.value(balance);
+      });
     } catch (error) {
-      if (mounted) {
+      if (mounted && widget.isActive) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('تعذر تحديث السلف: $error')),
         );
@@ -46,13 +86,36 @@ class _AdvancesScreenState extends State<AdvancesScreen> {
     }
   }
 
+  Future<AdvanceBalanceInfo> _getBalanceForRequest() async {
+    final cached = _balanceCache;
+    if (cached != null) return cached;
+
+    try {
+      final balance = await _balanceFuture;
+      _balanceCache = balance;
+      return balance;
+    } catch (_) {
+      final retry = _service.getAdvanceBalance();
+      _balanceFuture = retry;
+      final balance = await retry;
+      _balanceCache = balance;
+      return balance;
+    }
+  }
+
   Future<void> _showRequestDialog() async {
-    if (_loadingRequestForm) return;
+    if (_loadingRequestForm || !widget.isActive) return;
+
+    final requestToken = ++_requestGeneration;
     setState(() => _loadingRequestForm = true);
 
     try {
-      final balance = await _service.getAdvanceBalance();
-      if (!mounted) return;
+      final balance = await _getBalanceForRequest();
+      if (!mounted ||
+          !widget.isActive ||
+          requestToken != _requestGeneration) {
+        return;
+      }
 
       final amount = TextEditingController();
       final reason = TextEditingController();
@@ -180,7 +243,7 @@ class _AdvancesScreenState extends State<AdvancesScreen> {
                 amount: requested,
                 reason: reason.text.trim(),
               );
-              if (mounted) {
+              if (mounted && widget.isActive) {
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(content: Text('تم إرسال طلب السلفة للإدارة.')),
                 );
@@ -188,7 +251,7 @@ class _AdvancesScreenState extends State<AdvancesScreen> {
               }
               return true;
             } catch (error) {
-              if (mounted) {
+              if (mounted && widget.isActive) {
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(content: Text('تعذر إرسال طلب السلفة: $error')),
                 );
@@ -202,13 +265,17 @@ class _AdvancesScreenState extends State<AdvancesScreen> {
         reason.dispose();
       }
     } catch (error) {
-      if (mounted) {
+      if (mounted &&
+          widget.isActive &&
+          requestToken == _requestGeneration) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('تعذر حساب الرصيد المتاح: $error')),
         );
       }
     } finally {
-      if (mounted) setState(() => _loadingRequestForm = false);
+      if (mounted && requestToken == _requestGeneration) {
+        setState(() => _loadingRequestForm = false);
+      }
     }
   }
 
@@ -230,13 +297,7 @@ class _AdvancesScreenState extends State<AdvancesScreen> {
 
         final items = snapshot.data ?? const <AdvanceModel>[];
         if (items.isEmpty) {
-          return AppEmptyState(
-            title: 'لا توجد سلف',
-            message: 'لم ترسل أي طلب سلفة حتى الآن.',
-            icon: Icons.account_balance_wallet_outlined,
-            actionLabel: 'طلب سلفة',
-            onAction: _showRequestDialog,
-          );
+          return _buildEmptyState(context);
         }
 
         return RefreshIndicator(
@@ -259,6 +320,88 @@ class _AdvancesScreenState extends State<AdvancesScreen> {
           ),
         );
       },
+    );
+  }
+
+  Widget _buildEmptyState(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+
+    return RefreshIndicator(
+      onRefresh: _refresh,
+      child: CustomScrollView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        slivers: [
+          SliverFillRemaining(
+            hasScrollBody: false,
+            child: Center(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(24, 28, 24, 88),
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 390),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Container(
+                        width: 58,
+                        height: 58,
+                        decoration: BoxDecoration(
+                          color: scheme.primaryContainer,
+                          shape: BoxShape.circle,
+                        ),
+                        child: Icon(
+                          Icons.account_balance_wallet_outlined,
+                          size: 29,
+                          color: scheme.onPrimaryContainer,
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      Text(
+                        'لا توجد طلبات سلفة',
+                        textAlign: TextAlign.center,
+                        style: theme.textTheme.titleMedium?.copyWith(
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(height: 7),
+                      Text(
+                        'لم ترسل أي طلب سلفة حتى الآن. يمكنك إنشاء طلب جديد من هنا.',
+                        textAlign: TextAlign.center,
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          color: scheme.onSurfaceVariant,
+                          height: 1.45,
+                        ),
+                      ),
+                      const SizedBox(height: 20),
+                      SizedBox(
+                        width: 190,
+                        height: 44,
+                        child: FilledButton.icon(
+                          onPressed: _loadingRequestForm || !widget.isActive
+                              ? null
+                              : _showRequestDialog,
+                          icon: _loadingRequestForm
+                              ? const SizedBox(
+                                  width: 16,
+                                  height: 16,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                  ),
+                                )
+                              : const Icon(Icons.add, size: 19),
+                          label: Text(
+                            _loadingRequestForm ? 'جاري التجهيز...' : 'طلب سلفة',
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -306,7 +449,9 @@ class _AdvancesScreenState extends State<AdvancesScreen> {
           ),
           const SizedBox(width: 8),
           FilledButton.icon(
-            onPressed: _loadingRequestForm ? null : _showRequestDialog,
+            onPressed: _loadingRequestForm || !widget.isActive
+                ? null
+                : _showRequestDialog,
             style: FilledButton.styleFrom(
               minimumSize: const Size(0, 38),
               padding: const EdgeInsets.symmetric(horizontal: 12),
