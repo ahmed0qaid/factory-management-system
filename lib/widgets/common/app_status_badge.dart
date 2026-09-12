@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 
-import '../../theme/app_colors.dart';
 import '../../theme/app_radius.dart';
 import '../../theme/app_spacing.dart';
 
@@ -24,9 +23,9 @@ class AppStatusBadge extends StatelessWidget {
         vertical: AppSpacing.xs,
       ),
       decoration: BoxDecoration(
-        color: AppColors.semanticBackground(color),
+        color: color.withValues(alpha: .10),
         borderRadius: BorderRadius.circular(AppRadius.pill),
-        border: Border.all(color: AppColors.infoCardBorder(color)),
+        border: Border.all(color: color.withValues(alpha: .28)),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -38,14 +37,12 @@ class AppStatusBadge extends StatelessWidget {
           Text(
             label,
             style: Theme.of(context).textTheme.labelMedium?.copyWith(
-              color: color,
-              
-            ),
+                  color: color,
+                  fontWeight: FontWeight.w700,
+                ),
           ),
         ],
       ),
     );
   }
 }
-
-
