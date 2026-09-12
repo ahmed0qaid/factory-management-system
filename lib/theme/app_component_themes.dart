@@ -9,16 +9,16 @@ class AppComponentThemes {
   static AppBarTheme appBar(ColorScheme scheme, TextTheme textTheme) {
     return AppBarTheme(
       centerTitle: false,
-      backgroundColor: scheme.surface,
-      foregroundColor: scheme.onSurface,
+      backgroundColor: scheme.primary,
+      foregroundColor: scheme.onPrimary,
       surfaceTintColor: Colors.transparent,
       elevation: 0,
       scrolledUnderElevation: 0,
       titleSpacing: AppSpacing.md,
-      iconTheme: IconThemeData(color: scheme.onSurfaceVariant, size: 24),
-      actionsIconTheme: IconThemeData(color: scheme.onSurfaceVariant, size: 24),
+      iconTheme: IconThemeData(color: scheme.onPrimary, size: 24),
+      actionsIconTheme: IconThemeData(color: scheme.onPrimary, size: 24),
       titleTextStyle: textTheme.titleLarge?.copyWith(
-        color: scheme.onSurface,
+        color: scheme.onPrimary,
         fontWeight: FontWeight.w700,
       ),
     );
