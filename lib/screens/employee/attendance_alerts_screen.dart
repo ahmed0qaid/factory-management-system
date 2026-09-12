@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
+
 import '../../models/attendance_model.dart';
 import '../../services/employee_service.dart';
 import '../../utils/formatters.dart';
-import '../../theme/app_colors.dart';
 import '../../widgets/common/app_empty_state.dart';
 import '../../widgets/common/app_list_item.dart';
 import '../../widgets/common/app_loading_state.dart';
@@ -33,14 +33,12 @@ class _AttendanceAlertsScreenState extends State<AttendanceAlertsScreen> {
       _alerts = await _employeeService.getAttendanceAlerts();
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('خطأ في تحميل التنبيهات: $e')));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('خطأ في تحميل التنبيهات: $e')),
+        );
       }
     } finally {
-      if (mounted) {
-        setState(() => _isLoading = false);
-      }
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 
@@ -59,76 +57,92 @@ class _AttendanceAlertsScreenState extends State<AttendanceAlertsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+
     return AppScaffold(
       title: 'تنبيهات البصمة',
       body: _isLoading
           ? const AppLoadingState(label: 'جاري تحميل التنبيهات')
           : _alerts.isEmpty
-          ? const AppEmptyState(
-              title: 'لا توجد تنبيهات',
-              message: 'لا توجد تنبيهات حالية تتعلق بالبصمة.',
-              icon: Icons.notifications_none,
-            )
-          : ListView.builder(
-              padding: const EdgeInsets.all(16),
-              itemCount: _alerts.length,
-              itemBuilder: (context, index) {
-                final record = _alerts[index];
-                return AppListItem(
-                  title: Text(
-                    Formatters.date(record.workDate),
-                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-                  ),
-                  trailing: AppStatusPill(
-                    color: record.reviewStatus == 'resolved' ? AppColors.success : AppColors.warning,
-                    label: record.reviewStatus == 'resolved' ? 'محلولة' : 'قيد الانتظار',
-                  ),
-                  subtitle: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Divider(),
-                      Text(
-                        'المشكلة: ${_getIssueLabel(record.attendanceIssueType)}',
-                        style: const TextStyle(
-                          color: AppColors.danger,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        'بصمة الدخول: ${record.checkIn != null ? Formatters.time(record.checkIn!) : "مفقودة"}',
-                      ),
-                      Text(
-                        'بصمة الخروج: ${record.checkOut != null ? Formatters.time(record.checkOut!) : "مفقودة"}',
-                      ),
-                      const SizedBox(height: 8),
-                      if (record.reviewNote != null &&
-                          record.reviewNote!.isNotEmpty)
-                        Container(
-                          padding: const EdgeInsets.all(8),
-                          decoration: BoxDecoration(
-                            color: AppColors.surfaceContainerHigh,
-                            borderRadius: BorderRadius.circular(8),
+              ? const AppEmptyState(
+                  title: 'لا توجد تنبيهات',
+                  message: 'لا توجد تنبيهات حالية تتعلق بالبصمة.',
+                  icon: Icons.notifications_none_outlined,
+                )
+              : Align(
+                  alignment: Alignment.topCenter,
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 760),
+                    child: ListView.builder(
+                      padding: const EdgeInsets.all(16),
+                      itemCount: _alerts.length,
+                      itemBuilder: (context, index) {
+                        final record = _alerts[index];
+                        final resolved = record.reviewStatus == 'resolved';
+                        return AppListItem(
+                          title: Text(
+                            Formatters.date(record.workDate),
+                            style: theme.textTheme.titleSmall?.copyWith(
+                              fontWeight: FontWeight.w700,
+                            ),
                           ),
-                          child: Text(
-                            'ملاحظة المراجعة: ${record.reviewNote}',
+                          trailing: resolved
+                              ? AppStatusPill.success('محلولة')
+                              : AppStatusPill.warning('قيد الانتظار'),
+                          subtitle: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Divider(),
+                              Text(
+                                'المشكلة: ${_getIssueLabel(record.attendanceIssueType)}',
+                                style: theme.textTheme.bodyMedium?.copyWith(
+                                  color: scheme.error,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                              Text(
+                                'بصمة الدخول: ${record.checkIn != null ? Formatters.time(record.checkIn!) : "مفقودة"}',
+                              ),
+                              Text(
+                                'بصمة الخروج: ${record.checkOut != null ? Formatters.time(record.checkOut!) : "مفقودة"}',
+                              ),
+                              const SizedBox(height: 8),
+                              if (record.reviewNote != null &&
+                                  record.reviewNote!.isNotEmpty)
+                                Container(
+                                  width: double.infinity,
+                                  padding: const EdgeInsets.all(10),
+                                  decoration: BoxDecoration(
+                                    color: scheme.surfaceContainer,
+                                    borderRadius: BorderRadius.circular(12),
+                                    border: Border.all(
+                                      color: scheme.outlineVariant,
+                                    ),
+                                  ),
+                                  child: Text(
+                                    'ملاحظة المراجعة: ${record.reviewNote}',
+                                    style: theme.textTheme.bodySmall?.copyWith(
+                                      color: scheme.onSurfaceVariant,
+                                    ),
+                                  ),
+                                )
+                              else
+                                Text(
+                                  'يرجى مراجعة مدير الإنتاج لتصحيح البصمة.',
+                                  style: theme.textTheme.bodySmall?.copyWith(
+                                    color: scheme.onSurfaceVariant,
+                                    fontStyle: FontStyle.italic,
+                                  ),
+                                ),
+                            ],
                           ),
-                        )
-                      else
-                        const Text(
-                          'يرجى مراجعة مدير الإنتاج لتصحيح البصمة.',
-                          style: TextStyle(
-                            color: AppColors.textSecondary,
-                            fontStyle: FontStyle.italic,
-                          ),
-                        ),
-                    ],
+                        );
+                      },
+                    ),
                   ),
-                );
-              },
-            ),
+                ),
     );
   }
 }
-
-
