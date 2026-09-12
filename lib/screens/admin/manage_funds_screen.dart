@@ -1,17 +1,21 @@
 import 'package:flutter/material.dart';
+
 import '../../models/fund_model.dart';
 import '../../models/profile_model.dart';
 import '../../services/fund_service.dart';
 import '../../utils/formatters.dart';
 import '../../widgets/common/app_dropdown_field.dart';
+import '../../widgets/common/app_empty_state.dart';
 import '../../widgets/common/app_form_dialog.dart';
 import '../../widgets/common/app_form_field.dart';
 import '../../widgets/common/app_list_item.dart';
+import '../../widgets/common/app_loading_state.dart';
 import '../../widgets/common/app_scaffold.dart';
 import 'fund_details_screen.dart';
 
 class ManageFundsScreen extends StatefulWidget {
   final ProfileModel currentProfile;
+
   const ManageFundsScreen({super.key, required this.currentProfile});
 
   @override
@@ -51,7 +55,7 @@ class _ManageFundsScreenState extends State<ManageFundsScreen> {
 
   void _showCreateDialog() {
     final nameCtrl = TextEditingController();
-    String type = 'local'; // local, bank, wallet
+    String type = 'local';
 
     AppFormDialog.show(
       context,
@@ -85,9 +89,15 @@ class _ManageFundsScreenState extends State<ManageFundsScreen> {
               value: type,
               labelText: 'النوع',
               items: const [
-                DropdownMenuItem(value: 'local', child: Text('صندوق محلي (نقد)')),
+                DropdownMenuItem(
+                  value: 'local',
+                  child: Text('صندوق محلي (نقد)'),
+                ),
                 DropdownMenuItem(value: 'bank', child: Text('حساب بنكي')),
-                DropdownMenuItem(value: 'wallet', child: Text('محفظة إلكترونية')),
+                DropdownMenuItem(
+                  value: 'wallet',
+                  child: Text('محفظة إلكترونية'),
+                ),
               ],
               onChanged: (val) {
                 if (val != null) setDialogState(() => type = val);
@@ -102,11 +112,11 @@ class _ManageFundsScreenState extends State<ManageFundsScreen> {
   IconData _getIcon(String type) {
     switch (type) {
       case 'bank':
-        return Icons.account_balance;
+        return Icons.account_balance_outlined;
       case 'wallet':
-        return Icons.account_balance_wallet;
+        return Icons.account_balance_wallet_outlined;
       default:
-        return Icons.money;
+        return Icons.payments_outlined;
     }
   }
 
@@ -123,6 +133,9 @@ class _ManageFundsScreenState extends State<ManageFundsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+
     return AppScaffold(
       title: 'إدارة الصناديق',
       floatingActionButton: FloatingActionButton.extended(
@@ -131,41 +144,60 @@ class _ManageFundsScreenState extends State<ManageFundsScreen> {
         label: const Text('صندوق جديد'),
       ),
       body: _loading
-          ? const Center(child: CircularProgressIndicator())
+          ? const AppLoadingState(label: 'جاري تحميل الصناديق')
           : _funds.isEmpty
-              ? const Center(child: Text('لا توجد صناديق، قم بإضافة صندوق جديد'))
-              : ListView.builder(
-                  padding: const EdgeInsets.all(16),
-                  itemCount: _funds.length,
-                  itemBuilder: (context, index) {
-                    final fund = _funds[index];
-                    return AppListItem(
-                      leading: CircleAvatar(
-                        child: Icon(_getIcon(fund.type)),
-                      ),
-                      title: Text(fund.name, style: const TextStyle(fontWeight: FontWeight.bold)),
-                      subtitle: Text(_getTypeLabel(fund.type)),
-                      trailing: Text(
-                        Formatters.money(fund.balance),
-                        style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 16,
-                          color: fund.balance >= 0 ? Colors.green : Colors.red,
-                        ),
-                      ),
-                      onTap: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) => FundDetailsScreen(
-                              fund: fund,
-                              currentProfile: widget.currentProfile,
+              ? AppEmptyState(
+                  title: 'لا توجد صناديق',
+                  message: 'أضف صندوقًا أو حسابًا ماليًا لبدء تسجيل الحركات.',
+                  icon: Icons.account_balance_wallet_outlined,
+                  actionLabel: 'إضافة صندوق',
+                  onAction: _showCreateDialog,
+                )
+              : Align(
+                  alignment: Alignment.topCenter,
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 900),
+                    child: ListView.builder(
+                      padding: const EdgeInsets.all(16),
+                      itemCount: _funds.length,
+                      itemBuilder: (context, index) {
+                        final fund = _funds[index];
+                        final negative = fund.balance < 0;
+                        return AppListItem(
+                          leading: CircleAvatar(
+                            backgroundColor: scheme.primaryContainer,
+                            foregroundColor: scheme.onPrimaryContainer,
+                            child: Icon(_getIcon(fund.type)),
+                          ),
+                          title: Text(
+                            fund.name,
+                            style: theme.textTheme.bodyLarge?.copyWith(
+                              fontWeight: FontWeight.w700,
                             ),
                           ),
-                        ).then((_) => _loadFunds());
+                          subtitle: Text(_getTypeLabel(fund.type)),
+                          trailing: Text(
+                            Formatters.money(fund.balance),
+                            style: theme.textTheme.titleSmall?.copyWith(
+                              fontWeight: FontWeight.w700,
+                              color: negative ? scheme.error : scheme.onSurface,
+                            ),
+                          ),
+                          onTap: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => FundDetailsScreen(
+                                  fund: fund,
+                                  currentProfile: widget.currentProfile,
+                                ),
+                              ),
+                            ).then((_) => _loadFunds());
+                          },
+                        );
                       },
-                    );
-                  },
+                    ),
+                  ),
                 ),
     );
   }
