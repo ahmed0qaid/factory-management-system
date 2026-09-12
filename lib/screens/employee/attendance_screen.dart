@@ -2,12 +2,15 @@ import 'package:flutter/material.dart';
 
 import '../../models/attendance_model.dart';
 import '../../services/employee_service.dart';
-import '../../theme/app_colors.dart';
+import '../../theme/app_semantic_colors.dart';
 import '../../utils/attendance_display.dart';
 import '../../utils/formatters.dart';
 import '../../widgets/attendance/attendance_visual_summary_chart.dart';
 import '../../widgets/common/app_bottom_sheet.dart';
 import '../../widgets/common/app_card.dart';
+import '../../widgets/common/app_empty_state.dart';
+import '../../widgets/common/app_error_state.dart';
+import '../../widgets/common/app_loading_state.dart';
 import '../../widgets/common/app_status_pill.dart';
 
 enum AttendanceViewType { timeline, visual }
@@ -26,13 +29,23 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
   int? _monthFilter;
   bool _sortDescending = true;
 
-  final List<String> _monthsAr = [
-    'يناير', 'فبراير', 'مارس', 'أبريل', 'مايو', 'يونيو',
-    'يوليو', 'أغسطس', 'سبتمبر', 'أكتوبر', 'نوفمبر', 'ديسمبر'
+  final List<String> _monthsAr = const [
+    'يناير',
+    'فبراير',
+    'مارس',
+    'أبريل',
+    'مايو',
+    'يونيو',
+    'يوليو',
+    'أغسطس',
+    'سبتمبر',
+    'أكتوبر',
+    'نوفمبر',
+    'ديسمبر',
   ];
 
   int _getActiveFiltersCount() {
-    int count = 0;
+    var count = 0;
     if (_statusFilter != 'all') count++;
     if (_yearFilter != null) count++;
     if (_monthFilter != null) count++;
@@ -50,70 +63,105 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
   }
 
   void _showFilterBottomSheet(List<int> availableYears) {
-    // Variables for local modal state
-    String tempStatus = _statusFilter;
-    int? tempYear = _yearFilter;
-    int? tempMonth = _monthFilter;
-    bool tempSort = _sortDescending;
+    var tempStatus = _statusFilter;
+    var tempYear = _yearFilter;
+    var tempMonth = _monthFilter;
+    var tempSort = _sortDescending;
 
     AppBottomSheet.show(
       context,
       title: 'الفلاتر',
       child: StatefulBuilder(
         builder: (ctx, setModalState) {
+          final textTheme = Theme.of(ctx).textTheme;
+          final sectionStyle = textTheme.titleSmall?.copyWith(
+            fontWeight: FontWeight.w700,
+          );
+
           return Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              // Status Filter
-              const Text('الحالة', style: TextStyle(fontWeight: FontWeight.bold)),
+              Text('الحالة', style: sectionStyle),
               const SizedBox(height: 8),
               Wrap(
                 spacing: 8,
+                runSpacing: 8,
                 children: [
-                  _buildModalChip('الكل', tempStatus == 'all', () => setModalState(() => tempStatus = 'all')),
-                  _buildModalChip('حاضر', tempStatus == 'present', () => setModalState(() => tempStatus = 'present')),
-                  _buildModalChip('غائب', tempStatus == 'absent', () => setModalState(() => tempStatus = 'absent')),
-                  _buildModalChip('تحتاج مراجعة', tempStatus == 'needs_review', () => setModalState(() => tempStatus = 'needs_review')),
+                  _buildModalChip(
+                    'الكل',
+                    tempStatus == 'all',
+                    () => setModalState(() => tempStatus = 'all'),
+                  ),
+                  _buildModalChip(
+                    'حاضر',
+                    tempStatus == 'present',
+                    () => setModalState(() => tempStatus = 'present'),
+                  ),
+                  _buildModalChip(
+                    'غائب',
+                    tempStatus == 'absent',
+                    () => setModalState(() => tempStatus = 'absent'),
+                  ),
+                  _buildModalChip(
+                    'تحتاج مراجعة',
+                    tempStatus == 'needs_review',
+                    () => setModalState(() => tempStatus = 'needs_review'),
+                  ),
                 ],
               ),
               const Divider(height: 24),
-              
-              // Sort Filter
-              const Text('الترتيب', style: TextStyle(fontWeight: FontWeight.bold)),
+              Text('الترتيب', style: sectionStyle),
               const SizedBox(height: 8),
               Wrap(
                 spacing: 8,
+                runSpacing: 8,
                 children: [
-                  _buildModalChip('الأحدث أولاً', tempSort == true, () => setModalState(() => tempSort = true)),
-                  _buildModalChip('الأقدم أولاً', tempSort == false, () => setModalState(() => tempSort = false)),
+                  _buildModalChip(
+                    'الأحدث أولاً',
+                    tempSort,
+                    () => setModalState(() => tempSort = true),
+                  ),
+                  _buildModalChip(
+                    'الأقدم أولاً',
+                    !tempSort,
+                    () => setModalState(() => tempSort = false),
+                  ),
                 ],
               ),
               const Divider(height: 24),
-
-              // Year Filter
-              const Text('السنة', style: TextStyle(fontWeight: FontWeight.bold)),
+              Text('السنة', style: sectionStyle),
               const SizedBox(height: 8),
               Wrap(
                 spacing: 8,
+                runSpacing: 8,
                 children: [
-                  _buildModalChip('الكل', tempYear == null, () => setModalState(() => tempYear = null)),
-                  ...availableYears.map((y) => _buildModalChip(
-                    y.toString(),
-                    tempYear == y,
-                    () => setModalState(() => tempYear = y),
-                  )),
+                  _buildModalChip(
+                    'الكل',
+                    tempYear == null,
+                    () => setModalState(() => tempYear = null),
+                  ),
+                  ...availableYears.map(
+                    (year) => _buildModalChip(
+                      year.toString(),
+                      tempYear == year,
+                      () => setModalState(() => tempYear = year),
+                    ),
+                  ),
                 ],
               ),
               const Divider(height: 24),
-
-              // Month Filter
-              const Text('الشهر', style: TextStyle(fontWeight: FontWeight.bold)),
+              Text('الشهر', style: sectionStyle),
               const SizedBox(height: 8),
               Wrap(
                 spacing: 8,
+                runSpacing: 8,
                 children: [
-                  _buildModalChip('الكل', tempMonth == null, () => setModalState(() => tempMonth = null)),
+                  _buildModalChip(
+                    'الكل',
+                    tempMonth == null,
+                    () => setModalState(() => tempMonth = null),
+                  ),
                   ...List.generate(12, (index) {
                     final monthNum = index + 1;
                     return _buildModalChip(
@@ -125,8 +173,6 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
                 ],
               ),
               const SizedBox(height: 24),
-
-              // Actions
               Row(
                 children: [
                   Expanded(
@@ -138,9 +184,9 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
                       child: const Text('إعادة تعيين'),
                     ),
                   ),
-                  const SizedBox(width: 16),
+                  const SizedBox(width: 12),
                   Expanded(
-                    child: ElevatedButton(
+                    child: FilledButton(
                       onPressed: () {
                         setState(() {
                           _statusFilter = tempStatus;
@@ -173,42 +219,46 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
   @override
   Widget build(BuildContext context) {
     final service = EmployeeService();
+
     return FutureBuilder<List<AttendanceRecordModel>>(
       future: service.getMyAttendance(limit: 500),
       builder: (context, snapshot) {
         if (snapshot.connectionState != ConnectionState.done) {
-          return const Center(child: CircularProgressIndicator());
+          return const AppLoadingState(label: 'جاري تحميل سجلات الدوام');
         }
         if (snapshot.hasError) {
-          return Center(
-            child: Text('تعذر تحميل سجلات الدوام: ${snapshot.error}'),
+          return AppErrorState(
+            title: 'تعذر تحميل سجلات الدوام',
+            message: '${snapshot.error}',
           );
         }
 
-        final rawItems = _deduplicate(snapshot.data ?? []);
-        final availableYears = rawItems.map((r) => r.workDate.year).toSet().toList()..sort((a, b) => b.compareTo(a));
-        
+        final rawItems = _deduplicate(snapshot.data ?? const []);
+        final availableYears = rawItems
+            .map((record) => record.workDate.year)
+            .toSet()
+            .toList()
+          ..sort((a, b) => b.compareTo(a));
+
         var items = List<AttendanceRecordModel>.from(rawItems);
-        
-        // Filter Status
         if (_statusFilter != 'all') {
-          items = items.where((item) => item.status == _statusFilter).toList();
+          items = items
+              .where((item) => item.status == _statusFilter)
+              .toList();
         }
-        
-        // Filter Year
         if (_yearFilter != null) {
-          items = items.where((item) => item.workDate.year == _yearFilter).toList();
+          items = items
+              .where((item) => item.workDate.year == _yearFilter)
+              .toList();
         }
-
-        // Filter Month
         if (_monthFilter != null) {
-          items = items.where((item) => item.workDate.month == _monthFilter).toList();
+          items = items
+              .where((item) => item.workDate.month == _monthFilter)
+              .toList();
         }
-
-        // Sort
         items.sort((a, b) {
-          final cmp = a.workDate.compareTo(b.workDate);
-          return _sortDescending ? -cmp : cmp;
+          final comparison = a.workDate.compareTo(b.workDate);
+          return _sortDescending ? -comparison : comparison;
         });
 
         final activeCount = _getActiveFiltersCount();
@@ -220,55 +270,39 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  Row(
-                    children: [
-                      Expanded(
-                        child: ElevatedButton(
-                          style: _viewType == AttendanceViewType.timeline 
-                              ? null
-                              : ElevatedButton.styleFrom(
-                                  backgroundColor: Theme.of(context).cardColor,
-                                  foregroundColor: Colors.grey.shade800,
-                                  elevation: 0,
-                                ),
-                          onPressed: () {
-                            setState(() {
-                              _viewType = AttendanceViewType.timeline;
-                            });
-                          },
-                          child: const Text('المخطط الزمني'),
-                        ),
+                  SegmentedButton<AttendanceViewType>(
+                    segments: const [
+                      ButtonSegment(
+                        value: AttendanceViewType.timeline,
+                        icon: Icon(Icons.timeline_outlined),
+                        label: Text('المخطط الزمني'),
                       ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: ElevatedButton(
-                          style: _viewType == AttendanceViewType.visual 
-                              ? null
-                              : ElevatedButton.styleFrom(
-                                  backgroundColor: Theme.of(context).cardColor,
-                                  foregroundColor: Colors.grey.shade800,
-                                  elevation: 0,
-                                ),
-                          onPressed: () {
-                            setState(() {
-                              _viewType = AttendanceViewType.visual;
-                            });
-                          },
-                          child: const Text('العرض الرسومي'),
-                        ),
+                      ButtonSegment(
+                        value: AttendanceViewType.visual,
+                        icon: Icon(Icons.bar_chart_outlined),
+                        label: Text('العرض الرسومي'),
                       ),
                     ],
+                    selected: {_viewType},
+                    showSelectedIcon: false,
+                    onSelectionChanged: (selection) {
+                      setState(() => _viewType = selection.first);
+                    },
                   ),
                   if (_viewType == AttendanceViewType.timeline) ...[
                     const SizedBox(height: 8),
-                    Row(
-                      children: [
-                        ElevatedButton.icon(
-                          icon: const Icon(Icons.filter_list),
-                          label: Text(activeCount > 0 ? 'الفلاتر ($activeCount)' : 'الفلاتر'),
-                          onPressed: () => _showFilterBottomSheet(availableYears),
+                    Align(
+                      alignment: AlignmentDirectional.centerStart,
+                      child: OutlinedButton.icon(
+                        icon: const Icon(Icons.filter_list),
+                        label: Text(
+                          activeCount > 0
+                              ? 'الفلاتر ($activeCount)'
+                              : 'الفلاتر',
                         ),
-                      ],
+                        onPressed: () =>
+                            _showFilterBottomSheet(availableYears),
+                      ),
                     ),
                   ],
                 ],
@@ -278,7 +312,12 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
               child: _viewType == AttendanceViewType.visual
                   ? AttendanceVisualSummaryChart(records: rawItems)
                   : items.isEmpty
-                      ? const Center(child: Text('لا توجد سجلات مطابقة للفلاتر المحددة'))
+                      ? const AppEmptyState(
+                          title: 'لا توجد سجلات مطابقة',
+                          message:
+                              'غيّر الفلاتر أو أعد تعيينها لعرض سجلات أخرى.',
+                          icon: Icons.event_busy_outlined,
+                        )
                       : ListView.builder(
                           padding: const EdgeInsets.fromLTRB(16, 4, 16, 24),
                           itemCount: items.length,
@@ -296,7 +335,9 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
     );
   }
 
-  List<AttendanceRecordModel> _deduplicate(List<AttendanceRecordModel> items) {
+  List<AttendanceRecordModel> _deduplicate(
+    List<AttendanceRecordModel> items,
+  ) {
     final seen = <String>{};
     final result = <AttendanceRecordModel>[];
     for (final item in items) {
@@ -321,7 +362,8 @@ class _TimelineItem extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final color = statusColor(record.status);
+    final scheme = theme.colorScheme;
+    final color = _statusColor(context, record.status);
 
     return IntrinsicHeight(
       child: Row(
@@ -344,7 +386,7 @@ class _TimelineItem extends StatelessWidget {
                     child: Container(
                       width: 2,
                       margin: const EdgeInsets.symmetric(vertical: 4),
-                      color: color.withValues(alpha: .22),
+                      color: color.withValues(alpha: .28),
                     ),
                   ),
               ],
@@ -354,8 +396,7 @@ class _TimelineItem extends StatelessWidget {
             child: AppCard(
               margin: const EdgeInsets.only(bottom: 12),
               padding: const EdgeInsets.all(14),
-              borderColor: color.withValues(alpha: .20),
-              elevated: true,
+              borderColor: color.withValues(alpha: .24),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisSize: MainAxisSize.min,
@@ -365,24 +406,24 @@ class _TimelineItem extends StatelessWidget {
                       Expanded(
                         child: Text(
                           Formatters.date(record.workDate),
-                          textAlign: TextAlign.right,
-                          style: theme.textTheme.titleMedium?.copyWith(
-                            color: Colors.grey.shade700,
-                            fontWeight: FontWeight.normal,
+                          textAlign: TextAlign.start,
+                          style: theme.textTheme.titleSmall?.copyWith(
+                            color: scheme.onSurface,
+                            fontWeight: FontWeight.w600,
                           ),
                         ),
                       ),
                       const SizedBox(width: 8),
-                      AppStatusPill(
-                        label: statusLabel(record.status),
-                        color: color,
-                      ),
+                      _buildStatusPill(record.status),
                     ],
                   ),
                   const SizedBox(height: 14),
                   _MetricPair(
                     color: color,
-                    first: _MetricValue('الحضور', displayTime(record.checkIn)),
+                    first: _MetricValue(
+                      'الحضور',
+                      displayTime(record.checkIn),
+                    ),
                     second: _MetricValue(
                       'الانصراف',
                       displayTime(record.checkOut),
@@ -404,18 +445,12 @@ class _TimelineItem extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(height: 8),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: _MetricBox(
-                          value: _MetricValue(
-                            'الدوام المحتسب',
-                            displayMinutes(record.creditedMinutes),
-                          ),
-                          color: color,
-                        ),
-                      ),
-                    ],
+                  _MetricBox(
+                    value: _MetricValue(
+                      'الدوام المحتسب',
+                      displayMinutes(record.creditedMinutes),
+                    ),
+                    color: color,
                   ),
                   if (record.reviewNote != null &&
                       record.reviewNote!.trim().isNotEmpty) ...[
@@ -424,13 +459,13 @@ class _TimelineItem extends StatelessWidget {
                       width: double.infinity,
                       padding: const EdgeInsets.all(10),
                       decoration: BoxDecoration(
-                        color: AppColors.danger.withValues(alpha: .08),
+                        color: scheme.errorContainer,
                         borderRadius: BorderRadius.circular(10),
                       ),
                       child: Text(
                         record.reviewNote!.trim(),
-                        style: TextStyle(
-                          color: AppColors.danger,
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: scheme.onErrorContainer,
                         ),
                       ),
                     ),
@@ -443,9 +478,52 @@ class _TimelineItem extends StatelessWidget {
       ),
     );
   }
+
+  Widget _buildStatusPill(String status) {
+    final label = statusLabel(status);
+    switch (status) {
+      case 'present':
+      case 'approved':
+      case 'paid':
+      case 'completed':
+        return AppStatusPill.success(label);
+      case 'late':
+      case 'pending':
+      case 'incomplete':
+      case 'needs_review':
+        return AppStatusPill.warning(label);
+      case 'absent':
+      case 'rejected':
+      case 'cancelled':
+        return AppStatusPill.danger(label);
+      default:
+        return AppStatusPill.neutral(label);
+    }
+  }
 }
 
-
+Color _statusColor(BuildContext context, String status) {
+  final scheme = Theme.of(context).colorScheme;
+  final semantic = context.semanticColors;
+  switch (status) {
+    case 'present':
+    case 'approved':
+    case 'paid':
+    case 'completed':
+      return semantic.success;
+    case 'late':
+    case 'pending':
+    case 'incomplete':
+    case 'needs_review':
+      return semantic.warning;
+    case 'absent':
+    case 'rejected':
+    case 'cancelled':
+      return scheme.error;
+    default:
+      return scheme.onSurfaceVariant;
+  }
+}
 
 class _MetricPair extends StatelessWidget {
   final _MetricValue first;
@@ -462,13 +540,9 @@ class _MetricPair extends StatelessWidget {
   Widget build(BuildContext context) {
     return Row(
       children: [
-        Expanded(
-          child: _MetricBox(value: first, color: color),
-        ),
+        Expanded(child: _MetricBox(value: first, color: color)),
         const SizedBox(width: 8),
-        Expanded(
-          child: _MetricBox(value: second, color: color),
-        ),
+        Expanded(child: _MetricBox(value: second, color: color)),
       ],
     );
   }
@@ -489,12 +563,15 @@ class _MetricBox extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
       decoration: BoxDecoration(
-        color: AppColors.infoCardBackground(color),
+        color: scheme.surfaceContainer,
         borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: AppColors.infoCardBorder(color)),
+        border: Border.all(color: color.withValues(alpha: .22)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.center,
@@ -504,9 +581,9 @@ class _MetricBox extends StatelessWidget {
             maxLines: 1,
             textAlign: TextAlign.center,
             overflow: TextOverflow.ellipsis,
-            style: Theme.of(
-              context,
-            ).textTheme.bodySmall?.copyWith(color: Colors.grey.shade700),
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: scheme.onSurfaceVariant,
+            ),
           ),
           const SizedBox(height: 4),
           Text(
@@ -514,9 +591,9 @@ class _MetricBox extends StatelessWidget {
             maxLines: 2,
             textAlign: TextAlign.center,
             overflow: TextOverflow.ellipsis,
-            style: Theme.of(context).textTheme.titleSmall?.copyWith(
-              color: Colors.grey.shade700,
-              fontWeight: FontWeight.normal,
+            style: theme.textTheme.titleSmall?.copyWith(
+              color: scheme.onSurface,
+              fontWeight: FontWeight.w600,
             ),
           ),
         ],
@@ -524,5 +601,3 @@ class _MetricBox extends StatelessWidget {
     );
   }
 }
-
-
