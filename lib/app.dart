@@ -6,29 +6,32 @@ import 'screens/auth/login_screen.dart';
 import 'screens/employee/employee_shell.dart';
 import 'services/appwrite_service.dart';
 import 'theme/app_theme.dart';
+import 'theme/app_theme_controller.dart';
 
 class HrApp extends StatelessWidget {
   const HrApp({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      debugShowCheckedModeBanner: false,
-      title: 'نظام إدارة موظفي المصنع',
-      theme: AppTheme.light,
-      darkTheme: AppTheme.dark,
-      // Several legacy operational screens still use fixed light surface
-      // colors. Keep the production UX visually consistent until every screen
-      // is migrated to ColorScheme-aware styling, then expose ThemeMode.system.
-      themeMode: ThemeMode.light,
-      locale: const Locale('ar'),
-      supportedLocales: const [Locale('ar'), Locale('en')],
-      localizationsDelegates: const [
-        GlobalMaterialLocalizations.delegate,
-        GlobalWidgetsLocalizations.delegate,
-        GlobalCupertinoLocalizations.delegate,
-      ],
-      home: const AuthGate(),
+    return ValueListenableBuilder<ThemeMode>(
+      valueListenable: AppThemeController.mode,
+      builder: (context, themeMode, _) {
+        return MaterialApp(
+          debugShowCheckedModeBanner: false,
+          title: 'نظام إدارة موظفي المصنع',
+          theme: AppTheme.light,
+          darkTheme: AppTheme.dark,
+          themeMode: themeMode,
+          locale: const Locale('ar'),
+          supportedLocales: const [Locale('ar'), Locale('en')],
+          localizationsDelegates: const [
+            GlobalMaterialLocalizations.delegate,
+            GlobalWidgetsLocalizations.delegate,
+            GlobalCupertinoLocalizations.delegate,
+          ],
+          home: const AuthGate(),
+        );
+      },
     );
   }
 }
