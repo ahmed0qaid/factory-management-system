@@ -10,9 +10,11 @@ import '../../services/admin_service.dart';
 import '../../services/employee_shift_assignment_service.dart';
 import '../../services/shift_service.dart';
 import '../../widgets/common/app_card.dart';
+import '../../widgets/common/app_confirm_dialog.dart';
 import '../../widgets/common/app_dropdown_field.dart';
 import '../../widgets/common/app_form_field.dart';
 import '../../widgets/common/app_loading_button.dart';
+import '../../widgets/common/app_loading_state.dart';
 import '../../widgets/common/app_scaffold.dart';
 import '../../widgets/common/app_section_header.dart';
 import '../../widgets/common/employee_picker_field.dart';
@@ -36,13 +38,10 @@ class _EmployeeShiftAssignmentsScreenState
 
   List<ProfileModel> _employees = [];
   List<ShiftModel> _shifts = [];
-
   ProfileModel? _selectedEmployee;
   EmployeeShiftAssignmentModel? _currentAssignment;
-
   bool _isLoading = true;
   bool _isSaving = false;
-
   String _assignmentType = 'fixed';
   String? _fixedShiftId;
   String? _week1ShiftId;
@@ -178,7 +177,6 @@ class _EmployeeShiftAssignmentsScreenState
     }
 
     setState(() => _isSaving = true);
-
     try {
       String? rotationPattern;
       if (_assignmentType == 'weekly_rotation') {
@@ -228,27 +226,15 @@ class _EmployeeShiftAssignmentsScreenState
     final employee = _selectedEmployee;
     if (assignment == null || employee == null) return;
 
-    final confirmed = await showDialog<bool>(
-          context: context,
-          builder: (context) => AlertDialog(
-            title: const Text('تعطيل تعيين الدوام'),
-            content: Text(
-              'هل تريد تعطيل تعيين الدوام الحالي للموظف ${employee.fullName}؟',
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(context, false),
-                child: const Text('إلغاء'),
-              ),
-              FilledButton(
-                onPressed: () => Navigator.pop(context, true),
-                child: const Text('تعطيل'),
-              ),
-            ],
-          ),
-        ) ??
-        false;
-    if (!confirmed) return;
+    final confirmed = await AppConfirmDialog.show(
+      context,
+      title: 'تعطيل تعيين الدوام',
+      content:
+          'هل تريد تعطيل تعيين الدوام الحالي للموظف ${employee.fullName}؟',
+      confirmText: 'تعطيل',
+      isDestructive: true,
+    );
+    if (confirmed != true) return;
 
     setState(() => _isSaving = true);
     try {
@@ -272,11 +258,10 @@ class _EmployeeShiftAssignmentsScreenState
   @override
   Widget build(BuildContext context) {
     final canEdit = AppRoles.canConfigureAttendance(widget.profile.role);
-
     return AppScaffold(
       title: 'تعيين دوام الموظفين',
       body: _isLoading && _employees.isEmpty
-          ? const Center(child: CircularProgressIndicator())
+          ? const AppLoadingState(label: 'جاري تحميل الموظفين والورديات')
           : Align(
               alignment: Alignment.topCenter,
               child: ConstrainedBox(
@@ -288,6 +273,7 @@ class _EmployeeShiftAssignmentsScreenState
   }
 
   Widget _buildContent(bool canEdit) {
+    final scheme = Theme.of(context).colorScheme;
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
       child: Column(
@@ -314,9 +300,9 @@ class _EmployeeShiftAssignmentsScreenState
           const SizedBox(height: 16),
           if (_selectedEmployee != null)
             _isLoading
-                ? const Padding(
-                    padding: EdgeInsets.all(32),
-                    child: Center(child: CircularProgressIndicator()),
+                ? const AppLoadingState(
+                    label: 'جاري تحميل تعيين الدوام',
+                    fallbackHeight: 180,
                   )
                 : Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -339,8 +325,8 @@ class _EmployeeShiftAssignmentsScreenState
                                       }
                                     }
                                   : (_) {},
-                              child: Column(
-                                children: const [
+                              child: const Column(
+                                children: [
                                   RadioListTile<String>(
                                     title: Text('دوام ثابت (وردية واحدة)'),
                                     value: 'fixed',
@@ -386,6 +372,12 @@ class _EmployeeShiftAssignmentsScreenState
                           const SizedBox(height: 8),
                           OutlinedButton.icon(
                             onPressed: _isSaving ? null : _disableAssignment,
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: scheme.error,
+                              side: BorderSide(
+                                color: scheme.error.withValues(alpha: .55),
+                              ),
+                            ),
                             icon: const Icon(Icons.block_outlined),
                             label: const Text('تعطيل التعيين الحالي'),
                           ),
@@ -485,7 +477,6 @@ class _EmployeeShiftAssignmentsScreenState
           child: InputDecorator(
             decoration: const InputDecoration(
               labelText: 'تاريخ بداية التدوير',
-              border: OutlineInputBorder(),
               suffixIcon: Icon(Icons.calendar_today_outlined),
             ),
             child: Text(
