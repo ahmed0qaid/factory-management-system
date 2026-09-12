@@ -2,6 +2,10 @@ import 'package:flutter/material.dart';
 
 import '../../models/profile_model.dart';
 import '../../permissions/role_permissions.dart';
+import '../../theme/app_radius.dart';
+import '../../theme/app_spacing.dart';
+import '../../widgets/common/app_card.dart';
+import '../../widgets/common/app_empty_state.dart';
 import '../../widgets/common/app_scaffold.dart';
 import 'employee_full_report_screen.dart';
 import 'report_list_screen.dart';
@@ -114,8 +118,11 @@ class _ReportsDashboardScreenState extends State<ReportsDashboardScreen> {
       body: LayoutBuilder(
         builder: (context, constraints) {
           final compact = constraints.maxWidth < 650;
-          final horizontalPadding = compact ? 12.0 : 20.0;
-          final maxContentWidth = constraints.maxWidth > 1200 ? 1200.0 : constraints.maxWidth;
+          final horizontalPadding = compact
+              ? AppSpacing.sm + AppSpacing.xs
+              : AppSpacing.lg;
+          final maxContentWidth =
+              constraints.maxWidth > 1200 ? 1200.0 : constraints.maxWidth;
 
           return Align(
             alignment: Alignment.topCenter,
@@ -124,9 +131,9 @@ class _ReportsDashboardScreenState extends State<ReportsDashboardScreen> {
               child: ListView(
                 padding: EdgeInsets.fromLTRB(
                   horizontalPadding,
-                  compact ? 12 : 20,
+                  compact ? AppSpacing.sm + AppSpacing.xs : AppSpacing.lg,
                   horizontalPadding,
-                  24,
+                  AppSpacing.xl,
                 ),
                 children: [
                   _DashboardHeader(
@@ -134,7 +141,7 @@ class _ReportsDashboardScreenState extends State<ReportsDashboardScreen> {
                     availableCount: availableCount,
                     totalCount: reports.length,
                   ),
-                  const SizedBox(height: 16),
+                  const SizedBox(height: AppSpacing.md),
                   TextField(
                     controller: _searchController,
                     onChanged: (value) => setState(() => _query = value),
@@ -151,13 +158,15 @@ class _ReportsDashboardScreenState extends State<ReportsDashboardScreen> {
                               },
                               icon: const Icon(Icons.close),
                             ),
-                      filled: true,
-                      border: const OutlineInputBorder(),
                     ),
                   ),
-                  const SizedBox(height: 18),
+                  const SizedBox(height: AppSpacing.lg),
                   if (visibleReports.isEmpty)
-                    const _EmptySearchState()
+                    const AppEmptyState(
+                      title: 'لا توجد تقارير مطابقة',
+                      message: 'جرّب كتابة اسم تقرير آخر أو امسح البحث.',
+                      icon: Icons.search_off_outlined,
+                    )
                   else ...[
                     _ReportSection(
                       title: 'الموظفون والدوام',
@@ -165,10 +174,11 @@ class _ReportsDashboardScreenState extends State<ReportsDashboardScreen> {
                       icon: Icons.groups_2_outlined,
                       compact: compact,
                       reports: visibleReports
-                          .where((item) => item.category == _ReportCategory.employee)
+                          .where((item) =>
+                              item.category == _ReportCategory.employee)
                           .toList(),
                     ),
-                    const SizedBox(height: 18),
+                    const SizedBox(height: AppSpacing.lg),
                     _ReportSection(
                       title: 'التقارير المالية',
                       subtitle: 'الرواتب والسلف والجزاءات',
@@ -178,14 +188,15 @@ class _ReportsDashboardScreenState extends State<ReportsDashboardScreen> {
                           .where((item) => item.category == _ReportCategory.finance)
                           .toList(),
                     ),
-                    const SizedBox(height: 18),
+                    const SizedBox(height: AppSpacing.lg),
                     _ReportSection(
                       title: 'المستندات',
                       subtitle: 'ملفات ووثائق الموظفين',
                       icon: Icons.folder_open_outlined,
                       compact: compact,
                       reports: visibleReports
-                          .where((item) => item.category == _ReportCategory.documents)
+                          .where((item) =>
+                              item.category == _ReportCategory.documents)
                           .toList(),
                     ),
                   ],
@@ -223,59 +234,77 @@ class _DashboardHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
     final intro = Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
           'مركز التقارير',
-          style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                fontWeight: FontWeight.bold,
-              ),
+          style: theme.textTheme.headlineSmall?.copyWith(
+            fontWeight: FontWeight.w700,
+          ),
         ),
-        const SizedBox(height: 6),
+        const SizedBox(height: AppSpacing.xs),
         Text(
           'اختر التقرير المطلوب ثم استخدم الموظف والفترة للوصول إلى البيانات بسرعة.',
-          style: Theme.of(context).textTheme.bodyMedium,
+          style: theme.textTheme.bodyMedium?.copyWith(
+            color: scheme.onSurfaceVariant,
+          ),
         ),
       ],
     );
 
     final badge = Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.md,
+        vertical: AppSpacing.sm,
+      ),
       decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.primaryContainer,
-        borderRadius: BorderRadius.circular(14),
+        color: scheme.primaryContainer,
+        borderRadius: AppRadius.control,
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Icon(Icons.assessment_outlined, size: 20),
-          const SizedBox(width: 8),
-          Text('$availableCount من $totalCount تقارير متاحة'),
+          Icon(
+            Icons.assessment_outlined,
+            size: 20,
+            color: scheme.onPrimaryContainer,
+          ),
+          const SizedBox(width: AppSpacing.sm),
+          Text(
+            '$availableCount من $totalCount تقارير متاحة',
+            style: theme.textTheme.labelLarge?.copyWith(
+              color: scheme.onPrimaryContainer,
+            ),
+          ),
         ],
       ),
     );
 
-    return Card(
-      child: Padding(
-        padding: EdgeInsets.all(compact ? 16 : 20),
-        child: compact
-            ? Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  intro,
-                  const SizedBox(height: 14),
-                  Align(alignment: Alignment.centerRight, child: badge),
-                ],
-              )
-            : Row(
-                children: [
-                  Expanded(child: intro),
-                  const SizedBox(width: 20),
-                  badge,
-                ],
-              ),
-      ),
+    return AppCard(
+      elevated: true,
+      padding: EdgeInsets.all(compact ? AppSpacing.md : AppSpacing.lg),
+      child: compact
+          ? Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                intro,
+                const SizedBox(height: AppSpacing.md),
+                Align(
+                  alignment: AlignmentDirectional.centerStart,
+                  child: badge,
+                ),
+              ],
+            )
+          : Row(
+              children: [
+                Expanded(child: intro),
+                const SizedBox(width: AppSpacing.lg),
+                badge,
+              ],
+            ),
     );
   }
 }
@@ -298,31 +327,38 @@ class _ReportSection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (reports.isEmpty) return const SizedBox.shrink();
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Row(
           children: [
-            Icon(icon, size: 22),
-            const SizedBox(width: 8),
+            Icon(icon, size: 22, color: scheme.primary),
+            const SizedBox(width: AppSpacing.sm),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
                     title,
-                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                          fontWeight: FontWeight.bold,
-                        ),
+                    style: theme.textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.w700,
+                    ),
                   ),
-                  Text(subtitle, style: Theme.of(context).textTheme.bodySmall),
+                  Text(
+                    subtitle,
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: scheme.onSurfaceVariant,
+                    ),
+                  ),
                 ],
               ),
             ),
           ],
         ),
-        const SizedBox(height: 10),
+        const SizedBox(height: AppSpacing.sm),
         LayoutBuilder(
           builder: (context, constraints) {
             final columns = compact
@@ -330,8 +366,9 @@ class _ReportSection extends StatelessWidget {
                 : constraints.maxWidth >= 980
                     ? 3
                     : 2;
-            final gap = 12.0;
-            final itemWidth = (constraints.maxWidth - gap * (columns - 1)) / columns;
+            const gap = AppSpacing.sm + AppSpacing.xs;
+            final itemWidth =
+                (constraints.maxWidth - gap * (columns - 1)) / columns;
             return Wrap(
               spacing: gap,
               runSpacing: gap,
@@ -358,98 +395,85 @@ class _ReportCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colors = Theme.of(context).colorScheme;
-    return Card(
-      clipBehavior: Clip.antiAlias,
-      child: InkWell(
-        onTap: report.enabled ? report.onTap : null,
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Container(
-                width: 46,
-                height: 46,
-                decoration: BoxDecoration(
-                  color: report.enabled
-                      ? colors.primaryContainer
-                      : colors.surfaceContainerHighest,
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Icon(
-                  report.icon,
-                  color: report.enabled ? colors.primary : colors.outline,
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    final isRtl = Directionality.of(context) == TextDirection.rtl;
+
+    return AppCard(
+      onTap: report.enabled ? report.onTap : null,
+      padding: const EdgeInsets.all(AppSpacing.md),
+      backgroundColor: report.enabled
+          ? scheme.surfaceContainerLowest
+          : scheme.surfaceContainerLow,
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 44,
+            height: 44,
+            decoration: BoxDecoration(
+              color: report.enabled
+                  ? scheme.primaryContainer
+                  : scheme.surfaceContainerHighest,
+              borderRadius: AppRadius.control,
+            ),
+            child: Icon(
+              report.icon,
+              color: report.enabled
+                  ? scheme.onPrimaryContainer
+                  : scheme.onSurfaceVariant,
+            ),
+          ),
+          const SizedBox(width: AppSpacing.sm + AppSpacing.xs),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
                   children: [
-                    Row(
-                      children: [
-                        Expanded(
-                          child: Text(
-                            report.title,
-                            style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                                  fontWeight: FontWeight.bold,
-                                ),
-                          ),
+                    Expanded(
+                      child: Text(
+                        report.title,
+                        style: theme.textTheme.titleSmall?.copyWith(
+                          fontWeight: FontWeight.w700,
+                          color: report.enabled
+                              ? scheme.onSurface
+                              : scheme.onSurfaceVariant,
                         ),
-                        Icon(
-                          report.enabled
-                              ? Icons.arrow_back_ios_new_rounded
-                              : Icons.lock_outline,
-                          size: 16,
-                          color: report.enabled ? colors.primary : colors.outline,
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 6),
-                    Text(
-                      report.description,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: Theme.of(context).textTheme.bodySmall,
-                    ),
-                    if (!report.enabled) ...[
-                      const SizedBox(height: 8),
-                      Text(
-                        'غير متاح لصلاحية المستخدم الحالية',
-                        style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                              color: colors.outline,
-                            ),
                       ),
-                    ],
+                    ),
+                    Icon(
+                      report.enabled
+                          ? (isRtl
+                              ? Icons.chevron_left
+                              : Icons.chevron_right)
+                          : Icons.lock_outline,
+                      size: 19,
+                      color: scheme.onSurfaceVariant,
+                    ),
                   ],
                 ),
-              ),
-            ],
+                const SizedBox(height: AppSpacing.xs),
+                Text(
+                  report.description,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: scheme.onSurfaceVariant,
+                  ),
+                ),
+                if (!report.enabled) ...[
+                  const SizedBox(height: AppSpacing.sm),
+                  Text(
+                    'غير متاح لصلاحية المستخدم الحالية',
+                    style: theme.textTheme.labelSmall?.copyWith(
+                      color: scheme.outline,
+                    ),
+                  ),
+                ],
+              ],
+            ),
           ),
-        ),
-      ),
-    );
-  }
-}
-
-class _EmptySearchState extends StatelessWidget {
-  const _EmptySearchState();
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 48),
-      child: Column(
-        children: [
-          const Icon(Icons.search_off_outlined, size: 52),
-          const SizedBox(height: 12),
-          Text(
-            'لا توجد تقارير مطابقة للبحث',
-            style: Theme.of(context).textTheme.titleMedium,
-          ),
-          const SizedBox(height: 4),
-          const Text('جرّب كتابة اسم تقرير آخر.'),
         ],
       ),
     );
