@@ -3,14 +3,13 @@ import 'package:flutter/material.dart';
 import '../../models/profile_model.dart';
 import '../../theme/app_radius.dart';
 import '../../theme/app_spacing.dart';
-import 'app_empty_state.dart';
 
-/// Reusable searchable employee picker.
+/// Reusable inline employee search and selection control.
 ///
-/// The form keeps a compact selected-value field, while the actual directory
-/// opens in a searchable bottom sheet. This scales better than a long dropdown
-/// when the company has many employees.
-class EmployeePickerField extends StatelessWidget {
+/// The employee list stays in the current screen. Typing in the search field
+/// filters the visible employees immediately, so no bottom sheet or extra
+/// selection step is required.
+class EmployeePickerField extends StatefulWidget {
   final List<ProfileModel> employees;
   final String? selectedEmployeeId;
   final ValueChanged<String?> onChanged;
@@ -18,6 +17,7 @@ class EmployeePickerField extends StatelessWidget {
   final String labelText;
   final String allEmployeesLabel;
   final bool enabled;
+  final double maxResultsHeight;
 
   const EmployeePickerField({
     super.key,
@@ -28,95 +28,10 @@ class EmployeePickerField extends StatelessWidget {
     this.labelText = 'الموظف',
     this.allEmployeesLabel = 'كل الموظفين',
     this.enabled = true,
+    this.maxResultsHeight = 320,
   });
 
-  ProfileModel? get _selectedEmployee {
-    final id = selectedEmployeeId;
-    if (id == null) return null;
-    for (final employee in employees) {
-      if (employee.id == id) return employee;
-    }
-    return null;
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final scheme = theme.colorScheme;
-    final selected = _selectedEmployee;
-    final primaryText = selected == null
-        ? (allowAll ? allEmployeesLabel : 'اختر موظفًا')
-        : selected.fullName;
-    final secondaryText = selected == null
-        ? (allowAll ? 'بدون تصفية حسب الموظف' : 'ابحث بالاسم أو الرقم الوظيفي')
-        : _employeeMeta(selected);
-
-    return Semantics(
-      button: true,
-      enabled: enabled,
-      label: '$labelText: $primaryText',
-      child: InkWell(
-        onTap: enabled ? () => _openPicker(context) : null,
-        borderRadius: AppRadius.control,
-        child: InputDecorator(
-          isEmpty: selected == null && !allowAll,
-          decoration: InputDecoration(
-            labelText: labelText,
-            enabled: enabled,
-            prefixIcon: const Icon(Icons.person_search_outlined),
-            suffixIcon: const Icon(Icons.keyboard_arrow_down_rounded),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                primaryText,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: theme.textTheme.bodyLarge?.copyWith(
-                  color: enabled ? scheme.onSurface : scheme.onSurfaceVariant,
-                  fontWeight: selected == null
-                      ? FontWeight.w500
-                      : FontWeight.w600,
-                ),
-              ),
-              const SizedBox(height: AppSpacing.xxs),
-              Text(
-                secondaryText,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: scheme.onSurfaceVariant,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Future<void> _openPicker(BuildContext context) async {
-    final selected = await showModalBottomSheet<String?>(
-      context: context,
-      isScrollControlled: true,
-      useSafeArea: true,
-      builder: (sheetContext) => _EmployeePickerSheet(
-        employees: employees,
-        selectedEmployeeId: selectedEmployeeId,
-        allowAll: allowAll,
-        allEmployeesLabel: allEmployeesLabel,
-      ),
-    );
-
-    // null is both the dismiss result and the "all employees" value, so the
-    // sheet returns a sentinel for that explicit option.
-    if (!context.mounted || selected == null) return;
-    onChanged(selected == _EmployeePickerSheet.allSentinel ? null : selected);
-  }
-
-  static String _employeeMeta(ProfileModel employee) {
+  static String employeeMeta(ProfileModel employee) {
     final parts = <String>[employee.employeeNumber];
     if (employee.jobTitleName?.trim().isNotEmpty == true) {
       parts.add(employee.jobTitleName!.trim());
@@ -126,28 +41,12 @@ class EmployeePickerField extends StatelessWidget {
     }
     return parts.join(' • ');
   }
-}
-
-class _EmployeePickerSheet extends StatefulWidget {
-  static const allSentinel = '__ALL_EMPLOYEES__';
-
-  final List<ProfileModel> employees;
-  final String? selectedEmployeeId;
-  final bool allowAll;
-  final String allEmployeesLabel;
-
-  const _EmployeePickerSheet({
-    required this.employees,
-    required this.selectedEmployeeId,
-    required this.allowAll,
-    required this.allEmployeesLabel,
-  });
 
   @override
-  State<_EmployeePickerSheet> createState() => _EmployeePickerSheetState();
+  State<EmployeePickerField> createState() => _EmployeePickerFieldState();
 }
 
-class _EmployeePickerSheetState extends State<_EmployeePickerSheet> {
+class _EmployeePickerFieldState extends State<EmployeePickerField> {
   final _searchController = TextEditingController();
   String _query = '';
 
@@ -160,214 +59,223 @@ class _EmployeePickerSheetState extends State<_EmployeePickerSheet> {
   List<ProfileModel> get _filteredEmployees {
     final query = _query.trim().toLowerCase();
     if (query.isEmpty) return widget.employees;
+
     return widget.employees.where((employee) {
       final searchable = [
         employee.fullName,
         employee.employeeNumber,
         employee.jobTitleName ?? '',
         employee.departmentName ?? '',
+        employee.roleLabel,
       ].join(' ').toLowerCase();
       return searchable.contains(query);
     }).toList();
+  }
+
+  void _clearSearch() {
+    _searchController.clear();
+    setState(() => _query = '');
+  }
+
+  void _selectEmployee(ProfileModel employee) {
+    if (!widget.enabled) return;
+    widget.onChanged(employee.id);
+    FocusScope.of(context).unfocus();
+  }
+
+  void _selectAll() {
+    if (!widget.enabled) return;
+    widget.onChanged(null);
+    FocusScope.of(context).unfocus();
   }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
-    final height = MediaQuery.sizeOf(context).height;
-    final bottomInset = MediaQuery.viewInsetsOf(context).bottom;
     final results = _filteredEmployees;
-    final isRtl = Directionality.of(context) == TextDirection.rtl;
 
-    return Padding(
-      padding: EdgeInsets.only(bottom: bottomInset),
-      child: FractionallySizedBox(
-        heightFactor: height < 620 ? .92 : .78,
-        child: Align(
-          alignment: Alignment.topCenter,
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 680),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Center(
-                  child: Container(
-                    width: 40,
-                    height: 4,
-                    margin: const EdgeInsets.only(
-                      top: AppSpacing.sm,
-                      bottom: AppSpacing.xs,
-                    ),
-                    decoration: BoxDecoration(
-                      color: scheme.outlineVariant,
-                      borderRadius: BorderRadius.circular(AppRadius.pill),
-                    ),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        TextField(
+          controller: _searchController,
+          enabled: widget.enabled,
+          textInputAction: TextInputAction.search,
+          onChanged: (value) => setState(() => _query = value),
+          decoration: InputDecoration(
+            labelText: widget.labelText,
+            hintText: 'ابحث بالاسم أو الرقم الوظيفي أو القسم أو المسمى...',
+            prefixIcon: const Icon(Icons.search_rounded),
+            suffixIcon: _query.isEmpty
+                ? null
+                : IconButton(
+                    tooltip: 'مسح البحث',
+                    onPressed: widget.enabled ? _clearSearch : null,
+                    icon: const Icon(Icons.close_rounded),
                   ),
-                ),
-                Padding(
-                  padding: const EdgeInsetsDirectional.fromSTEB(
-                    AppSpacing.md,
-                    AppSpacing.xs,
-                    AppSpacing.xs,
-                    AppSpacing.sm,
-                  ),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'اختيار الموظف',
-                              style: theme.textTheme.titleLarge?.copyWith(
-                                fontWeight: FontWeight.w700,
-                              ),
-                            ),
-                            Text(
-                              '${results.length} من ${widget.employees.length} موظف',
-                              style: theme.textTheme.bodySmall?.copyWith(
-                                color: scheme.onSurfaceVariant,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      IconButton(
-                        tooltip: 'إغلاق',
-                        onPressed: () => Navigator.pop(context),
-                        icon: const Icon(Icons.close),
-                      ),
-                    ],
-                  ),
-                ),
-                Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: AppSpacing.md,
-                  ),
-                  child: TextField(
-                    controller: _searchController,
-                    autofocus: true,
-                    textInputAction: TextInputAction.search,
-                    onChanged: (value) => setState(() => _query = value),
-                    decoration: InputDecoration(
-                      hintText: 'ابحث بالاسم أو الرقم الوظيفي أو القسم...',
-                      prefixIcon: const Icon(Icons.search),
-                      suffixIcon: _query.isEmpty
-                          ? null
-                          : IconButton(
-                              tooltip: 'مسح البحث',
-                              onPressed: () {
-                                _searchController.clear();
-                                setState(() => _query = '');
-                              },
-                              icon: const Icon(Icons.close),
-                            ),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: AppSpacing.sm),
-                if (widget.allowAll) ...[
-                  Padding(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: AppSpacing.sm,
-                    ),
-                    child: ListTile(
-                      leading: CircleAvatar(
-                        backgroundColor: scheme.secondaryContainer,
-                        foregroundColor: scheme.onSecondaryContainer,
-                        child: const Icon(Icons.groups_outlined),
-                      ),
-                      title: Text(widget.allEmployeesLabel),
-                      subtitle: const Text('عرض التقرير لجميع الموظفين'),
-                      trailing: widget.selectedEmployeeId == null
-                          ? Icon(Icons.check_circle, color: scheme.primary)
-                          : Icon(
-                              isRtl ? Icons.chevron_left : Icons.chevron_right,
-                              color: scheme.onSurfaceVariant,
-                            ),
-                      selected: widget.selectedEmployeeId == null,
-                      selectedTileColor: scheme.primaryContainer.withValues(
-                        alpha: .45,
-                      ),
-                      onTap: () => Navigator.pop(
-                        context,
-                        _EmployeePickerSheet.allSentinel,
-                      ),
-                    ),
-                  ),
-                  const Divider(height: AppSpacing.md),
-                ],
-                Expanded(
-                  child: results.isEmpty
-                      ? const AppEmptyState(
-                          title: 'لا توجد نتائج',
-                          message: 'جرّب البحث باسم آخر أو بالرقم الوظيفي.',
-                          icon: Icons.person_search_outlined,
-                        )
-                      : ListView.separated(
-                          keyboardDismissBehavior:
-                              ScrollViewKeyboardDismissBehavior.onDrag,
-                          padding: const EdgeInsets.fromLTRB(
-                            AppSpacing.sm,
-                            0,
-                            AppSpacing.sm,
-                            AppSpacing.md,
-                          ),
-                          itemCount: results.length,
-                          separatorBuilder: (_, __) =>
-                              const SizedBox(height: AppSpacing.xxs),
-                          itemBuilder: (context, index) {
-                            final employee = results[index];
-                            final selected =
-                                employee.id == widget.selectedEmployeeId;
-                            final trimmedName = employee.fullName.trim();
-                            return ListTile(
-                              selected: selected,
-                              selectedTileColor: scheme.primaryContainer
-                                  .withValues(alpha: .45),
-                              leading: CircleAvatar(
-                                backgroundColor: selected
-                                    ? scheme.primaryContainer
-                                    : scheme.surfaceContainerHighest,
-                                foregroundColor: selected
-                                    ? scheme.onPrimaryContainer
-                                    : scheme.onSurfaceVariant,
-                                child: Text(
-                                  trimmedName.isEmpty ? 'م' : trimmedName[0],
-                                ),
-                              ),
-                              title: Text(
-                                employee.fullName,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                              subtitle: Text(
-                                EmployeePickerField._employeeMeta(employee),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                              trailing: selected
-                                  ? Icon(
-                                      Icons.check_circle,
-                                      color: scheme.primary,
-                                    )
-                                  : Icon(
-                                      isRtl
-                                          ? Icons.chevron_left
-                                          : Icons.chevron_right,
-                                      color: scheme.onSurfaceVariant,
-                                    ),
-                              onTap: () => Navigator.pop(context, employee.id),
-                            );
-                          },
-                        ),
-                ),
-              ],
-            ),
           ),
         ),
+        const SizedBox(height: AppSpacing.xs),
+        Row(
+          children: [
+            Expanded(
+              child: Text(
+                _query.trim().isEmpty
+                    ? '${widget.employees.length} موظف'
+                    : '${results.length} نتيجة من ${widget.employees.length}',
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: scheme.onSurfaceVariant,
+                ),
+              ),
+            ),
+            if (widget.selectedEmployeeId != null)
+              TextButton.icon(
+                onPressed: widget.enabled
+                    ? () {
+                        widget.onChanged(null);
+                        _clearSearch();
+                      }
+                    : null,
+                icon: const Icon(Icons.restart_alt_rounded, size: 18),
+                label: const Text('إلغاء التحديد'),
+              ),
+          ],
+        ),
+        const SizedBox(height: AppSpacing.xxs),
+        Container(
+          decoration: BoxDecoration(
+            color: scheme.surfaceContainerLowest,
+            borderRadius: AppRadius.card,
+            border: Border.all(color: scheme.outlineVariant),
+          ),
+          child: ConstrainedBox(
+            constraints: BoxConstraints(maxHeight: widget.maxResultsHeight),
+            child: _buildResults(context, results),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildResults(
+    BuildContext context,
+    List<ProfileModel> results,
+  ) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    final showAllOption = widget.allowAll && _query.trim().isEmpty;
+    final itemCount = results.length + (showAllOption ? 1 : 0);
+
+    if (itemCount == 0) {
+      return Padding(
+        padding: const EdgeInsets.all(AppSpacing.lg),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              Icons.person_search_outlined,
+              size: 34,
+              color: scheme.onSurfaceVariant,
+            ),
+            const SizedBox(height: AppSpacing.xs),
+            Text(
+              'لا يوجد موظف مطابق للبحث',
+              textAlign: TextAlign.center,
+              style: theme.textTheme.titleSmall?.copyWith(
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            const SizedBox(height: AppSpacing.xxs),
+            Text(
+              'جرّب الاسم أو الرقم الوظيفي أو القسم أو المسمى.',
+              textAlign: TextAlign.center,
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: scheme.onSurfaceVariant,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return ListView.separated(
+      shrinkWrap: true,
+      keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+      padding: const EdgeInsets.symmetric(vertical: AppSpacing.xxs),
+      itemCount: itemCount,
+      separatorBuilder: (_, __) => Divider(
+        height: 1,
+        indent: AppSpacing.md,
+        endIndent: AppSpacing.md,
+        color: scheme.outlineVariant.withValues(alpha: .7),
       ),
+      itemBuilder: (context, index) {
+        if (showAllOption && index == 0) {
+          final selected = widget.selectedEmployeeId == null;
+          return ListTile(
+            enabled: widget.enabled,
+            selected: selected,
+            selectedTileColor: scheme.primaryContainer.withValues(alpha: .45),
+            leading: CircleAvatar(
+              backgroundColor: selected
+                  ? scheme.primaryContainer
+                  : scheme.secondaryContainer,
+              foregroundColor: selected
+                  ? scheme.onPrimaryContainer
+                  : scheme.onSecondaryContainer,
+              child: const Icon(Icons.groups_outlined),
+            ),
+            title: Text(widget.allEmployeesLabel),
+            subtitle: const Text('بدون تصفية حسب موظف محدد'),
+            trailing: selected
+                ? Icon(Icons.check_circle_rounded, color: scheme.primary)
+                : null,
+            onTap: _selectAll,
+          );
+        }
+
+        final employeeIndex = showAllOption ? index - 1 : index;
+        final employee = results[employeeIndex];
+        final selected = employee.id == widget.selectedEmployeeId;
+        final trimmedName = employee.fullName.trim();
+
+        return ListTile(
+          enabled: widget.enabled,
+          selected: selected,
+          selectedTileColor: scheme.primaryContainer.withValues(alpha: .45),
+          leading: CircleAvatar(
+            backgroundColor: selected
+                ? scheme.primaryContainer
+                : scheme.surfaceContainerHighest,
+            foregroundColor: selected
+                ? scheme.onPrimaryContainer
+                : scheme.onSurfaceVariant,
+            child: Text(trimmedName.isEmpty ? 'م' : trimmedName[0]),
+          ),
+          title: Text(
+            employee.fullName,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: selected
+                ? theme.textTheme.bodyLarge?.copyWith(
+                    fontWeight: FontWeight.w700,
+                    color: scheme.primary,
+                  )
+                : null,
+          ),
+          subtitle: Text(
+            EmployeePickerField.employeeMeta(employee),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+          trailing: selected
+              ? Icon(Icons.check_circle_rounded, color: scheme.primary)
+              : null,
+          onTap: () => _selectEmployee(employee),
+        );
+      },
     );
   }
 }
