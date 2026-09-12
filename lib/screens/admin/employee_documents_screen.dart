@@ -9,8 +9,10 @@ import '../../services/appwrite_service.dart';
 import '../../utils/formatters.dart';
 import '../../widgets/common/app_card.dart';
 import '../../widgets/common/app_dropdown_field.dart';
+import '../../widgets/common/app_empty_state.dart';
 import '../../widgets/common/app_form_field.dart';
 import '../../widgets/common/app_loading_button.dart';
+import '../../widgets/common/app_loading_state.dart';
 import '../../widgets/common/app_scaffold.dart';
 import '../../widgets/common/app_section_header.dart';
 import '../../widgets/common/employee_picker_field.dart';
@@ -205,17 +207,21 @@ class _EmployeeDocumentsScreenState extends State<EmployeeDocumentsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
     final employee = _selectedEmployee;
+
     return AppScaffold(
       title: 'مستندات الموظفين',
       body: _isLoading && _employees.isEmpty
-          ? const Center(child: CircularProgressIndicator())
+          ? const AppLoadingState(label: 'جاري تحميل الموظفين')
           : Align(
               alignment: Alignment.topCenter,
               child: ConstrainedBox(
                 constraints: const BoxConstraints(maxWidth: 900),
                 child: ListView(
-                  keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+                  keyboardDismissBehavior:
+                      ScrollViewKeyboardDismissBehavior.onDrag,
                   padding: const EdgeInsets.all(16),
                   children: [
                     AppCard(
@@ -237,17 +243,11 @@ class _EmployeeDocumentsScreenState extends State<EmployeeDocumentsScreen> {
                     ),
                     const SizedBox(height: 14),
                     if (employee == null)
-                      const AppCard(
-                        child: Padding(
-                          padding: EdgeInsets.symmetric(vertical: 24),
-                          child: Column(
-                            children: [
-                              Icon(Icons.folder_shared_outlined, size: 48),
-                              SizedBox(height: 10),
-                              Text('اختر موظفًا لعرض ملفاته وإضافة مستند جديد.'),
-                            ],
-                          ),
-                        ),
+                      const AppEmptyState(
+                        title: 'اختر موظفًا',
+                        message:
+                            'اختر موظفًا لعرض ملفاته وإضافة مستند جديد.',
+                        icon: Icons.folder_shared_outlined,
                       )
                     else ...[
                       AppCard(
@@ -257,22 +257,32 @@ class _EmployeeDocumentsScreenState extends State<EmployeeDocumentsScreen> {
                             Row(
                               children: [
                                 CircleAvatar(
-                                  child: Text(employee.fullName.isEmpty ? 'م' : employee.fullName[0]),
+                                  backgroundColor: scheme.primaryContainer,
+                                  foregroundColor: scheme.onPrimaryContainer,
+                                  child: Text(
+                                    employee.fullName.isEmpty
+                                        ? 'م'
+                                        : employee.fullName[0],
+                                  ),
                                 ),
                                 const SizedBox(width: 10),
                                 Expanded(
                                   child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
                                     children: [
                                       Text(
                                         employee.fullName,
-                                        style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                                              fontWeight: FontWeight.bold,
-                                            ),
+                                        style: theme.textTheme.titleSmall
+                                            ?.copyWith(
+                                          fontWeight: FontWeight.w700,
+                                        ),
                                       ),
                                       Text(
                                         '${employee.employeeNumber}${employee.departmentName?.trim().isNotEmpty == true ? ' • ${employee.departmentName}' : ''}',
-                                        style: Theme.of(context).textTheme.bodySmall,
+                                        style: theme.textTheme.bodySmall?.copyWith(
+                                          color: scheme.onSurfaceVariant,
+                                        ),
                                       ),
                                     ],
                                   ),
@@ -298,7 +308,9 @@ class _EmployeeDocumentsScreenState extends State<EmployeeDocumentsScreen> {
                                   )
                                   .toList(),
                               onChanged: (value) {
-                                if (value != null) setState(() => _documentType = value);
+                                if (value != null) {
+                                  setState(() => _documentType = value);
+                                }
                               },
                             ),
                             const SizedBox(height: 14),
@@ -343,26 +355,31 @@ class _EmployeeDocumentsScreenState extends State<EmployeeDocumentsScreen> {
                           Expanded(
                             child: Text(
                               'مستندات الموظف',
-                              style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                                    fontWeight: FontWeight.bold,
-                                  ),
+                              style: theme.textTheme.titleMedium?.copyWith(
+                                fontWeight: FontWeight.w700,
+                              ),
                             ),
                           ),
-                          Text('${_employeeDocuments.length} مستند'),
+                          Text(
+                            '${_employeeDocuments.length} مستند',
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              color: scheme.onSurfaceVariant,
+                            ),
+                          ),
                         ],
                       ),
                       const SizedBox(height: 8),
                       if (_isLoading)
-                        const LinearProgressIndicator()
+                        const AppLoadingState(
+                          label: 'جاري تحميل المستندات',
+                          fallbackHeight: 140,
+                        )
                       else if (_employeeDocuments.isEmpty)
-                        const AppCard(
-                          child: Padding(
-                            padding: EdgeInsets.symmetric(vertical: 18),
-                            child: Text(
-                              'لا توجد مستندات مسجلة لهذا الموظف.',
-                              textAlign: TextAlign.center,
-                            ),
-                          ),
+                        const AppEmptyState(
+                          title: 'لا توجد مستندات',
+                          message:
+                              'لم يتم تسجيل مستندات لهذا الموظف حتى الآن.',
+                          icon: Icons.description_outlined,
                         )
                       else
                         ..._employeeDocuments.map((row) {
@@ -374,8 +391,12 @@ class _EmployeeDocumentsScreenState extends State<EmployeeDocumentsScreen> {
                           return Card(
                             margin: const EdgeInsets.only(bottom: 8),
                             child: ListTile(
-                              leading: const CircleAvatar(
-                                child: Icon(Icons.description_outlined),
+                              leading: CircleAvatar(
+                                backgroundColor: scheme.surfaceContainerHighest,
+                                foregroundColor: scheme.onSurfaceVariant,
+                                child: const Icon(
+                                  Icons.description_outlined,
+                                ),
                               ),
                               title: Text(
                                 '${data['title'] ?? 'مستند'}',
