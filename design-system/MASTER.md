@@ -1,42 +1,80 @@
-# HR Design System — Master Reference Guide (MASTER.md)
+# HR Design System — Master Reference Guide
 
-This document is the absolute **Source of Truth** for the HR Employee System UI/UX. Any future agent or developer MUST adhere to the standards, tokens, and rules documented herein.
+This document is the source of truth for the HR Employee System UI/UX. Future UI work must follow these tokens and role-based theming rules.
 
 ---
 
 ## 1. Design Personality & Philosophy
 
-- **Target Context**: Enterprise HR operational app (Arabic-first, English LTR compliant).
-- **Aesthetic Attributes**: Professional, Modern, Calm, Clean, Trustworthy, Low Visual Noise.
+- **Target Context**: Enterprise HR/factory operational app (Arabic-first, English LTR compliant).
+- **Aesthetic Attributes**: Professional, modern, calm, clean, trustworthy, information-focused, low visual noise.
 - **Principles**:
   1. Information density over decoration.
-  2. Single primary color identity, restricted secondary and tertiary accents.
-  3. Semantic colors are strictly reserved for actual state indicators (Present, Late, Absent, Approved, Pending, Rejected).
-  4. Subtle borders (`outlineVariant`) instead of dark shadows.
-  5. Soft neutral surfaces with M3 surface containers.
+  2. One primary brand identity; color is used sparingly.
+  3. Semantic colors are reserved for real state meaning.
+  4. Subtle `outlineVariant` borders and tonal surfaces instead of heavy shadows.
+  5. Material 3 roles must work in Light and Dark themes.
+  6. Status meaning is never communicated by color alone.
 
 ---
 
 ## 2. Token Specifications Summary
 
-| Token Category | Value Scale / Specifications | Code Reference |
+| Token Category | Specification | Code Reference |
 | :--- | :--- | :--- |
-| **Primary Color** | `#0F766E` (Deep Teal) | `AppColors.primary` |
-| **Secondary Color** | `#475569` (Slate Grey) | `AppColors.secondary` |
-| **Tertiary Color** | `#B45309` (Warm Amber) | `AppColors.tertiary` |
-| **Success Color** | `#16A34A` (Forest Green) | `AppColors.success` |
-| **Warning Color** | `#D97706` (Amber Orange) | `AppColors.warning` |
-| **Danger Color** | `#DC2626` (Bright Red) | `AppColors.danger` |
-| **Surface Background**| `#FFFFFF` (Light) / `#0F172A` (Dark) | `ColorScheme.surface` |
+| **Brand seed** | Deep Teal `#0F766E` | `AppColors.primary` / `ColorScheme.fromSeed` |
+| **Structural colors** | Material 3 generated roles | `Theme.of(context).colorScheme` |
+| **Success** | Theme-aware green roles | `context.semanticColors.success*` |
+| **Warning** | Theme-aware amber roles | `context.semanticColors.warning*` |
+| **Error / destructive** | Material 3 error roles | `colorScheme.error*` |
+| **Surface hierarchy** | `surface`, `surfaceContainer*` | `ColorScheme` |
+| **Borders** | `outlineVariant` / `outline` | `ColorScheme` |
 | **Spacing Scale** | `4`, `8`, `12`, `16`, `20`, `24`, `32`, `40` | `AppSpacing` |
-| **Card Radius** | `16px` (Standard) | `AppRadius.lg` |
-| **Font Family** | Cairo (`google_fonts`) | `AppTypography` |
-| **Icon Sizes** | `16`, `18`, `22`, `24`, `40`, `48` | `AppIconSizes` |
+| **Card Radius** | Standard `16px` | `AppRadius` |
+| **Font Family** | Bundled Cairo asset | `AppTypography` |
+| **Icon Sizes** | Central size scale | `AppIconSizes` |
+| **Theme mode** | System / Light / Dark | `AppThemeController` |
+
+`AppColors` remains a compatibility layer for legacy code. New production screen styling should prefer `ColorScheme` and `AppSemanticColors`.
 
 ---
 
-## 3. Detailed Modular Documentation Index
+## 3. Color Usage Rules
 
+### Primary teal
+
+Use for:
+- primary/high-emphasis actions,
+- selected navigation,
+- focused form fields,
+- selected controls,
+- small identity accents.
+
+Do not use it to color every card or as a success color.
+
+### Neutral surfaces
+
+Cards and page structure are predominantly neutral:
+- page: `surface`,
+- primary card: `surfaceContainerLowest`,
+- nested metric areas: `surfaceContainerLow` / `surfaceContainer`,
+- stronger neutral/disabled area: `surfaceContainerHighest`,
+- metadata text/icons: `onSurfaceVariant`,
+- borders: `outlineVariant`.
+
+### Semantic roles
+
+- **Green**: approved, paid, completed, successful.
+- **Amber**: pending, late, incomplete, needs review, attention.
+- **Red/Error**: failed, rejected, invalid, destructive, absence when represented as a negative state.
+
+Semantic colors must not be decorative category colors.
+
+---
+
+## 4. Detailed Documentation Index
+
+- [Theme system and usage guide](../docs/THEME_SYSTEM.md)
 - [Colors & ColorScheme Roles](colors.md)
 - [Typography & TextTheme Scale](typography.md)
 - [Spacing & Layout Tokens](spacing.md)
@@ -44,7 +82,7 @@ This document is the absolute **Source of Truth** for the HR Employee System UI/
 - [Icons & Micro-Interactions](icons.md)
 - [Accessibility & Contrast Standards](accessibility.md)
 - **Components**:
-  - [Cards (Stat, Action, Status)](components/cards.md)
+  - [Cards](components/cards.md)
   - [Buttons & Actions](components/buttons.md)
   - [Inputs & Forms](components/inputs.md)
   - [Badges & Indicators](components/badges.md)
@@ -53,10 +91,15 @@ This document is the absolute **Source of Truth** for the HR Employee System UI/
 
 ---
 
-## 4. Strict Enforcement Rules for Agents
+## 5. Strict Enforcement Rules
 
-1. **No Hardcoded Colors**: Never use `Colors.blue`, `Colors.red`, or hex literals inside screens. Use `Theme.of(context).colorScheme` or `AppColors`.
-2. **No Random Font Sizes**: Always use `Theme.of(context).textTheme.titleMedium` or `AppTypography` text styles.
-3. **No Hardcoded Spacing/Radius**: Use `AppSpacing` and `AppRadius` constants.
-4. **Preserve Business Logic**: Never touch controllers, services, repositories, or database models. UI modifications only.
-5. **Auto Directionality**: Use `EdgeInsetsDirectional` and `AlignmentDirectional` to guarantee seamless Arabic RTL and English LTR support.
+1. **No decorative hardcoded colors** in production screens. Structural styling comes from `ColorScheme`.
+2. **No fixed white/black/grey assumptions** for surfaces or text; they break Dark mode.
+3. **Semantic colors require semantic meaning**. Use `context.semanticColors` for success/warning and `colorScheme.error` for error/destructive states.
+4. **Neutral cards first**. Accent color belongs on a small icon, selected state, value, or status—not the whole module card.
+5. **Use TextTheme roles** instead of arbitrary font-size hierarchies.
+6. **Use AppSpacing and AppRadius** instead of arbitrary spacing/radius additions.
+7. **Preserve business logic** during design-system-only work.
+8. **Automatic directionality**: use directional padding/alignment/icons where direction matters.
+9. **Verify Light and Dark** for every shared component and major screen.
+10. Run `dart format .` and `flutter analyze lib/` after theme changes.
