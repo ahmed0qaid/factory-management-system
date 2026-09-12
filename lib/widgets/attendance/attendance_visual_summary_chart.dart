@@ -1,14 +1,21 @@
 import 'package:flutter/material.dart';
-import '../../models/attendance_model.dart';
-import '../../utils/attendance_display.dart';
-import '../../utils/formatters.dart';
 
+import '../../models/attendance_model.dart';
+import '../../theme/app_radius.dart';
+import '../../theme/app_semantic_colors.dart';
+import '../../theme/app_spacing.dart';
+import '../../utils/attendance_display.dart';
+
+/// Period used by the employee attendance visual summary.
 enum SummaryPeriod { day, week, month }
 
 class AttendanceVisualSummaryChart extends StatefulWidget {
   final List<AttendanceRecordModel> records;
 
-  const AttendanceVisualSummaryChart({super.key, required this.records});
+  const AttendanceVisualSummaryChart({
+    super.key,
+    required this.records,
+  });
 
   @override
   State<AttendanceVisualSummaryChart> createState() =>
@@ -20,136 +27,149 @@ class _AttendanceVisualSummaryChartState
   SummaryPeriod _period = SummaryPeriod.day;
   DateTime _currentDate = DateTime.now();
 
+  static const _monthsAr = <String>[
+    'يناير',
+    'فبراير',
+    'مارس',
+    'أبريل',
+    'مايو',
+    'يونيو',
+    'يوليو',
+    'أغسطس',
+    'سبتمبر',
+    'أكتوبر',
+    'نوفمبر',
+    'ديسمبر',
+  ];
+
+  static const _weekDaysAr = <String>[
+    'أحد',
+    'إثنين',
+    'ثلاثاء',
+    'أربعاء',
+    'خميس',
+    'جمعة',
+    'سبت',
+  ];
+
+  @override
+  void didUpdateWidget(covariant AttendanceVisualSummaryChart oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.records.isNotEmpty && oldWidget.records != widget.records) {
+      final latest = [...widget.records]
+        ..sort((a, b) => b.workDate.compareTo(a.workDate));
+      _currentDate = latest.first.workDate;
+    }
+  }
+
   List<AttendanceRecordModel> get _currentRecords {
-    return widget.records.where((r) {
-      if (_period == SummaryPeriod.day) {
-        return r.workDate.year == _currentDate.year &&
-            r.workDate.month == _currentDate.month &&
-            r.workDate.day == _currentDate.day;
-      } else if (_period == SummaryPeriod.week) {
-        int daysToSubtract = _currentDate.weekday == 7
-            ? 0
-            : _currentDate.weekday;
-        DateTime startOfWeek = _currentDate.subtract(
-          Duration(days: daysToSubtract),
-        );
-        DateTime endOfWeek = startOfWeek.add(const Duration(days: 6));
-        DateTime rDate = DateTime(
-          r.workDate.year,
-          r.workDate.month,
-          r.workDate.day,
-        );
-        DateTime sDate = DateTime(
-          startOfWeek.year,
-          startOfWeek.month,
-          startOfWeek.day,
-        );
-        DateTime eDate = DateTime(
-          endOfWeek.year,
-          endOfWeek.month,
-          endOfWeek.day,
-        );
-        return rDate.compareTo(sDate) >= 0 && rDate.compareTo(eDate) <= 0;
-      } else {
-        return r.workDate.year == _currentDate.year &&
-            r.workDate.month == _currentDate.month;
+    final startOfWeek = _weekStart(_currentDate);
+    final endOfWeek = startOfWeek.add(const Duration(days: 6));
+
+    return widget.records.where((record) {
+      final date = _dateOnly(record.workDate);
+      switch (_period) {
+        case SummaryPeriod.day:
+          return DateUtils.isSameDay(date, _currentDate);
+        case SummaryPeriod.week:
+          return !date.isBefore(startOfWeek) && !date.isAfter(endOfWeek);
+        case SummaryPeriod.month:
+          return date.year == _currentDate.year &&
+              date.month == _currentDate.month;
       }
     }).toList();
   }
 
+  DateTime _dateOnly(DateTime value) =>
+      DateTime(value.year, value.month, value.day);
+
+  DateTime _weekStart(DateTime value) {
+    final date = _dateOnly(value);
+    final daysToSubtract = date.weekday == DateTime.sunday ? 0 : date.weekday;
+    return date.subtract(Duration(days: daysToSubtract));
+  }
+
   void _previous() {
     setState(() {
-      if (_period == SummaryPeriod.day) {
-        _currentDate = _currentDate.subtract(const Duration(days: 1));
-      } else if (_period == SummaryPeriod.week) {
-        _currentDate = _currentDate.subtract(const Duration(days: 7));
-      } else {
-        _currentDate = DateTime(
-          _currentDate.year,
-          _currentDate.month - 1,
-          _currentDate.day,
-        );
+      switch (_period) {
+        case SummaryPeriod.day:
+          _currentDate = _currentDate.subtract(const Duration(days: 1));
+        case SummaryPeriod.week:
+          _currentDate = _currentDate.subtract(const Duration(days: 7));
+        case SummaryPeriod.month:
+          _currentDate = DateTime(
+            _currentDate.year,
+            _currentDate.month - 1,
+            1,
+          );
       }
     });
   }
 
   void _next() {
     setState(() {
-      if (_period == SummaryPeriod.day) {
-        _currentDate = _currentDate.add(const Duration(days: 1));
-      } else if (_period == SummaryPeriod.week) {
-        _currentDate = _currentDate.add(const Duration(days: 7));
-      } else {
-        _currentDate = DateTime(
-          _currentDate.year,
-          _currentDate.month + 1,
-          _currentDate.day,
-        );
+      switch (_period) {
+        case SummaryPeriod.day:
+          _currentDate = _currentDate.add(const Duration(days: 1));
+        case SummaryPeriod.week:
+          _currentDate = _currentDate.add(const Duration(days: 7));
+        case SummaryPeriod.month:
+          _currentDate = DateTime(
+            _currentDate.year,
+            _currentDate.month + 1,
+            1,
+          );
       }
     });
   }
 
-  String _getPeriodLabel() {
-    if (_period == SummaryPeriod.day) {
-      return Formatters.date(_currentDate);
-    } else if (_period == SummaryPeriod.week) {
-      int daysToSubtract = _currentDate.weekday == 7 ? 0 : _currentDate.weekday;
-      DateTime startOfWeek = _currentDate.subtract(
-        Duration(days: daysToSubtract),
-      );
-      DateTime endOfWeek = startOfWeek.add(const Duration(days: 6));
-      return '${Formatters.date(startOfWeek)} - ${Formatters.date(endOfWeek)}';
-    } else {
-      final List<String> monthsAr = [
-        'يناير',
-        'فبراير',
-        'مارس',
-        'أبريل',
-        'مايو',
-        'يونيو',
-        'يوليو',
-        'أغسطس',
-        'سبتمبر',
-        'أكتوبر',
-        'نوفمبر',
-        'ديسمبر',
-      ];
-      return '${monthsAr[_currentDate.month - 1]} ${_currentDate.year}';
+  String _dayMonth(DateTime value) {
+    final day = value.day.toString().padLeft(2, '0');
+    final month = value.month.toString().padLeft(2, '0');
+    return '$day/$month';
+  }
+
+  String _periodLabel() {
+    switch (_period) {
+      case SummaryPeriod.day:
+        return _dayMonth(_currentDate);
+      case SummaryPeriod.week:
+        final start = _weekStart(_currentDate);
+        final end = start.add(const Duration(days: 6));
+        return '${_dayMonth(start)} - ${_dayMonth(end)}';
+      case SummaryPeriod.month:
+        return _monthsAr[_currentDate.month - 1];
     }
   }
 
-  Color _getColorForRecord(AttendanceRecordModel? record) {
-    if (record == null) return Colors.grey.shade200;
-    if (record.status == 'absent') return Colors.red;
+  String _formatTime(DateTime? value) {
+    if (value == null) return 'غير مسجل';
+    final hour = value.hour;
+    final minute = value.minute.toString().padLeft(2, '0');
+    final hour12 = hour == 0 ? 12 : (hour > 12 ? hour - 12 : hour);
+    final period = hour < 12 ? 'ص' : 'م';
+    return '$hour12:$minute $period';
+  }
 
-    // As requested: late_minutes > 0 is clearly orange
+  Color _recordColor(BuildContext context, AttendanceRecordModel? record) {
+    final scheme = Theme.of(context).colorScheme;
+    final semantic = context.semanticColors;
+
+    if (record == null) return scheme.surfaceContainerHighest;
+    if (record.status == 'absent') return scheme.error;
     if (record.lateMinutes > 0 || record.earlyLeaveMinutes > 0) {
-      return Colors.orange;
+      return semantic.warning;
     }
-
-    bool isMissingCheckout = record.checkIn != null && record.checkOut == null;
-    bool isMissingCheckin = record.checkIn == null && record.checkOut != null;
-
     if (record.status == 'needs_review' ||
         record.status == 'incomplete' ||
-        isMissingCheckin ||
-        isMissingCheckout) {
-      return Colors.grey.shade400;
+        (record.checkIn != null && record.checkOut == null) ||
+        (record.checkIn == null && record.checkOut != null)) {
+      return scheme.outline;
     }
-
     if (record.checkIn != null && record.checkOut != null) {
-      return Colors.blue;
+      return semantic.success;
     }
-    return Colors.green;
-  }
-
-  String _formatTimeAr(DateTime? dt) {
-    if (dt == null) return 'غير مسجل';
-    final h = dt.hour;
-    final m = dt.minute.toString().padLeft(2, '0');
-    final h12 = h == 0 ? 12 : (h > 12 ? h - 12 : h);
-    final period = h < 12 ? 'ص' : 'م';
-    return '$h12:$m $period';
+    return scheme.primary;
   }
 
   @override
@@ -157,182 +177,149 @@ class _AttendanceVisualSummaryChartState
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        _buildHeader(),
-        const SizedBox(height: 16),
+        _buildHeader(context),
+        const SizedBox(height: AppSpacing.sm),
         Expanded(
           child: SingleChildScrollView(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: _buildContent(),
+            padding: const EdgeInsetsDirectional.fromSTEB(
+              AppSpacing.md,
+              0,
+              AppSpacing.md,
+              AppSpacing.xl,
+            ),
+            child: _buildContent(context),
           ),
         ),
       ],
     );
   }
 
-  Widget _buildHeader() {
-    return Column(
-      children: [
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16.0),
-          child: Row(
+  Widget _buildHeader(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
+      child: Column(
+        children: [
+          SegmentedButton<SummaryPeriod>(
+            segments: const [
+              ButtonSegment(value: SummaryPeriod.day, label: Text('يوم')),
+              ButtonSegment(value: SummaryPeriod.week, label: Text('أسبوع')),
+              ButtonSegment(value: SummaryPeriod.month, label: Text('شهر')),
+            ],
+            selected: {_period},
+            showSelectedIcon: false,
+            onSelectionChanged: (selection) {
+              setState(() => _period = selection.first);
+            },
+          ),
+          const SizedBox(height: AppSpacing.sm),
+          Row(
             children: [
+              IconButton(
+                tooltip: 'الفترة السابقة',
+                onPressed: _previous,
+                icon: const Icon(Icons.chevron_right),
+              ),
               Expanded(
-                child: ElevatedButton(
-                  style: _period == SummaryPeriod.day
-                      ? null
-                      : ElevatedButton.styleFrom(
-                          backgroundColor: Theme.of(context).cardColor,
-                          foregroundColor: Colors.grey.shade800,
-                          elevation: 0,
-                        ),
-                  onPressed: () {
-                    setState(() {
-                      _period = SummaryPeriod.day;
-                    });
-                  },
-                  child: const Text('يوم'),
+                child: Text(
+                  _periodLabel(),
+                  textAlign: TextAlign.center,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.titleMedium?.copyWith(
+                    color: scheme.onSurface,
+                    fontWeight: FontWeight.w700,
+                  ),
                 ),
               ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: ElevatedButton(
-                  style: _period == SummaryPeriod.week
-                      ? null
-                      : ElevatedButton.styleFrom(
-                          backgroundColor: Theme.of(context).cardColor,
-                          foregroundColor: Colors.grey.shade800,
-                          elevation: 0,
-                        ),
-                  onPressed: () {
-                    setState(() {
-                      _period = SummaryPeriod.week;
-                    });
-                  },
-                  child: const Text('أسبوع'),
-                ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: ElevatedButton(
-                  style: _period == SummaryPeriod.month
-                      ? null
-                      : ElevatedButton.styleFrom(
-                          backgroundColor: Theme.of(context).cardColor,
-                          foregroundColor: Colors.grey.shade800,
-                          elevation: 0,
-                        ),
-                  onPressed: () {
-                    setState(() {
-                      _period = SummaryPeriod.month;
-                    });
-                  },
-                  child: const Text('شهر'),
-                ),
+              IconButton(
+                tooltip: 'الفترة التالية',
+                onPressed: _next,
+                icon: const Icon(Icons.chevron_left),
               ),
             ],
           ),
-        ),
-        const SizedBox(height: 16),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            IconButton(
-              icon: const Icon(Icons.chevron_left),
-              onPressed: _previous,
-            ),
-            Text(
-              _getPeriodLabel(),
-              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-            ),
-            IconButton(icon: const Icon(Icons.chevron_right), onPressed: _next),
-          ],
-        ),
-      ],
+        ],
+      ),
     );
   }
 
-  Widget _buildContent() {
+  Widget _buildContent(BuildContext context) {
     final records = _currentRecords;
-    if (_period == SummaryPeriod.day) {
-      return _buildDayView(records);
-    } else if (_period == SummaryPeriod.week) {
-      return _buildWeekView(records);
-    } else {
-      return _buildMonthView(records);
+    switch (_period) {
+      case SummaryPeriod.day:
+        return _buildDayView(context, records);
+      case SummaryPeriod.week:
+        return _buildWeekView(context, records);
+      case SummaryPeriod.month:
+        return _buildMonthView(context, records);
     }
   }
 
-  Widget _buildDayView(List<AttendanceRecordModel> records) {
+  Widget _buildDayView(
+    BuildContext context,
+    List<AttendanceRecordModel> records,
+  ) {
     if (records.isEmpty) {
-      return const Center(
-        child: Padding(
-          padding: EdgeInsets.all(24.0),
-          child: Text('لا توجد بيانات دوام لهذه الفترة'),
-        ),
-      );
+      return _emptyPeriod(context);
     }
 
     final record = records.first;
-    final color = _getColorForRecord(record);
-
-    bool isMissingCheckout = record.checkIn != null && record.checkOut == null;
-    bool isMissingCheckin = record.checkIn == null && record.checkOut != null;
-    bool needsReview =
-        record.status == 'needs_review' ||
-        isMissingCheckout ||
-        isMissingCheckin;
+    final color = _recordColor(context, record);
+    final needsReview = record.status == 'needs_review' ||
+        record.status == 'incomplete' ||
+        (record.checkIn != null && record.checkOut == null) ||
+        (record.checkIn == null && record.checkOut != null);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        const SizedBox(height: 24),
-        _buildDayTimeline(record, color),
-        const SizedBox(height: 32),
-        if (needsReview)
-          Container(
-            padding: const EdgeInsets.all(12),
-            margin: const EdgeInsets.only(bottom: 16),
-            decoration: BoxDecoration(
-              color: Colors.grey.shade100,
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: Colors.grey.shade400),
-            ),
-            child: const Text(
-              'يحتاج مراجعة',
-              style: TextStyle(color: Colors.grey, fontWeight: FontWeight.bold),
-              textAlign: TextAlign.center,
-            ),
-          ),
-        Wrap(
-          spacing: 12,
-          runSpacing: 12,
-          alignment: WrapAlignment.center,
+        const SizedBox(height: AppSpacing.sm),
+        _buildDayTimeline(context, record, color),
+        const SizedBox(height: AppSpacing.lg),
+        if (needsReview) ...[
+          _attentionBanner(context, 'يحتاج هذا اليوم إلى مراجعة'),
+          const SizedBox(height: AppSpacing.sm),
+        ],
+        GridView.count(
+          crossAxisCount: 2,
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          mainAxisSpacing: AppSpacing.xs,
+          crossAxisSpacing: AppSpacing.xs,
+          childAspectRatio: 2.15,
           children: [
-            _buildStatCard(
-              'الحالة',
-              statusLabel(record.status),
-              record.checkOut == null ? Colors.red : Colors.blue,
+            _SummaryCard(
+              label: 'الحالة',
+              value: statusLabel(record.status),
+              color: color,
             ),
-            _buildStatCard(
-              'الدخول',
-              _formatTimeAr(record.checkIn),
-              Colors.blue,
+            _SummaryCard(
+              label: 'الدخول',
+              value: _formatTime(record.checkIn),
+              color: color,
             ),
-            _buildStatCard(
-              'الخروج',
-              _formatTimeAr(record.checkOut),
-              record.checkOut == null ? Colors.red : Colors.blue,
+            _SummaryCard(
+              label: 'الخروج',
+              value: _formatTime(record.checkOut),
+              color: color,
             ),
-            _buildStatCard('التأخير', '${record.lateMinutes} د', Colors.orange),
-            _buildStatCard(
-              'خروج مبكر',
-              '${record.earlyLeaveMinutes} د',
-              Colors.orange,
+            _SummaryCard(
+              label: 'التأخير',
+              value: '${record.lateMinutes} د',
+              color: context.semanticColors.warning,
             ),
-            _buildStatCard(
-              'ساعات العمل',
-              '${(record.workedMinutes / 60).toStringAsFixed(1)} س',
-              Colors.green,
+            _SummaryCard(
+              label: 'خروج مبكر',
+              value: '${record.earlyLeaveMinutes} د',
+              color: context.semanticColors.warning,
+            ),
+            _SummaryCard(
+              label: 'ساعات العمل',
+              value: '${(record.workedMinutes / 60).toStringAsFixed(1)} س',
+              color: context.semanticColors.success,
             ),
           ],
         ),
@@ -340,112 +327,89 @@ class _AttendanceVisualSummaryChartState
     );
   }
 
-  Widget _buildDayTimeline(AttendanceRecordModel record, Color mainColor) {
-    DateTime? startDt = record.scheduledStart;
-    DateTime? endDt = record.scheduledEnd;
+  Widget _buildDayTimeline(
+    BuildContext context,
+    AttendanceRecordModel record,
+    Color mainColor,
+  ) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    var start = record.scheduledStart;
+    var end = record.scheduledEnd;
 
-    if (startDt == null || endDt == null) {
-      if (record.checkIn != null) {
-        startDt = record.checkIn!.subtract(const Duration(hours: 1));
-        endDt = (record.checkOut ?? record.checkIn!).add(
-          const Duration(hours: 1),
-        );
-      } else {
-        return const Center(
-          child: Padding(
-            padding: EdgeInsets.symmetric(vertical: 24.0),
-            child: Text('لا توجد بيانات دوام كافية لهذا اليوم'),
-          ),
-        );
-      }
+    if (start == null || end == null) {
+      if (record.checkIn == null) return _emptyPeriod(context);
+      start = record.checkIn!.subtract(const Duration(hours: 1));
+      end = (record.checkOut ?? record.checkIn!).add(const Duration(hours: 1));
     }
 
-    if (endDt.isBefore(startDt)) {
-      endDt = endDt.add(const Duration(days: 1));
-    }
+    if (end.isBefore(start)) end = end.add(const Duration(days: 1));
+    final totalMinutes = end.difference(start).inMinutes;
+    if (totalMinutes <= 0) return _emptyPeriod(context);
 
-    final int totalMinutes = endDt.difference(startDt).inMinutes;
-    if (totalMinutes <= 0) {
-      return const Center(
-        child: Padding(
-          padding: EdgeInsets.symmetric(vertical: 24.0),
-          child: Text('لا توجد بيانات دوام كافية لهذا اليوم'),
-        ),
-      );
-    }
-
-    DateTime? actualIn = record.checkIn;
-    DateTime? actualOut = record.checkOut;
-
-    // Night shift check-out crossing midnight check
-    if (actualIn != null && actualOut != null && actualOut.isBefore(actualIn)) {
+    var actualOut = record.checkOut;
+    if (record.checkIn != null &&
+        actualOut != null &&
+        actualOut.isBefore(record.checkIn!)) {
       actualOut = actualOut.add(const Duration(days: 1));
     }
 
-    double timeToPercent(DateTime? time) {
-      if (time == null) return 0.0;
-      DateTime t = time;
-      if (t.isBefore(startDt!.subtract(const Duration(hours: 12)))) {
-        t = t.add(const Duration(days: 1));
+    double percent(DateTime? value) {
+      if (value == null) return 0;
+      var adjusted = value;
+      if (adjusted.isBefore(start!.subtract(const Duration(hours: 12)))) {
+        adjusted = adjusted.add(const Duration(days: 1));
       }
-      int diff = t.difference(startDt).inMinutes;
-      if (diff < 0) diff = 0;
-      if (diff > totalMinutes) diff = totalMinutes;
-      return diff / totalMinutes;
+      final difference = adjusted.difference(start).inMinutes.clamp(0, totalMinutes);
+      return difference / totalMinutes;
     }
 
-    double inPos = timeToPercent(actualIn);
-    double outPos = timeToPercent(actualOut ?? actualIn);
-    double workPercent = outPos - inPos;
-    if (workPercent < 0) workPercent = 0;
+    final inPosition = percent(record.checkIn);
+    final outPosition = percent(actualOut ?? record.checkIn);
+    final workPercent = (outPosition - inPosition).clamp(0.0, 1.0);
 
     return Column(
       children: [
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Text(
-              _formatTimeAr(startDt),
-              style: const TextStyle(fontSize: 12, color: Colors.grey),
-              textDirection: TextDirection.rtl,
-            ),
-            Text(
-              _formatTimeAr(endDt),
-              style: const TextStyle(fontSize: 12, color: Colors.grey),
-              textDirection: TextDirection.rtl,
-            ),
+            Text(_formatTime(start), style: theme.textTheme.bodySmall),
+            Text(_formatTime(end), style: theme.textTheme.bodySmall),
           ],
         ),
-        const SizedBox(height: 8),
+        const SizedBox(height: AppSpacing.xs),
         LayoutBuilder(
           builder: (context, constraints) {
             final width = constraints.maxWidth;
             return Container(
-              height: 20,
-              width: width,
+              height: 18,
               decoration: BoxDecoration(
-                color: Colors.grey.shade200,
-                borderRadius: BorderRadius.circular(10),
+                color: scheme.surfaceContainerHighest,
+                borderRadius: BorderRadius.circular(AppRadius.pill),
               ),
               child: Stack(
                 children: [
                   if (record.status == 'absent')
-                    Container(
-                      decoration: BoxDecoration(
-                        color: Colors.red,
-                        borderRadius: BorderRadius.circular(10),
+                    Positioned.fill(
+                      child: DecoratedBox(
+                        decoration: BoxDecoration(
+                          color: scheme.error,
+                          borderRadius: BorderRadius.circular(AppRadius.pill),
+                        ),
                       ),
                     )
-                  else if (actualIn != null)
-                    Positioned(
-                      right: inPos * width,
-                      width: record.checkOut == null ? 10 : workPercent * width,
+                  else if (record.checkIn != null)
+                    PositionedDirectional(
+                      start: inPosition * width,
+                      width: record.checkOut == null
+                          ? AppSpacing.xs
+                          : workPercent * width,
                       top: 0,
                       bottom: 0,
-                      child: Container(
+                      child: DecoratedBox(
                         decoration: BoxDecoration(
                           color: mainColor,
-                          borderRadius: BorderRadius.circular(10),
+                          borderRadius: BorderRadius.circular(AppRadius.pill),
                         ),
                       ),
                     ),
@@ -454,21 +418,23 @@ class _AttendanceVisualSummaryChartState
             );
           },
         ),
-        const SizedBox(height: 8),
+        const SizedBox(height: AppSpacing.xs),
         Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
             if (record.checkIn != null)
-              Text(
-                'دخول فعلي: ${_formatTimeAr(record.checkIn)}',
-                style: TextStyle(fontSize: 12, color: mainColor),
-                textDirection: TextDirection.rtl,
+              Expanded(
+                child: Text(
+                  'دخول: ${_formatTime(record.checkIn)}',
+                  style: theme.textTheme.bodySmall?.copyWith(color: mainColor),
+                ),
               ),
             if (record.checkOut != null)
-              Text(
-                'خروج فعلي: ${_formatTimeAr(record.checkOut)}',
-                style: TextStyle(fontSize: 12, color: mainColor),
-                textDirection: TextDirection.rtl,
+              Expanded(
+                child: Text(
+                  'خروج: ${_formatTime(record.checkOut)}',
+                  textAlign: TextAlign.end,
+                  style: theme.textTheme.bodySmall?.copyWith(color: mainColor),
+                ),
               ),
           ],
         ),
@@ -476,83 +442,87 @@ class _AttendanceVisualSummaryChartState
     );
   }
 
-  Widget _buildWeekView(List<AttendanceRecordModel> records) {
-    int daysToSubtract = _currentDate.weekday == 7 ? 0 : _currentDate.weekday;
-    DateTime startOfWeek = _currentDate.subtract(
-      Duration(days: daysToSubtract),
-    );
+  Widget _buildWeekView(
+    BuildContext context,
+    List<AttendanceRecordModel> records,
+  ) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    final semantic = context.semanticColors;
+    final start = _weekStart(_currentDate);
 
-    List<Widget> dayColumns = [];
-    int presentCount = 0;
-    int absentCount = 0;
-    int totalLate = 0;
-    int reviewCount = 0;
+    var presentCount = 0;
+    var absentCount = 0;
+    var totalLate = 0;
+    var reviewCount = 0;
 
-    final List<String> weekDaysAr = [
-      'أحد',
-      'إثنين',
-      'ثلاثاء',
-      'أربعاء',
-      'خميس',
-      'جمعة',
-      'سبت',
-    ];
-
-    for (int i = 0; i < 7; i++) {
-      DateTime dayDate = startOfWeek.add(Duration(days: i));
-      var matches = records.where(
-        (r) =>
-            r.workDate.year == dayDate.year &&
-            r.workDate.month == dayDate.month &&
-            r.workDate.day == dayDate.day,
-      );
-
-      AttendanceRecordModel? rec = matches.isNotEmpty ? matches.first : null;
-      Color color = _getColorForRecord(rec);
-
-      if (rec != null) {
-        if (rec.status == 'present' ||
-            (rec.checkIn != null && rec.checkOut != null)) {
-          presentCount++;
-        } else if (rec.status == 'absent') {
-          absentCount++;
+    final dayColumns = <Widget>[];
+    for (var index = 0; index < 7; index++) {
+      final date = start.add(Duration(days: index));
+      AttendanceRecordModel? record;
+      for (final candidate in records) {
+        if (DateUtils.isSameDay(candidate.workDate, date)) {
+          record = candidate;
+          break;
         }
+      }
 
-        bool isMissingCheckout = rec.checkIn != null && rec.checkOut == null;
-        bool isMissingCheckin = rec.checkIn == null && rec.checkOut != null;
-        if (rec.status == 'needs_review' ||
-            isMissingCheckout ||
-            isMissingCheckin) {
+      final color = _recordColor(context, record);
+      if (record != null) {
+        if (record.status == 'absent') {
+          absentCount++;
+        } else if (record.status == 'present' ||
+            (record.checkIn != null && record.checkOut != null)) {
+          presentCount++;
+        }
+        if (record.status == 'needs_review' ||
+            record.status == 'incomplete' ||
+            (record.checkIn != null && record.checkOut == null) ||
+            (record.checkIn == null && record.checkOut != null)) {
           reviewCount++;
         }
-        totalLate += rec.lateMinutes;
+        totalLate += record.lateMinutes;
       }
 
       dayColumns.add(
         Expanded(
           child: Column(
             children: [
-              Text(weekDaysAr[i], style: const TextStyle(fontSize: 12)),
-              const SizedBox(height: 4),
-              Text(
-                '${dayDate.day}',
-                style: const TextStyle(fontWeight: FontWeight.bold),
+              FittedBox(
+                fit: BoxFit.scaleDown,
+                child: Text(_weekDaysAr[index], style: theme.textTheme.bodySmall),
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: AppSpacing.xxs),
+              Text(
+                '${date.day}',
+                style: theme.textTheme.titleSmall?.copyWith(
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              const SizedBox(height: AppSpacing.xs),
               Container(
-                height: 60,
-                width: 24,
+                height: 56,
+                width: 22,
                 decoration: BoxDecoration(
                   color: color,
-                  borderRadius: BorderRadius.circular(4),
+                  borderRadius: BorderRadius.circular(AppRadius.sm),
                 ),
               ),
-              const SizedBox(height: 8),
-              if (rec != null && rec.lateMinutes > 0)
-                Text(
-                  '${rec.lateMinutes} د',
-                  style: const TextStyle(fontSize: 10, color: Colors.orange),
-                ),
+              const SizedBox(height: AppSpacing.xxs),
+              SizedBox(
+                height: 18,
+                child: record != null && record.lateMinutes > 0
+                    ? FittedBox(
+                        fit: BoxFit.scaleDown,
+                        child: Text(
+                          '${record.lateMinutes} د',
+                          style: theme.textTheme.labelSmall?.copyWith(
+                            color: semantic.warning,
+                          ),
+                        ),
+                      )
+                    : null,
+              ),
             ],
           ),
         ),
@@ -561,84 +531,120 @@ class _AttendanceVisualSummaryChartState
 
     return Column(
       children: [
-        const SizedBox(height: 16),
+        const SizedBox(height: AppSpacing.sm),
         Row(
-          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
           crossAxisAlignment: CrossAxisAlignment.end,
           children: dayColumns,
         ),
-        const SizedBox(height: 32),
-        const Divider(),
-        const SizedBox(height: 16),
-        Wrap(
-          spacing: 12,
-          runSpacing: 12,
-          alignment: WrapAlignment.center,
+        const SizedBox(height: AppSpacing.lg),
+        Divider(color: scheme.outlineVariant),
+        const SizedBox(height: AppSpacing.sm),
+        Row(
           children: [
-            _buildStatCard('أيام الحضور', '$presentCount', Colors.green),
-            _buildStatCard('أيام الغياب', '$absentCount', Colors.red),
-            _buildStatCard('إجمالي التأخير', '$totalLate د', Colors.orange),
-            _buildStatCard('حالات المراجعة', '$reviewCount', Colors.grey),
+            Expanded(
+              child: _SummaryCard(
+                label: 'أيام الحضور',
+                value: '$presentCount',
+                color: semantic.success,
+                compact: true,
+              ),
+            ),
+            const SizedBox(width: AppSpacing.xxs),
+            Expanded(
+              child: _SummaryCard(
+                label: 'أيام الغياب',
+                value: '$absentCount',
+                color: scheme.error,
+                compact: true,
+              ),
+            ),
+            const SizedBox(width: AppSpacing.xxs),
+            Expanded(
+              child: _SummaryCard(
+                label: 'إجمالي التأخير',
+                value: '$totalLate د',
+                color: semantic.warning,
+                compact: true,
+              ),
+            ),
+            const SizedBox(width: AppSpacing.xxs),
+            Expanded(
+              child: _SummaryCard(
+                label: 'حالات المراجعة',
+                value: '$reviewCount',
+                color: scheme.onSurfaceVariant,
+                compact: true,
+              ),
+            ),
           ],
         ),
       ],
     );
   }
 
-  Widget _buildMonthView(List<AttendanceRecordModel> records) {
-    int daysInMonth = DateUtils.getDaysInMonth(
+  Widget _buildMonthView(
+    BuildContext context,
+    List<AttendanceRecordModel> records,
+  ) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    final semantic = context.semanticColors;
+    final daysInMonth = DateUtils.getDaysInMonth(
       _currentDate.year,
       _currentDate.month,
     );
 
-    int presentCount = 0;
-    int absentCount = 0;
-    int lateDaysCount = 0;
-    int totalLateMins = 0;
-    int totalEarlyMins = 0;
-    int reviewCount = 0;
+    var presentCount = 0;
+    var absentCount = 0;
+    var lateDaysCount = 0;
+    var totalLateMinutes = 0;
+    var totalEarlyMinutes = 0;
+    var reviewCount = 0;
 
-    List<Widget> gridItems = [];
-
-    for (int i = 1; i <= daysInMonth; i++) {
-      var matches = records.where(
-        (r) =>
-            r.workDate.year == _currentDate.year &&
-            r.workDate.month == _currentDate.month &&
-            r.workDate.day == i,
-      );
-
-      AttendanceRecordModel? rec = matches.isNotEmpty ? matches.first : null;
-      Color color = _getColorForRecord(rec);
-
-      if (rec != null) {
-        if (rec.status == 'present' ||
-            (rec.checkIn != null && rec.checkOut != null)) {
-          presentCount++;
-        } else if (rec.status == 'absent') {
-          absentCount++;
+    final cells = <Widget>[];
+    for (var day = 1; day <= daysInMonth; day++) {
+      AttendanceRecordModel? record;
+      for (final candidate in records) {
+        if (candidate.workDate.year == _currentDate.year &&
+            candidate.workDate.month == _currentDate.month &&
+            candidate.workDate.day == day) {
+          record = candidate;
+          break;
         }
-
-        bool isMissingCheckout = rec.checkIn != null && rec.checkOut == null;
-        bool isMissingCheckin = rec.checkIn == null && rec.checkOut != null;
-        if (rec.status == 'needs_review' ||
-            isMissingCheckout ||
-            isMissingCheckin) {
-          reviewCount++;
-        }
-        if (rec.lateMinutes > 0) lateDaysCount++;
-        totalLateMins += rec.lateMinutes;
-        totalEarlyMins += rec.earlyLeaveMinutes;
       }
 
-      gridItems.add(
+      final color = _recordColor(context, record);
+      if (record != null) {
+        if (record.status == 'absent') {
+          absentCount++;
+        } else if (record.status == 'present' ||
+            (record.checkIn != null && record.checkOut != null)) {
+          presentCount++;
+        }
+        if (record.lateMinutes > 0) lateDaysCount++;
+        totalLateMinutes += record.lateMinutes;
+        totalEarlyMinutes += record.earlyLeaveMinutes;
+        if (record.status == 'needs_review' ||
+            record.status == 'incomplete' ||
+            (record.checkIn != null && record.checkOut == null) ||
+            (record.checkIn == null && record.checkOut != null)) {
+          reviewCount++;
+        }
+      }
+
+      cells.add(
         Container(
-          margin: const EdgeInsets.all(4),
-          decoration: BoxDecoration(color: color, shape: BoxShape.circle),
-          child: Center(
-            child: Text(
-              '$i',
-              style: const TextStyle(color: Colors.white, fontSize: 12),
+          margin: const EdgeInsets.all(AppSpacing.xxs),
+          decoration: BoxDecoration(
+            color: color,
+            shape: BoxShape.circle,
+          ),
+          alignment: Alignment.center,
+          child: Text(
+            '$day',
+            style: theme.textTheme.labelSmall?.copyWith(
+              color: record == null ? scheme.onSurfaceVariant : scheme.surface,
+              fontWeight: FontWeight.w700,
             ),
           ),
         ),
@@ -647,62 +653,152 @@ class _AttendanceVisualSummaryChartState
 
     return Column(
       children: [
-        const SizedBox(height: 16),
+        const SizedBox(height: AppSpacing.sm),
         GridView.count(
           crossAxisCount: 7,
           shrinkWrap: true,
           physics: const NeverScrollableScrollPhysics(),
-          children: gridItems,
+          children: cells,
         ),
-        const SizedBox(height: 32),
-        const Divider(),
-        const SizedBox(height: 16),
-        Wrap(
-          spacing: 12,
-          runSpacing: 12,
-          alignment: WrapAlignment.center,
+        const SizedBox(height: AppSpacing.lg),
+        Divider(color: scheme.outlineVariant),
+        const SizedBox(height: AppSpacing.sm),
+        GridView.count(
+          crossAxisCount: 3,
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          mainAxisSpacing: AppSpacing.xs,
+          crossAxisSpacing: AppSpacing.xs,
+          childAspectRatio: 1.65,
           children: [
-            _buildStatCard('الحضور', '$presentCount', Colors.green),
-            _buildStatCard('الغياب', '$absentCount', Colors.red),
-            _buildStatCard('أيام التأخير', '$lateDaysCount', Colors.orange),
-            _buildStatCard('دقائق التأخير', '$totalLateMins', Colors.orange),
-            _buildStatCard('خروج مبكر', '$totalEarlyMins', Colors.orange),
-            _buildStatCard('مراجعة', '$reviewCount', Colors.grey),
+            _SummaryCard(
+              label: 'الحضور',
+              value: '$presentCount',
+              color: semantic.success,
+            ),
+            _SummaryCard(
+              label: 'الغياب',
+              value: '$absentCount',
+              color: scheme.error,
+            ),
+            _SummaryCard(
+              label: 'أيام التأخير',
+              value: '$lateDaysCount',
+              color: semantic.warning,
+            ),
+            _SummaryCard(
+              label: 'دقائق التأخير',
+              value: '$totalLateMinutes',
+              color: semantic.warning,
+            ),
+            _SummaryCard(
+              label: 'خروج مبكر',
+              value: '$totalEarlyMinutes',
+              color: semantic.warning,
+            ),
+            _SummaryCard(
+              label: 'مراجعة',
+              value: '$reviewCount',
+              color: scheme.onSurfaceVariant,
+            ),
           ],
         ),
       ],
     );
   }
 
-  Widget _buildStatCard(String label, String value, Color color) {
+  Widget _attentionBanner(BuildContext context, String text) {
+    final semantic = context.semanticColors;
     return Container(
-      width: 100,
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.all(AppSpacing.sm),
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: color.withValues(alpha: 0.3)),
+        color: semantic.warningContainer,
+        borderRadius: BorderRadius.circular(AppRadius.md),
+      ),
+      child: Text(
+        text,
+        textAlign: TextAlign.center,
+        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+          color: semantic.onWarningContainer,
+          fontWeight: FontWeight.w600,
+        ),
+      ),
+    );
+  }
+
+  Widget _emptyPeriod(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: AppSpacing.xl),
+      child: Text(
+        'لا توجد بيانات دوام لهذه الفترة',
+        textAlign: TextAlign.center,
+        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+          color: scheme.onSurfaceVariant,
+        ),
+      ),
+    );
+  }
+}
+
+class _SummaryCard extends StatelessWidget {
+  final String label;
+  final String value;
+  final Color color;
+  final bool compact;
+
+  const _SummaryCard({
+    required this.label,
+    required this.value,
+    required this.color,
+    this.compact = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+
+    return Container(
+      constraints: BoxConstraints(minHeight: compact ? 82 : 88),
+      padding: EdgeInsets.symmetric(
+        horizontal: compact ? AppSpacing.xxs : AppSpacing.xs,
+        vertical: AppSpacing.xs,
+      ),
+      decoration: BoxDecoration(
+        color: scheme.surfaceContainerLowest,
+        borderRadius: BorderRadius.circular(AppRadius.md),
+        border: Border.all(color: color.withValues(alpha: .28)),
       ),
       child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Text(
-            label,
-            style: TextStyle(fontSize: 12, color: Colors.grey.shade700),
-            textAlign: TextAlign.center,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-          ),
-          const SizedBox(height: 8),
-          Text(
-            value,
-            style: TextStyle(
-              fontWeight: FontWeight.bold,
-              fontSize: 14,
-              color: color,
+          SizedBox(
+            height: compact ? 34 : 36,
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Text(
+                label,
+                textAlign: TextAlign.center,
+                maxLines: 2,
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: scheme.onSurfaceVariant,
+                ),
+              ),
             ),
-            textAlign: TextAlign.center,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
+          ),
+          const SizedBox(height: AppSpacing.xxs),
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            child: Text(
+              value,
+              textAlign: TextAlign.center,
+              maxLines: 1,
+              style: theme.textTheme.titleSmall?.copyWith(
+                color: color,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
           ),
         ],
       ),
