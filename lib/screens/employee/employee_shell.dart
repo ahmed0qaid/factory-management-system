@@ -7,7 +7,9 @@ import '../../permissions/role_permissions.dart';
 import '../../services/auth_service.dart';
 import '../../services/employee_service.dart';
 import '../../services/employee_tab_navigation.dart';
+import '../../widgets/common/app_error_state.dart';
 import '../../widgets/common/app_loading_button.dart';
+import '../../widgets/common/app_loading_state.dart';
 import '../../widgets/common/app_scaffold.dart';
 import '../admin/admin_dashboard_screen.dart';
 import '../auth/force_password_change_screen.dart';
@@ -164,55 +166,15 @@ class _EmployeeShellState extends State<EmployeeShell> {
     if (_isAuthenticating) {
       return const AppScaffold(
         title: '',
-        body: Center(child: CircularProgressIndicator()),
+        showAppBar: false,
+        body: AppLoadingState(label: 'جاري التحقق من الحساب'),
       );
     }
 
     if (!_isAuthenticated) {
       return AppScaffold(
         title: 'قفل التطبيق',
-        body: Center(
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 420),
-            child: Padding(
-              padding: const EdgeInsets.all(24),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Icon(Icons.lock_outline, size: 64),
-                  const SizedBox(height: 16),
-                  Text(
-                    'التطبيق مقفل',
-                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                          fontWeight: FontWeight.bold,
-                        ),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    _authenticationMessage ??
-                        'استخدم البصمة المفعلة على جهازك للمتابعة.',
-                    textAlign: TextAlign.center,
-                  ),
-                  const SizedBox(height: 20),
-                  SizedBox(
-                    width: double.infinity,
-                    child: AppLoadingButton(
-                      onPressed: _checkBiometricsAndLoad,
-                      icon: Icons.fingerprint,
-                      text: 'إعادة محاولة البصمة',
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  TextButton.icon(
-                    onPressed: _signOut,
-                    icon: const Icon(Icons.logout),
-                    label: const Text('تسجيل الخروج'),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ),
+        body: _buildLockedState(context),
       );
     }
 
@@ -222,33 +184,16 @@ class _EmployeeShellState extends State<EmployeeShell> {
         if (snapshot.connectionState != ConnectionState.done) {
           return const AppScaffold(
             title: 'تحميل الحساب',
-            body: Center(child: CircularProgressIndicator()),
+            body: AppLoadingState(label: 'جاري تحميل بيانات الحساب'),
           );
         }
         if (snapshot.hasError) {
           return AppScaffold(
             title: 'تعذر تحميل الحساب',
-            body: Center(
-              child: Padding(
-                padding: const EdgeInsets.all(24),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Icon(Icons.error_outline, size: 52),
-                    const SizedBox(height: 12),
-                    Text(
-                      'خطأ في تحميل الحساب: ${snapshot.error}',
-                      textAlign: TextAlign.center,
-                    ),
-                    const SizedBox(height: 16),
-                    FilledButton.icon(
-                      onPressed: _reloadProfile,
-                      icon: const Icon(Icons.refresh),
-                      label: const Text('إعادة المحاولة'),
-                    ),
-                  ],
-                ),
-              ),
+            body: AppErrorState(
+              title: 'تعذر تحميل بيانات الحساب',
+              message: 'تحقق من الاتصال ثم أعد المحاولة.',
+              onRetry: _reloadProfile,
             ),
           );
         }
@@ -317,6 +262,69 @@ class _EmployeeShellState extends State<EmployeeShell> {
     );
   }
 
+  Widget _buildLockedState(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+
+    return Center(
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 420),
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 64,
+                height: 64,
+                decoration: BoxDecoration(
+                  color: scheme.primaryContainer,
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  Icons.lock_outline,
+                  size: 32,
+                  color: scheme.onPrimaryContainer,
+                ),
+              ),
+              const SizedBox(height: 16),
+              Text(
+                'التطبيق مقفل',
+                style: theme.textTheme.titleLarge?.copyWith(
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                _authenticationMessage ??
+                    'استخدم البصمة المفعلة على جهازك للمتابعة.',
+                textAlign: TextAlign.center,
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: scheme.onSurfaceVariant,
+                ),
+              ),
+              const SizedBox(height: 20),
+              SizedBox(
+                width: double.infinity,
+                child: AppLoadingButton(
+                  onPressed: _checkBiometricsAndLoad,
+                  icon: Icons.fingerprint,
+                  text: 'إعادة محاولة البصمة',
+                ),
+              ),
+              const SizedBox(height: 8),
+              TextButton.icon(
+                onPressed: _signOut,
+                icon: const Icon(Icons.logout),
+                label: const Text('تسجيل الخروج'),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _buildDrawer(ProfileModel profile) {
     void closeThen(VoidCallback action) {
       Navigator.of(context).pop();
@@ -324,6 +332,9 @@ class _EmployeeShellState extends State<EmployeeShell> {
     }
 
     void open(Widget page) => _openPage(page);
+
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
 
     return Drawer(
       child: SafeArea(
@@ -335,8 +346,14 @@ class _EmployeeShellState extends State<EmployeeShell> {
                 children: [
                   CircleAvatar(
                     radius: 28,
+                    backgroundColor: scheme.primaryContainer,
+                    foregroundColor: scheme.onPrimaryContainer,
                     child: Text(
                       profile.fullName.isNotEmpty ? profile.fullName[0] : 'م',
+                      style: theme.textTheme.titleMedium?.copyWith(
+                        color: scheme.onPrimaryContainer,
+                        fontWeight: FontWeight.w700,
+                      ),
                     ),
                   ),
                   const SizedBox(width: 12),
@@ -348,9 +365,9 @@ class _EmployeeShellState extends State<EmployeeShell> {
                           'نظام إدارة موظفي المصنع',
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                                fontWeight: FontWeight.bold,
-                              ),
+                          style: theme.textTheme.titleMedium?.copyWith(
+                            fontWeight: FontWeight.w700,
+                          ),
                         ),
                         const SizedBox(height: 3),
                         Text(
@@ -360,7 +377,9 @@ class _EmployeeShellState extends State<EmployeeShell> {
                         ),
                         Text(
                           profile.roleLabel,
-                          style: Theme.of(context).textTheme.bodySmall,
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: scheme.onSurfaceVariant,
+                          ),
                         ),
                       ],
                     ),
@@ -422,8 +441,11 @@ class _EmployeeShellState extends State<EmployeeShell> {
             ),
             const Divider(height: 1),
             ListTile(
-              leading: const Icon(Icons.logout),
-              title: const Text('تسجيل الخروج'),
+              leading: Icon(Icons.logout, color: scheme.error),
+              title: Text(
+                'تسجيل الخروج',
+                style: TextStyle(color: scheme.error),
+              ),
               onTap: _signOut,
             ),
           ],
