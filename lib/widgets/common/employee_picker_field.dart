@@ -1,12 +1,15 @@
 import 'package:flutter/material.dart';
 
 import '../../models/profile_model.dart';
+import '../../theme/app_radius.dart';
+import '../../theme/app_spacing.dart';
+import 'app_empty_state.dart';
 
 /// Reusable searchable employee picker.
 ///
-/// On compact and desktop layouts the field stays small in the form, while the
-/// actual employee directory opens in a searchable bottom sheet. This scales
-/// better than a long DropdownButton when the company has many employees.
+/// The form keeps a compact selected-value field, while the actual directory
+/// opens in a searchable bottom sheet. This scales better than a long dropdown
+/// when the company has many employees.
 class EmployeePickerField extends StatelessWidget {
   final List<ProfileModel> employees;
   final String? selectedEmployeeId;
@@ -38,6 +41,8 @@ class EmployeePickerField extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
     final selected = _selectedEmployee;
     final primaryText = selected == null
         ? (allowAll ? allEmployeesLabel : 'اختر موظفًا')
@@ -46,37 +51,45 @@ class EmployeePickerField extends StatelessWidget {
         ? (allowAll ? 'بدون تصفية حسب الموظف' : 'ابحث بالاسم أو الرقم الوظيفي')
         : _employeeMeta(selected);
 
-    return InkWell(
-      onTap: enabled ? () => _openPicker(context) : null,
-      borderRadius: BorderRadius.circular(12),
-      child: InputDecorator(
-        decoration: InputDecoration(
-          labelText: labelText,
-          border: const OutlineInputBorder(),
-          enabled: enabled,
-          prefixIcon: const Icon(Icons.person_search_outlined),
-          suffixIcon: const Icon(Icons.keyboard_arrow_down),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              primaryText,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: Theme.of(context).textTheme.bodyLarge,
-            ),
-            const SizedBox(height: 2),
-            Text(
-              secondaryText,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: Theme.of(context).colorScheme.onSurfaceVariant,
-                  ),
-            ),
-          ],
+    return Semantics(
+      button: true,
+      enabled: enabled,
+      label: '$labelText: $primaryText',
+      child: InkWell(
+        onTap: enabled ? () => _openPicker(context) : null,
+        borderRadius: AppRadius.control,
+        child: InputDecorator(
+          isEmpty: selected == null && !allowAll,
+          decoration: InputDecoration(
+            labelText: labelText,
+            enabled: enabled,
+            prefixIcon: const Icon(Icons.person_search_outlined),
+            suffixIcon: const Icon(Icons.keyboard_arrow_down_rounded),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                primaryText,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: theme.textTheme.bodyLarge?.copyWith(
+                  color: enabled ? scheme.onSurface : scheme.onSurfaceVariant,
+                  fontWeight: selected == null ? FontWeight.w500 : FontWeight.w600,
+                ),
+              ),
+              const SizedBox(height: AppSpacing.xxs),
+              Text(
+                secondaryText,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: scheme.onSurfaceVariant,
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -158,9 +171,12 @@ class _EmployeePickerSheetState extends State<_EmployeePickerSheet> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
     final height = MediaQuery.sizeOf(context).height;
     final bottomInset = MediaQuery.viewInsetsOf(context).bottom;
     final results = _filteredEmployees;
+    final isRtl = Directionality.of(context) == TextDirection.rtl;
 
     return Padding(
       padding: EdgeInsets.only(bottom: bottomInset),
@@ -173,16 +189,46 @@ class _EmployeePickerSheetState extends State<_EmployeePickerSheet> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
+                Center(
+                  child: Container(
+                    width: 40,
+                    height: 4,
+                    margin: const EdgeInsets.only(
+                      top: AppSpacing.sm,
+                      bottom: AppSpacing.xs,
+                    ),
+                    decoration: BoxDecoration(
+                      color: scheme.outlineVariant,
+                      borderRadius: BorderRadius.circular(AppRadius.pill),
+                    ),
+                  ),
+                ),
                 Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 16, 16, 10),
+                  padding: const EdgeInsetsDirectional.fromSTEB(
+                    AppSpacing.md,
+                    AppSpacing.xs,
+                    AppSpacing.xs,
+                    AppSpacing.sm,
+                  ),
                   child: Row(
                     children: [
                       Expanded(
-                        child: Text(
-                          'اختيار الموظف',
-                          style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                                fontWeight: FontWeight.bold,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'اختيار الموظف',
+                              style: theme.textTheme.titleLarge?.copyWith(
+                                fontWeight: FontWeight.w700,
                               ),
+                            ),
+                            Text(
+                              '${results.length} من ${widget.employees.length} موظف',
+                              style: theme.textTheme.bodySmall?.copyWith(
+                                color: scheme.onSurfaceVariant,
+                              ),
+                            ),
+                          ],
                         ),
                       ),
                       IconButton(
@@ -194,10 +240,11 @@ class _EmployeePickerSheetState extends State<_EmployeePickerSheet> {
                   ),
                 ),
                 Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
                   child: TextField(
                     controller: _searchController,
                     autofocus: true,
+                    textInputAction: TextInputAction.search,
                     onChanged: (value) => setState(() => _query = value),
                     decoration: InputDecoration(
                       hintText: 'ابحث بالاسم أو الرقم الوظيفي أو القسم...',
@@ -212,48 +259,72 @@ class _EmployeePickerSheetState extends State<_EmployeePickerSheet> {
                               },
                               icon: const Icon(Icons.close),
                             ),
-                      border: const OutlineInputBorder(),
                     ),
                   ),
                 ),
-                const SizedBox(height: 8),
-                if (widget.allowAll)
-                  ListTile(
-                    leading: const CircleAvatar(
-                      child: Icon(Icons.groups_outlined),
-                    ),
-                    title: Text(widget.allEmployeesLabel),
-                    subtitle: const Text('عرض التقرير لجميع الموظفين'),
-                    trailing: widget.selectedEmployeeId == null
-                        ? const Icon(Icons.check_circle)
-                        : null,
-                    onTap: () => Navigator.pop(
-                      context,
-                      _EmployeePickerSheet.allSentinel,
+                const SizedBox(height: AppSpacing.sm),
+                if (widget.allowAll) ...[
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm),
+                    child: ListTile(
+                      leading: CircleAvatar(
+                        backgroundColor: scheme.secondaryContainer,
+                        foregroundColor: scheme.onSecondaryContainer,
+                        child: const Icon(Icons.groups_outlined),
+                      ),
+                      title: Text(widget.allEmployeesLabel),
+                      subtitle: const Text('عرض التقرير لجميع الموظفين'),
+                      trailing: widget.selectedEmployeeId == null
+                          ? Icon(Icons.check_circle, color: scheme.primary)
+                          : Icon(
+                              isRtl ? Icons.chevron_left : Icons.chevron_right,
+                              color: scheme.onSurfaceVariant,
+                            ),
+                      selected: widget.selectedEmployeeId == null,
+                      selectedTileColor: scheme.primaryContainer.withValues(alpha: .45),
+                      onTap: () => Navigator.pop(
+                        context,
+                        _EmployeePickerSheet.allSentinel,
+                      ),
                     ),
                   ),
-                if (widget.allowAll) const Divider(height: 1),
+                  const Divider(height: AppSpacing.md),
+                ],
                 Expanded(
                   child: results.isEmpty
-                      ? const Center(
-                          child: Padding(
-                            padding: EdgeInsets.all(24),
-                            child: Text('لا يوجد موظف مطابق لعملية البحث.'),
-                          ),
+                      ? const AppEmptyState(
+                          title: 'لا توجد نتائج',
+                          message: 'جرّب البحث باسم آخر أو بالرقم الوظيفي.',
+                          icon: Icons.person_search_outlined,
                         )
                       : ListView.separated(
                           keyboardDismissBehavior:
                               ScrollViewKeyboardDismissBehavior.onDrag,
-                          padding: const EdgeInsets.symmetric(vertical: 6),
+                          padding: const EdgeInsets.fromLTRB(
+                            AppSpacing.sm,
+                            0,
+                            AppSpacing.sm,
+                            AppSpacing.md,
+                          ),
                           itemCount: results.length,
-                          separatorBuilder: (_, __) => const Divider(height: 1),
+                          separatorBuilder: (_, __) =>
+                              const SizedBox(height: AppSpacing.xxs),
                           itemBuilder: (context, index) {
                             final employee = results[index];
                             final selected =
                                 employee.id == widget.selectedEmployeeId;
                             final trimmedName = employee.fullName.trim();
                             return ListTile(
+                              selected: selected,
+                              selectedTileColor:
+                                  scheme.primaryContainer.withValues(alpha: .45),
                               leading: CircleAvatar(
+                                backgroundColor: selected
+                                    ? scheme.primaryContainer
+                                    : scheme.surfaceContainerHighest,
+                                foregroundColor: selected
+                                    ? scheme.onPrimaryContainer
+                                    : scheme.onSurfaceVariant,
                                 child: Text(
                                   trimmedName.isEmpty ? 'م' : trimmedName[0],
                                 ),
@@ -269,8 +340,13 @@ class _EmployeePickerSheetState extends State<_EmployeePickerSheet> {
                                 overflow: TextOverflow.ellipsis,
                               ),
                               trailing: selected
-                                  ? const Icon(Icons.check_circle)
-                                  : const Icon(Icons.chevron_left),
+                                  ? Icon(Icons.check_circle, color: scheme.primary)
+                                  : Icon(
+                                      isRtl
+                                          ? Icons.chevron_left
+                                          : Icons.chevron_right,
+                                      color: scheme.onSurfaceVariant,
+                                    ),
                               onTap: () => Navigator.pop(context, employee.id),
                             );
                           },
