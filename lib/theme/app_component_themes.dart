@@ -11,7 +11,7 @@ class AppComponentThemes {
       centerTitle: false,
       backgroundColor: scheme.surface,
       foregroundColor: scheme.onSurface,
-      surfaceTintColor: scheme.surface,
+      surfaceTintColor: Colors.transparent,
       elevation: 0,
       scrolledUnderElevation: 0,
       titleSpacing: AppSpacing.md,
@@ -115,13 +115,34 @@ class AppComponentThemes {
     );
   }
 
+  static ElevatedButtonThemeData elevatedButton(ColorScheme scheme) {
+    return ElevatedButtonThemeData(
+      style: ElevatedButton.styleFrom(
+        minimumSize: const Size(48, 48),
+        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
+        backgroundColor: scheme.surfaceContainerLowest,
+        foregroundColor: scheme.primary,
+        shadowColor: Colors.transparent,
+        surfaceTintColor: Colors.transparent,
+        elevation: 0,
+        side: BorderSide(color: scheme.outlineVariant),
+        shape: const RoundedRectangleBorder(borderRadius: AppRadius.control),
+        textStyle: const TextStyle(
+          fontFamily: 'Cairo',
+          fontSize: 14,
+          fontWeight: FontWeight.w600,
+        ),
+      ),
+    );
+  }
+
   static OutlinedButtonThemeData outlinedButton(ColorScheme scheme) {
     return OutlinedButtonThemeData(
       style: OutlinedButton.styleFrom(
         minimumSize: const Size(48, 48),
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         foregroundColor: scheme.primary,
-        side: BorderSide(color: scheme.outline),
+        side: BorderSide(color: scheme.outlineVariant),
         shape: const RoundedRectangleBorder(borderRadius: AppRadius.control),
         textStyle: const TextStyle(
           fontFamily: 'Cairo',
@@ -146,6 +167,23 @@ class AppComponentThemes {
     );
   }
 
+  static IconButtonThemeData iconButton(ColorScheme scheme) {
+    return IconButtonThemeData(
+      style: ButtonStyle(
+        foregroundColor: WidgetStateProperty.resolveWith((states) {
+          if (states.contains(WidgetState.disabled)) {
+            return scheme.onSurface.withValues(alpha: .38);
+          }
+          if (states.contains(WidgetState.selected)) return scheme.primary;
+          return scheme.onSurfaceVariant;
+        }),
+        overlayColor: WidgetStatePropertyAll(
+          scheme.primary.withValues(alpha: .08),
+        ),
+      ),
+    );
+  }
+
   static FloatingActionButtonThemeData floatingActionButton(ColorScheme scheme) {
     return FloatingActionButtonThemeData(
       elevation: 1,
@@ -162,6 +200,8 @@ class AppComponentThemes {
     return ListTileThemeData(
       iconColor: scheme.onSurfaceVariant,
       textColor: scheme.onSurface,
+      selectedColor: scheme.primary,
+      selectedTileColor: scheme.primaryContainer.withValues(alpha: .45),
       contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
       titleTextStyle: textTheme.bodyLarge?.copyWith(
         color: scheme.onSurface,
@@ -188,6 +228,89 @@ class AppComponentThemes {
         if (states.contains(WidgetState.selected)) return scheme.primary;
         return scheme.outline;
       }),
+    );
+  }
+
+  static CheckboxThemeData checkbox(ColorScheme scheme) {
+    return CheckboxThemeData(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
+      side: BorderSide(color: scheme.outline),
+      fillColor: WidgetStateProperty.resolveWith((states) {
+        if (states.contains(WidgetState.selected)) return scheme.primary;
+        return Colors.transparent;
+      }),
+      checkColor: WidgetStatePropertyAll(scheme.onPrimary),
+    );
+  }
+
+  static RadioThemeData radio(ColorScheme scheme) {
+    return RadioThemeData(
+      fillColor: WidgetStateProperty.resolveWith((states) {
+        if (states.contains(WidgetState.selected)) return scheme.primary;
+        return scheme.onSurfaceVariant;
+      }),
+    );
+  }
+
+  static SegmentedButtonThemeData segmentedButton(ColorScheme scheme) {
+    return SegmentedButtonThemeData(
+      style: ButtonStyle(
+        minimumSize: const WidgetStatePropertyAll(Size(44, 44)),
+        foregroundColor: WidgetStateProperty.resolveWith((states) {
+          return states.contains(WidgetState.selected)
+              ? scheme.onSecondaryContainer
+              : scheme.onSurfaceVariant;
+        }),
+        backgroundColor: WidgetStateProperty.resolveWith((states) {
+          return states.contains(WidgetState.selected)
+              ? scheme.secondaryContainer
+              : scheme.surfaceContainerLowest;
+        }),
+        side: WidgetStatePropertyAll(
+          BorderSide(color: scheme.outlineVariant),
+        ),
+        textStyle: const WidgetStatePropertyAll(
+          TextStyle(
+            fontFamily: 'Cairo',
+            fontSize: 13,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+      ),
+    );
+  }
+
+  static PopupMenuThemeData popupMenu(ColorScheme scheme, TextTheme textTheme) {
+    return PopupMenuThemeData(
+      color: scheme.surfaceContainer,
+      surfaceTintColor: Colors.transparent,
+      textStyle: textTheme.bodyMedium?.copyWith(color: scheme.onSurface),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+    );
+  }
+
+  static DatePickerThemeData datePicker(ColorScheme scheme) {
+    return DatePickerThemeData(
+      backgroundColor: scheme.surfaceContainerLow,
+      surfaceTintColor: Colors.transparent,
+      headerBackgroundColor: scheme.primaryContainer,
+      headerForegroundColor: scheme.onPrimaryContainer,
+      todayForegroundColor: WidgetStatePropertyAll(scheme.primary),
+      todayBorder: BorderSide(color: scheme.primary),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+    );
+  }
+
+  static TimePickerThemeData timePicker(ColorScheme scheme) {
+    return TimePickerThemeData(
+      backgroundColor: scheme.surfaceContainerLow,
+      dialBackgroundColor: scheme.surfaceContainerHighest,
+      dialHandColor: scheme.primary,
+      hourMinuteColor: scheme.surfaceContainerHighest,
+      hourMinuteTextColor: scheme.onSurface,
+      dayPeriodColor: scheme.surfaceContainerHighest,
+      dayPeriodTextColor: scheme.onSurface,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
     );
   }
 }
