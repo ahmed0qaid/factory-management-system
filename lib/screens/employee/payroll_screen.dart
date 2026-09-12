@@ -5,7 +5,7 @@ import '../../models/payroll_model.dart';
 import '../../services/employee_service.dart';
 import '../../services/pdf_service.dart';
 import '../../services/salary_calculation_service.dart';
-import '../../theme/app_colors.dart';
+import '../../theme/app_semantic_colors.dart';
 import '../../utils/formatters.dart';
 import '../../widgets/common/app_card.dart';
 import '../../widgets/common/app_empty_state.dart';
@@ -40,7 +40,8 @@ class _PayrollScreenState extends State<PayrollScreen> {
     _periodFuture = _loadPeriod(_selectedYear, _selectedMonth!);
   }
 
-  String _periodKey(int year, int month) => '$year-${month.toString().padLeft(2, '0')}';
+  String _periodKey(int year, int month) =>
+      '$year-${month.toString().padLeft(2, '0')}';
 
   Future<_PayrollPeriodViewData> _loadPeriod(int year, int month) {
     final key = _periodKey(year, month);
@@ -136,7 +137,9 @@ class _PayrollScreenState extends State<PayrollScreen> {
               future: _periodFuture,
               builder: (context, snapshot) {
                 if (snapshot.connectionState != ConnectionState.done) {
-                  return const AppLoadingState(label: 'جاري تحميل بيانات الراتب');
+                  return const AppLoadingState(
+                    label: 'جاري تحميل بيانات الراتب',
+                  );
                 }
                 if (snapshot.hasError) {
                   return AppErrorState(
@@ -163,7 +166,10 @@ class _PayrollScreenState extends State<PayrollScreen> {
 
   Widget _buildYearSelector() {
     final currentYear = DateTime.now().year;
-    final years = List.generate(currentYear - 2020 + 1, (index) => currentYear - index);
+    final years = List.generate(
+      currentYear - 2020 + 1,
+      (index) => currentYear - index,
+    );
     final theme = Theme.of(context);
 
     return Column(
@@ -171,7 +177,9 @@ class _PayrollScreenState extends State<PayrollScreen> {
       children: [
         Text(
           'اختر السنة',
-          style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+          style: theme.textTheme.titleMedium?.copyWith(
+            fontWeight: FontWeight.w700,
+          ),
         ),
         const SizedBox(height: 8),
         SizedBox(
@@ -206,7 +214,9 @@ class _PayrollScreenState extends State<PayrollScreen> {
             Expanded(
               child: Text(
                 'اختر الشهر',
-                style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+                style: theme.textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.w700,
+                ),
               ),
             ),
             Text(
@@ -271,6 +281,8 @@ class _PayrollScreenState extends State<PayrollScreen> {
     PayrollRecordModel? official,
   ) {
     final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+
     return AppCard(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       child: Row(
@@ -279,13 +291,13 @@ class _PayrollScreenState extends State<PayrollScreen> {
             width: 38,
             height: 38,
             decoration: BoxDecoration(
-              color: theme.colorScheme.primaryContainer,
+              color: scheme.primaryContainer,
               borderRadius: BorderRadius.circular(10),
             ),
             child: Icon(
               Icons.payments_outlined,
               size: 20,
-              color: theme.colorScheme.onPrimaryContainer,
+              color: scheme.onPrimaryContainer,
             ),
           ),
           const SizedBox(width: 10),
@@ -296,7 +308,7 @@ class _PayrollScreenState extends State<PayrollScreen> {
                 Text(
                   'راتب ${_getMonthName(report.month)} ${report.year}',
                   style: theme.textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.bold,
+                    fontWeight: FontWeight.w700,
                   ),
                 ),
                 const SizedBox(height: 2),
@@ -305,20 +317,27 @@ class _PayrollScreenState extends State<PayrollScreen> {
                       ? 'حساب تقديري بناءً على البيانات المسجلة'
                       : 'يوجد كشف راتب مسجل لهذا الشهر',
                   style: theme.textTheme.bodySmall?.copyWith(
-                    color: theme.colorScheme.onSurfaceVariant,
+                    color: scheme.onSurfaceVariant,
                   ),
                 ),
               ],
             ),
           ),
           const SizedBox(width: 8),
-          official == null ? AppStatusPill.warning('تقديري') : _payrollStatus(official.status),
+          official == null
+              ? AppStatusPill.warning('تقديري')
+              : _payrollStatus(official.status),
         ],
       ),
     );
   }
 
   Widget _buildCurrentMonthSummaryCard(MonthlySalaryReport report) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    final semantic = context.semanticColors;
+    final netColor = report.netSalary < 0 ? scheme.error : semantic.success;
+
     return AppCard(
       padding: const EdgeInsets.all(12),
       child: Column(
@@ -326,9 +345,9 @@ class _PayrollScreenState extends State<PayrollScreen> {
         children: [
           Text(
             'ملخص الراتب',
-            style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                  fontWeight: FontWeight.bold,
-                ),
+            style: theme.textTheme.titleSmall?.copyWith(
+              fontWeight: FontWeight.w700,
+            ),
           ),
           const SizedBox(height: 10),
           Row(
@@ -338,7 +357,7 @@ class _PayrollScreenState extends State<PayrollScreen> {
                   title: 'إجمالي الاستحقاق',
                   value: Formatters.money(report.grossSalary),
                   icon: Icons.account_balance_wallet_outlined,
-                  iconColor: AppColors.primary,
+                  iconColor: scheme.primary,
                 ),
               ),
               const SizedBox(width: 8),
@@ -347,8 +366,8 @@ class _PayrollScreenState extends State<PayrollScreen> {
                   title: 'صافي الراتب',
                   value: Formatters.money(report.netSalary),
                   icon: Icons.payments_outlined,
-                  valueColor: report.netSalary < 0 ? AppColors.danger : AppColors.success,
-                  iconColor: report.netSalary < 0 ? AppColors.danger : AppColors.success,
+                  valueColor: netColor,
+                  iconColor: netColor,
                 ),
               ),
             ],
@@ -389,6 +408,7 @@ class _PayrollScreenState extends State<PayrollScreen> {
   }) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
+
     return Container(
       constraints: const BoxConstraints(minHeight: 104),
       padding: const EdgeInsets.all(11),
@@ -400,7 +420,11 @@ class _PayrollScreenState extends State<PayrollScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(icon, size: 20, color: iconColor ?? scheme.onSurfaceVariant),
+          Icon(
+            icon,
+            size: 20,
+            color: iconColor ?? scheme.onSurfaceVariant,
+          ),
           const SizedBox(height: 7),
           Text(
             title,
@@ -413,11 +437,11 @@ class _PayrollScreenState extends State<PayrollScreen> {
           const Spacer(),
           FittedBox(
             fit: BoxFit.scaleDown,
-            alignment: Alignment.centerRight,
+            alignment: AlignmentDirectional.centerStart,
             child: Text(
               value,
               style: theme.textTheme.titleMedium?.copyWith(
-                fontWeight: FontWeight.bold,
+                fontWeight: FontWeight.w700,
                 color: valueColor ?? scheme.onSurface,
               ),
             ),
@@ -428,6 +452,9 @@ class _PayrollScreenState extends State<PayrollScreen> {
   }
 
   Widget _buildCurrentMonthDetailsCard(MonthlySalaryReport report) {
+    final scheme = Theme.of(context).colorScheme;
+    final semantic = context.semanticColors;
+
     return AppCard(
       child: Theme(
         data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
@@ -435,10 +462,12 @@ class _PayrollScreenState extends State<PayrollScreen> {
           tilePadding: EdgeInsets.zero,
           childrenPadding: EdgeInsets.zero,
           title: Text(
-            _detailsExpanded ? 'إخفاء تفاصيل الراتب' : 'عرض تفاصيل الراتب',
+            _detailsExpanded
+                ? 'إخفاء تفاصيل الراتب'
+                : 'عرض تفاصيل الراتب',
             style: TextStyle(
-              color: Theme.of(context).colorScheme.primary,
-              fontWeight: FontWeight.bold,
+              color: scheme.primary,
+              fontWeight: FontWeight.w700,
             ),
           ),
           onExpansionChanged: (expanded) {
@@ -447,35 +476,55 @@ class _PayrollScreenState extends State<PayrollScreen> {
           children: [
             const Divider(height: 1),
             const SizedBox(height: 8),
-            _buildInfoRow('الراتب الأساسي', Formatters.money(report.baseSalary)),
-            _buildInfoRow('المكافأة الشهرية', Formatters.money(report.monthlyBonus)),
+            _buildInfoRow(
+              'الراتب الأساسي',
+              Formatters.money(report.baseSalary),
+            ),
+            _buildInfoRow(
+              'المكافأة الشهرية',
+              Formatters.money(report.monthlyBonus),
+            ),
             _buildInfoRow('أجر اليوم', Formatters.money(report.dailyWage)),
             _buildInfoRow('أجر الساعة', Formatters.money(report.hourlyWage)),
-            _buildInfoRow('ساعات العمل اليومية', report.dailyWorkHours.toString()),
+            _buildInfoRow(
+              'ساعات العمل اليومية',
+              report.dailyWorkHours.toString(),
+            ),
             const Divider(),
-            _buildInfoRow('أيام الحضور', report.presentDays.toString(), color: AppColors.success),
-            _buildInfoRow('أيام الغياب', report.absentDays.toString(), color: AppColors.danger),
+            _buildInfoRow(
+              'أيام الحضور',
+              report.presentDays.toString(),
+              color: semantic.success,
+            ),
+            _buildInfoRow(
+              'أيام الغياب',
+              report.absentDays.toString(),
+              color: scheme.error,
+            ),
             const Divider(),
             _buildInfoRow(
               'خصم الغياب',
               Formatters.money(report.absenceDeduction),
-              color: AppColors.danger,
+              color: scheme.error,
             ),
             _buildInfoRow(
               'خصم الجزاءات',
               Formatters.money(report.penaltiesDeduction),
-              color: AppColors.danger,
+              color: scheme.error,
             ),
             _buildInfoRow(
               'خصم السلف',
               Formatters.money(report.advanceDeduction),
-              color: AppColors.danger,
+              color: scheme.error,
             ),
             const Divider(),
             _buildInfoRow('طريقة الجمعة', report.fridayMode.label),
             _buildInfoRow('أيام الشهر', report.daysInMonth.toString()),
             _buildInfoRow('أيام الجمعة', report.fridaysCount.toString()),
-            _buildInfoRow('أيام الراتب المعتمدة', report.salaryDays.toString()),
+            _buildInfoRow(
+              'أيام الراتب المعتمدة',
+              report.salaryDays.toString(),
+            ),
             const SizedBox(height: 6),
           ],
         ),
@@ -485,6 +534,10 @@ class _PayrollScreenState extends State<PayrollScreen> {
 
   Widget _buildOfficialPayslipCard(PayrollRecordModel item) {
     final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    final semantic = context.semanticColors;
+    final netColor = item.netSalary < 0 ? scheme.error : semantic.success;
+
     return AppCard(
       padding: const EdgeInsets.all(12),
       child: Column(
@@ -492,13 +545,17 @@ class _PayrollScreenState extends State<PayrollScreen> {
         children: [
           Row(
             children: [
-              const Icon(Icons.verified_outlined, size: 20),
+              Icon(
+                Icons.verified_outlined,
+                size: 20,
+                color: semantic.success,
+              ),
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
                   'الكشف المسجل لهذا الشهر',
                   style: theme.textTheme.titleSmall?.copyWith(
-                    fontWeight: FontWeight.bold,
+                    fontWeight: FontWeight.w700,
                   ),
                 ),
               ),
@@ -510,7 +567,7 @@ class _PayrollScreenState extends State<PayrollScreen> {
             'صافي الراتب المسجل',
             Formatters.money(item.netSalary),
             isBold: true,
-            color: item.netSalary < 0 ? AppColors.danger : AppColors.success,
+            color: netColor,
           ),
           const SizedBox(height: 10),
           OutlinedButton.icon(
@@ -530,7 +587,8 @@ class _PayrollScreenState extends State<PayrollScreen> {
         employeeName: profile.fullName,
         employeeNumber: profile.employeeNumber,
         jobTitle: profile.jobTitleName ?? profile.roleLabel,
-        period: '${_getMonthName(_selectedMonth ?? item.createdAt.month)} $_selectedYear',
+        period:
+            '${_getMonthName(_selectedMonth ?? item.createdAt.month)} $_selectedYear',
         baseSalary: item.baseSalary,
         monthlyBonus: item.monthlyBonus,
         monthlyEntitlement: item.monthlyEntitlement,
@@ -547,7 +605,8 @@ class _PayrollScreenState extends State<PayrollScreen> {
       );
       await Printing.sharePdf(
         bytes: pdfBytes,
-        filename: 'payslip_${_periodKey(_selectedYear, _selectedMonth ?? item.createdAt.month)}.pdf',
+        filename:
+            'payslip_${_periodKey(_selectedYear, _selectedMonth ?? item.createdAt.month)}.pdf',
       );
     } catch (error) {
       if (mounted) {
@@ -572,6 +631,9 @@ class _PayrollScreenState extends State<PayrollScreen> {
     bool isBold = false,
     Color? color,
   }) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 5),
       child: Row(
@@ -580,9 +642,9 @@ class _PayrollScreenState extends State<PayrollScreen> {
           Expanded(
             child: Text(
               label,
-              style: TextStyle(
-                fontSize: 14,
-                fontWeight: isBold ? FontWeight.bold : FontWeight.normal,
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: scheme.onSurfaceVariant,
+                fontWeight: isBold ? FontWeight.w600 : FontWeight.w400,
               ),
             ),
           ),
@@ -591,10 +653,10 @@ class _PayrollScreenState extends State<PayrollScreen> {
             child: Text(
               value,
               textAlign: TextAlign.end,
-              style: TextStyle(
-                fontSize: isBold ? 16 : 14,
-                fontWeight: isBold ? FontWeight.bold : FontWeight.w600,
-                color: color,
+              style: theme.textTheme.bodyMedium?.copyWith(
+                fontSize: isBold ? 16 : null,
+                fontWeight: isBold ? FontWeight.w700 : FontWeight.w600,
+                color: color ?? scheme.onSurface,
               ),
             ),
           ),
@@ -639,7 +701,8 @@ class _MonthButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
     final background = selected
         ? scheme.primaryContainer
         : enabled
@@ -669,9 +732,9 @@ class _MonthButton extends StatelessWidget {
             label,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
-            style: TextStyle(
+            style: theme.textTheme.labelLarge?.copyWith(
               color: foreground,
-              fontWeight: selected ? FontWeight.bold : FontWeight.w500,
+              fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
             ),
           ),
         ),
@@ -695,6 +758,7 @@ class _SmallStat extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
+
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
       decoration: BoxDecoration(
@@ -721,7 +785,8 @@ class _SmallStat extends StatelessWidget {
                 Text(
                   value,
                   style: theme.textTheme.titleSmall?.copyWith(
-                    fontWeight: FontWeight.bold,
+                    fontWeight: FontWeight.w700,
+                    color: scheme.onSurface,
                   ),
                 ),
               ],
