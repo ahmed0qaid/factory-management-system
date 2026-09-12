@@ -1,11 +1,15 @@
 import 'package:flutter/material.dart';
+
 import '../../models/attendance_policy_model.dart';
 import '../../services/admin_service.dart';
 import '../../services/auth_service.dart';
+import '../../theme/app_spacing.dart';
 import '../../widgets/common/app_card.dart';
 import '../../widgets/common/app_dropdown_field.dart';
+import '../../widgets/common/app_empty_state.dart';
 import '../../widgets/common/app_form_field.dart';
 import '../../widgets/common/app_loading_button.dart';
+import '../../widgets/common/app_loading_state.dart';
 import '../../widgets/common/app_scaffold.dart';
 import '../../widgets/common/app_section_header.dart';
 
@@ -42,7 +46,6 @@ class _AttendancePolicyScreenState extends State<AttendancePolicyScreen> {
     try {
       final user = await AuthService().getCurrentUser();
       if (user != null) {
-        // Here we just use company_main as it's hardcoded for this phase
         _policy = await _adminService.getActiveAttendancePolicy('company_main');
 
         _graceLateMinutes = _policy!.graceLateMinutes;
@@ -54,14 +57,12 @@ class _AttendancePolicyScreenState extends State<AttendancePolicyScreen> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('خطأ في تحميل السياسة: $e')));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('خطأ في تحميل السياسة: $e')),
+        );
       }
     } finally {
-      if (mounted) {
-        setState(() => _isLoading = false);
-      }
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 
@@ -88,20 +89,18 @@ class _AttendancePolicyScreenState extends State<AttendancePolicyScreen> {
       await _adminService.updateAttendancePolicy(updatedPolicy);
 
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(const SnackBar(content: Text('تم حفظ السياسة بنجاح')));
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('تم حفظ السياسة بنجاح')),
+        );
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('خطأ في الحفظ: $e')));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('خطأ في الحفظ: $e')),
+        );
       }
     } finally {
-      if (mounted) {
-        setState(() => _isSaving = false);
-      }
+      if (mounted) setState(() => _isSaving = false);
     }
   }
 
@@ -110,157 +109,169 @@ class _AttendancePolicyScreenState extends State<AttendancePolicyScreen> {
     if (_isLoading) {
       return const AppScaffold(
         title: 'سياسة الدوام',
-        body: Center(child: CircularProgressIndicator()),
+        body: AppLoadingState(label: 'جاري تحميل سياسة الدوام'),
       );
     }
 
     if (_policy == null) {
       return const AppScaffold(
         title: 'سياسة الدوام',
-        body: Center(child: Text('لم يتم العثور على سياسة الدوام')),
+        body: AppEmptyState(
+          title: 'لا توجد سياسة دوام',
+          message: 'لم يتم العثور على سياسة دوام مفعلة حاليًا.',
+          icon: Icons.rule_outlined,
+        ),
       );
     }
 
     return AppScaffold(
       title: 'إعدادات سياسة الدوام',
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16.0),
-        child: Form(
-          key: _formKey,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              AppCard(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    const AppSectionHeader(
-                      title: 'تأخير الحضور (الصباح)',
-                      icon: Icons.sunny,
-                    ),
-                    const SizedBox(height: 16),
-                    AppFormField(
-                      initialValue: _graceLateMinutes.toString(),
-                      labelText: 'مدة السماح للتأخير (دقائق)',
-                      keyboardType: TextInputType.number,
-                      prefixIcon: Icons.timer_outlined,
-                      validator: (val) =>
-                          val == null || val.isEmpty ? 'مطلوب' : null,
-                      onSaved: (val) => _graceLateMinutes = int.parse(val!),
-                    ),
-                    const SizedBox(height: 16),
-                    AppDropdownField<String>(
-                      value: _lateCalculationMode,
-                      labelText: 'طريقة احتساب التأخير عند تجاوز السماح',
-                      prefixIcon: Icons.calculate_outlined,
-                      items: const [
-                        DropdownMenuItem(
-                          value: 'full_time',
-                          child: Text('احتساب كامل وقت التأخير من البداية'),
+      body: Align(
+        alignment: Alignment.topCenter,
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 820),
+          child: SingleChildScrollView(
+            keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+            padding: const EdgeInsets.all(AppSpacing.md),
+            child: Form(
+              key: _formKey,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  AppCard(
+                    padding: const EdgeInsets.all(AppSpacing.md),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        const AppSectionHeader(
+                          title: 'تأخير الحضور (الصباح)',
+                          icon: Icons.sunny,
                         ),
-                        DropdownMenuItem(
-                          value: 'after_grace_only',
-                          child: Text('احتساب ما بعد مدة السماح فقط'),
+                        const SizedBox(height: AppSpacing.md),
+                        AppFormField(
+                          initialValue: _graceLateMinutes.toString(),
+                          labelText: 'مدة السماح للتأخير (دقائق)',
+                          keyboardType: TextInputType.number,
+                          prefixIcon: Icons.timer_outlined,
+                          validator: (val) =>
+                              val == null || val.isEmpty ? 'مطلوب' : null,
+                          onSaved: (val) => _graceLateMinutes = int.parse(val!),
                         ),
-                      ],
-                      onChanged: (val) =>
-                          setState(() => _lateCalculationMode = val!),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 16),
-              AppCard(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    const AppSectionHeader(
-                      title: 'الخروج المبكر (المساء)',
-                      icon: Icons.nights_stay_outlined,
-                    ),
-                    const SizedBox(height: 16),
-                    AppFormField(
-                      initialValue: _graceEarlyLeaveMinutes.toString(),
-                      labelText: 'مدة السماح للخروج المبكر (دقائق)',
-                      keyboardType: TextInputType.number,
-                      prefixIcon: Icons.timer_outlined,
-                      validator: (val) =>
-                          val == null || val.isEmpty ? 'مطلوب' : null,
-                      onSaved: (val) =>
-                          _graceEarlyLeaveMinutes = int.parse(val!),
-                    ),
-                    const SizedBox(height: 16),
-                    AppDropdownField<String>(
-                      value: _earlyLeaveCalculationMode,
-                      labelText: 'طريقة احتساب الخروج المبكر',
-                      prefixIcon: Icons.calculate_outlined,
-                      items: const [
-                        DropdownMenuItem(
-                          value: 'full_time',
-                          child: Text('احتساب الخروج المبكر كاملًا'),
-                        ),
-                        DropdownMenuItem(
-                          value: 'after_grace_only',
-                          child: Text('احتساب ما بعد مدة السماح فقط'),
+                        const SizedBox(height: AppSpacing.md),
+                        AppDropdownField<String>(
+                          value: _lateCalculationMode,
+                          labelText: 'طريقة احتساب التأخير عند تجاوز السماح',
+                          prefixIcon: Icons.calculate_outlined,
+                          items: const [
+                            DropdownMenuItem(
+                              value: 'full_time',
+                              child: Text('احتساب كامل وقت التأخير من البداية'),
+                            ),
+                            DropdownMenuItem(
+                              value: 'after_grace_only',
+                              child: Text('احتساب ما بعد مدة السماح فقط'),
+                            ),
+                          ],
+                          onChanged: (val) =>
+                              setState(() => _lateCalculationMode = val!),
                         ),
                       ],
-                      onChanged: (val) =>
-                          setState(() => _earlyLeaveCalculationMode = val!),
                     ),
-                  ],
-                ),
+                  ),
+                  const SizedBox(height: AppSpacing.md),
+                  AppCard(
+                    padding: const EdgeInsets.all(AppSpacing.md),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        const AppSectionHeader(
+                          title: 'الخروج المبكر (المساء)',
+                          icon: Icons.nights_stay_outlined,
+                        ),
+                        const SizedBox(height: AppSpacing.md),
+                        AppFormField(
+                          initialValue: _graceEarlyLeaveMinutes.toString(),
+                          labelText: 'مدة السماح للخروج المبكر (دقائق)',
+                          keyboardType: TextInputType.number,
+                          prefixIcon: Icons.timer_outlined,
+                          validator: (val) =>
+                              val == null || val.isEmpty ? 'مطلوب' : null,
+                          onSaved: (val) =>
+                              _graceEarlyLeaveMinutes = int.parse(val!),
+                        ),
+                        const SizedBox(height: AppSpacing.md),
+                        AppDropdownField<String>(
+                          value: _earlyLeaveCalculationMode,
+                          labelText: 'طريقة احتساب الخروج المبكر',
+                          prefixIcon: Icons.calculate_outlined,
+                          items: const [
+                            DropdownMenuItem(
+                              value: 'full_time',
+                              child: Text('احتساب الخروج المبكر كاملًا'),
+                            ),
+                            DropdownMenuItem(
+                              value: 'after_grace_only',
+                              child: Text('احتساب ما بعد مدة السماح فقط'),
+                            ),
+                          ],
+                          onChanged: (val) =>
+                              setState(() => _earlyLeaveCalculationMode = val!),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: AppSpacing.md),
+                  AppCard(
+                    padding: const EdgeInsets.all(AppSpacing.md),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        const AppSectionHeader(
+                          title: 'الوقت الإضافي (Overtime)',
+                          icon: Icons.more_time,
+                        ),
+                        const SizedBox(height: AppSpacing.md),
+                        AppFormField(
+                          initialValue: _overtimeMinimumMinutes.toString(),
+                          labelText:
+                              'الحد الأدنى لاحتساب الإضافي بعد الدوام (دقائق)',
+                          keyboardType: TextInputType.number,
+                          prefixIcon: Icons.timer_outlined,
+                          validator: (val) =>
+                              val == null || val.isEmpty ? 'مطلوب' : null,
+                          onSaved: (val) =>
+                              _overtimeMinimumMinutes = int.parse(val!),
+                        ),
+                        const SizedBox(height: AppSpacing.md),
+                        SwitchListTile(
+                          title: const Text(
+                            'هل الإضافي يحتاج موافقة الموارد البشرية؟',
+                          ),
+                          subtitle: const Text(
+                            'إذا كان مفعلاً فلن يُعتمد الإضافي تلقائياً في الراتب',
+                          ),
+                          contentPadding: EdgeInsets.zero,
+                          value: _overtimeRequiresHrApproval,
+                          onChanged: (val) => setState(
+                            () => _overtimeRequiresHrApproval = val,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: AppSpacing.xl),
+                  AppLoadingButton(
+                    onPressed: _savePolicy,
+                    text: 'حفظ الإعدادات',
+                    icon: Icons.save_outlined,
+                    isLoading: _isSaving,
+                  ),
+                ],
               ),
-              const SizedBox(height: 16),
-              AppCard(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    const AppSectionHeader(
-                      title: 'الوقت الإضافي (Overtime)',
-                      icon: Icons.more_time,
-                    ),
-                    const SizedBox(height: 16),
-                    AppFormField(
-                      initialValue: _overtimeMinimumMinutes.toString(),
-                      labelText: 'الحد الأدنى لاحتساب الإضافي بعد الدوام (دقائق)',
-                      keyboardType: TextInputType.number,
-                      prefixIcon: Icons.timer_outlined,
-                      validator: (val) =>
-                          val == null || val.isEmpty ? 'مطلوب' : null,
-                      onSaved: (val) =>
-                          _overtimeMinimumMinutes = int.parse(val!),
-                    ),
-                    const SizedBox(height: 16),
-                    SwitchListTile(
-                      title: const Text('هل الإضافي يحتاج موافقة الموارد البشرية؟'),
-                      subtitle: const Text(
-                        'إذا كان مفعلاً فلن يُعتمد الإضافي تلقائياً في الراتب',
-                      ),
-                      contentPadding: EdgeInsets.zero,
-                      value: _overtimeRequiresHrApproval,
-                      onChanged: (val) =>
-                          setState(() => _overtimeRequiresHrApproval = val),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 24),
-              AppLoadingButton(
-                onPressed: _savePolicy,
-                text: 'حفظ الإعدادات',
-                icon: Icons.save_outlined,
-                isLoading: _isSaving,
-              ),
-            ],
+            ),
           ),
         ),
       ),
     );
   }
-
 }
-
-
