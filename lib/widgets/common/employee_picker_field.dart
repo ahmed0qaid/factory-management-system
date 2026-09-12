@@ -118,32 +118,15 @@ class _EmployeePickerFieldState extends State<EmployeePickerField> {
           ),
         ),
         const SizedBox(height: AppSpacing.xs),
-        Row(
-          children: [
-            Expanded(
-              child: Text(
-                _query.trim().isEmpty
-                    ? '${widget.employees.length} موظف'
-                    : '${results.length} نتيجة من ${widget.employees.length}',
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: scheme.onSurfaceVariant,
-                ),
-              ),
-            ),
-            if (widget.selectedEmployeeId != null)
-              TextButton.icon(
-                onPressed: widget.enabled
-                    ? () {
-                        widget.onChanged(null);
-                        _clearSearch();
-                      }
-                    : null,
-                icon: const Icon(Icons.restart_alt_rounded, size: 18),
-                label: const Text('إلغاء التحديد'),
-              ),
-          ],
+        Text(
+          _query.trim().isEmpty
+              ? '${widget.employees.length} موظف'
+              : '${results.length} نتيجة من ${widget.employees.length}',
+          style: theme.textTheme.bodySmall?.copyWith(
+            color: scheme.onSurfaceVariant,
+          ),
         ),
-        const SizedBox(height: AppSpacing.xxs),
+        const SizedBox(height: AppSpacing.xs),
         Container(
           decoration: BoxDecoration(
             color: scheme.surfaceContainerLowest,
