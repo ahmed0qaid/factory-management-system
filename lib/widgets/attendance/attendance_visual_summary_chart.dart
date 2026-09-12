@@ -23,6 +23,7 @@ class _AttendanceVisualSummaryChartState
     extends State<AttendanceVisualSummaryChart> {
   SummaryPeriod _period = SummaryPeriod.day;
   DateTime _currentDate = DateTime.now();
+  String _statusFilter = 'all';
 
   static const _monthsAr = <String>[
     'يناير',
@@ -104,14 +105,17 @@ class _AttendanceVisualSummaryChartState
       switch (_period) {
         case SummaryPeriod.day:
           _currentDate = _currentDate.add(Duration(days: direction));
+          break;
         case SummaryPeriod.week:
           _currentDate = _currentDate.add(Duration(days: 7 * direction));
+          break;
         case SummaryPeriod.month:
           _currentDate = DateTime(
             _currentDate.year,
             _currentDate.month + direction,
             1,
           );
+          break;
       }
     });
   }
@@ -223,10 +227,123 @@ class _AttendanceVisualSummaryChartState
                 onPressed: () => _movePeriod(1),
                 icon: const Icon(Icons.chevron_left),
               ),
+              const SizedBox(width: AppSpacing.xs),
+              OutlinedButton.icon(
+                icon: const Icon(Icons.filter_list, size: 18),
+                label: const Text('الفلاتر'),
+                style: OutlinedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: AppSpacing.sm,
+                  ),
+                ),
+                onPressed: _showFilterBottomSheet,
+              ),
             ],
           ),
         ],
       ),
+    );
+  }
+
+  void _showFilterBottomSheet() {
+    var tempStatus = _statusFilter;
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      builder: (sheetContext) {
+        return StatefulBuilder(
+          builder: (context, setSheetState) {
+            final theme = Theme.of(context);
+            return Padding(
+              padding: EdgeInsets.only(
+                left: AppSpacing.lg,
+                right: AppSpacing.lg,
+                top: AppSpacing.lg,
+                bottom:
+                    MediaQuery.of(context).viewInsets.bottom + AppSpacing.lg,
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Text(
+                    'الفلاتر',
+                    style: theme.textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  const SizedBox(height: AppSpacing.md),
+                  Wrap(
+                    spacing: AppSpacing.xs,
+                    runSpacing: AppSpacing.xs,
+                    children: [
+                      ChoiceChip(
+                        label: const Text('الكل'),
+                        selected: tempStatus == 'all',
+                        onSelected: (_) =>
+                            setSheetState(() => tempStatus = 'all'),
+                        showCheckmark: false,
+                      ),
+                      ChoiceChip(
+                        label: const Text('حضور'),
+                        selected: tempStatus == 'present',
+                        onSelected: (_) =>
+                            setSheetState(() => tempStatus = 'present'),
+                        showCheckmark: false,
+                      ),
+                      ChoiceChip(
+                        label: const Text('غياب'),
+                        selected: tempStatus == 'absent',
+                        onSelected: (_) =>
+                            setSheetState(() => tempStatus = 'absent'),
+                        showCheckmark: false,
+                      ),
+                      ChoiceChip(
+                        label: const Text('تأخير'),
+                        selected: tempStatus == 'late',
+                        onSelected: (_) =>
+                            setSheetState(() => tempStatus = 'late'),
+                        showCheckmark: false,
+                      ),
+                      ChoiceChip(
+                        label: const Text('يحتاج مراجعة'),
+                        selected: tempStatus == 'needs_review',
+                        onSelected: (_) =>
+                            setSheetState(() => tempStatus = 'needs_review'),
+                        showCheckmark: false,
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: AppSpacing.lg),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: OutlinedButton(
+                          onPressed: () {
+                            Navigator.pop(sheetContext);
+                            setState(() => _statusFilter = 'all');
+                          },
+                          child: const Text('إعادة تعيين'),
+                        ),
+                      ),
+                      const SizedBox(width: AppSpacing.sm),
+                      Expanded(
+                        child: FilledButton(
+                          onPressed: () {
+                            setState(() => _statusFilter = tempStatus);
+                            Navigator.pop(sheetContext);
+                          },
+                          child: const Text('تطبيق'),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
     );
   }
 
@@ -304,10 +421,77 @@ class _AttendanceVisualSummaryChartState
     );
   }
 
+  Widget _buildResponsiveSummaryCards(
+    BuildContext context, {
+    required int present,
+    required int absent,
+    required int lateMinutes,
+    required int review,
+  }) {
+    final semantic = context.semanticColors;
+    final scheme = Theme.of(context).colorScheme;
+
+    final cards = [
+      _SummaryCard(
+        label: 'أيام الحضور',
+        value: '$present',
+        color: semantic.success,
+      ),
+      _SummaryCard(label: 'أيام الغياب', value: '$absent', color: scheme.error),
+      _SummaryCard(
+        label: 'إجمالي التأخير',
+        value: '$lateMinutes د',
+        color: semantic.warning,
+      ),
+      _SummaryCard(
+        label: 'حالات المراجعة',
+        value: '$review',
+        color: scheme.onSurfaceVariant,
+      ),
+    ];
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        if (constraints.maxWidth >= 600) {
+          return Row(
+            children: [
+              Expanded(child: cards[0]),
+              const SizedBox(width: AppSpacing.xxs),
+              Expanded(child: cards[1]),
+              const SizedBox(width: AppSpacing.xxs),
+              Expanded(child: cards[2]),
+              const SizedBox(width: AppSpacing.xxs),
+              Expanded(child: cards[3]),
+            ],
+          );
+        } else {
+          return Column(
+            children: [
+              Row(
+                children: [
+                  Expanded(child: cards[0]),
+                  const SizedBox(width: AppSpacing.xxs),
+                  Expanded(child: cards[1]),
+                ],
+              ),
+              const SizedBox(height: AppSpacing.xxs),
+              Row(
+                children: [
+                  Expanded(child: cards[2]),
+                  const SizedBox(width: AppSpacing.xxs),
+                  Expanded(child: cards[3]),
+                ],
+              ),
+            ],
+          );
+        }
+      },
+    );
+  }
+
   Widget _weekView(BuildContext context, List<AttendanceRecordModel> records) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
-    final semantic = context.semanticColors;
     final start = _weekStart(_currentDate);
 
     var present = 0;
@@ -376,40 +560,12 @@ class _AttendanceVisualSummaryChartState
         const SizedBox(height: AppSpacing.lg),
         Divider(color: scheme.outlineVariant),
         const SizedBox(height: AppSpacing.sm),
-        Row(
-          children: [
-            Expanded(
-              child: _SummaryCard(
-                label: 'أيام الحضور',
-                value: '$present',
-                color: semantic.success,
-              ),
-            ),
-            const SizedBox(width: AppSpacing.xxs),
-            Expanded(
-              child: _SummaryCard(
-                label: 'أيام الغياب',
-                value: '$absent',
-                color: scheme.error,
-              ),
-            ),
-            const SizedBox(width: AppSpacing.xxs),
-            Expanded(
-              child: _SummaryCard(
-                label: 'إجمالي التأخير',
-                value: '$lateMinutes د',
-                color: semantic.warning,
-              ),
-            ),
-            const SizedBox(width: AppSpacing.xxs),
-            Expanded(
-              child: _SummaryCard(
-                label: 'حالات المراجعة',
-                value: '$review',
-                color: scheme.onSurfaceVariant,
-              ),
-            ),
-          ],
+        _buildResponsiveSummaryCards(
+          context,
+          present: present,
+          absent: absent,
+          lateMinutes: lateMinutes,
+          review: review,
         ),
       ],
     );
@@ -418,7 +574,6 @@ class _AttendanceVisualSummaryChartState
   Widget _monthView(BuildContext context, List<AttendanceRecordModel> records) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
-    final semantic = context.semanticColors;
     final daysInMonth = DateUtils.getDaysInMonth(
       _currentDate.year,
       _currentDate.month,
@@ -426,9 +581,7 @@ class _AttendanceVisualSummaryChartState
 
     var present = 0;
     var absent = 0;
-    var lateDays = 0;
     var lateMinutes = 0;
-    var earlyMinutes = 0;
     var review = 0;
 
     final cells = <Widget>[];
@@ -450,9 +603,7 @@ class _AttendanceVisualSummaryChartState
             (record.checkIn != null && record.checkOut != null)) {
           present++;
         }
-        if (record.lateMinutes > 0) lateDays++;
         lateMinutes += record.lateMinutes;
-        earlyMinutes += record.earlyLeaveMinutes;
         if (record.status == 'needs_review' || record.status == 'incomplete') {
           review++;
         }
@@ -486,45 +637,12 @@ class _AttendanceVisualSummaryChartState
         const SizedBox(height: AppSpacing.lg),
         Divider(color: scheme.outlineVariant),
         const SizedBox(height: AppSpacing.sm),
-        GridView.count(
-          crossAxisCount: 3,
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          mainAxisSpacing: AppSpacing.xs,
-          crossAxisSpacing: AppSpacing.xs,
-          childAspectRatio: 1.55,
-          children: [
-            _SummaryCard(
-              label: 'الحضور',
-              value: '$present',
-              color: semantic.success,
-            ),
-            _SummaryCard(
-              label: 'الغياب',
-              value: '$absent',
-              color: scheme.error,
-            ),
-            _SummaryCard(
-              label: 'أيام التأخير',
-              value: '$lateDays',
-              color: semantic.warning,
-            ),
-            _SummaryCard(
-              label: 'دقائق التأخير',
-              value: '$lateMinutes',
-              color: semantic.warning,
-            ),
-            _SummaryCard(
-              label: 'خروج مبكر',
-              value: '$earlyMinutes',
-              color: semantic.warning,
-            ),
-            _SummaryCard(
-              label: 'مراجعة',
-              value: '$review',
-              color: scheme.onSurfaceVariant,
-            ),
-          ],
+        _buildResponsiveSummaryCards(
+          context,
+          present: present,
+          absent: absent,
+          lateMinutes: lateMinutes,
+          review: review,
         ),
       ],
     );
@@ -578,28 +696,6 @@ class _AttendanceVisualSummaryChartState
             ),
           ),
         ],
-      ),
-    );
-  }
-
-  Widget _filterChip(String label, String value) {
-    final selected = _statusFilter == value;
-    final theme = Theme.of(context);
-    final scheme = theme.colorScheme;
-    return FilterChip(
-      label: Text(label),
-      selected: selected,
-      onSelected: (_) => setState(() => _statusFilter = value),
-      backgroundColor: scheme.surfaceContainerHighest,
-      selectedColor: scheme.primaryContainer,
-      labelStyle: theme.textTheme.labelMedium?.copyWith(
-        color: selected ? scheme.onPrimaryContainer : scheme.onSurfaceVariant,
-        fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
-      ),
-      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xs),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(AppRadius.full),
-        side: BorderSide(color: selected ? scheme.primary : Colors.transparent),
       ),
     );
   }

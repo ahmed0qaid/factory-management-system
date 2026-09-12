@@ -8,7 +8,6 @@ import '../../theme/app_spacing.dart';
 import '../../utils/attendance_display.dart';
 import '../../utils/formatters.dart';
 import '../../widgets/attendance/attendance_visual_summary_chart.dart';
-import '../../widgets/common/app_bottom_sheet.dart';
 import '../../widgets/common/app_card.dart';
 import '../../widgets/common/app_dropdown_field.dart';
 import '../../widgets/common/app_empty_state.dart';
@@ -30,10 +29,8 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
   late Future<List<AttendanceRecordModel>> _future;
 
   AttendanceViewType _viewType = AttendanceViewType.timeline;
-  String _statusFilter = 'all';
   int? _selectedYear;
   int? _selectedMonth;
-  bool _sortDescending = true;
 
   static const _monthsAr = <String>[
     'يناير',
@@ -62,175 +59,6 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
     });
   }
 
-  int _activeFiltersCount() {
-    var count = 0;
-    if (_statusFilter != 'all') count++;
-    if (!_sortDescending) count++;
-    return count;
-  }
-
-  void _resetFilters() {
-    setState(() {
-      _statusFilter = 'all';
-      _sortDescending = true;
-    });
-  }
-
-  void _showFilterBottomSheet() {
-    var tempStatus = _statusFilter;
-    var tempYear = _yearFilter;
-    var tempMonth = _monthFilter;
-    var tempSort = _sortDescending;
-
-    AppBottomSheet.show(
-      context,
-      title: 'فلاتر الدوام',
-      child: StatefulBuilder(
-        builder: (sheetContext, setSheetState) {
-          final theme = Theme.of(sheetContext);
-          final sectionStyle = theme.textTheme.titleSmall?.copyWith(
-            fontWeight: FontWeight.w700,
-          );
-
-          return Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Text('الحالة', style: sectionStyle),
-              const SizedBox(height: AppSpacing.xs),
-              Wrap(
-                spacing: AppSpacing.xs,
-                runSpacing: AppSpacing.xs,
-                children: [
-                  _filterChip(
-                    'الكل',
-                    tempStatus == 'all',
-                    () => setSheetState(() => tempStatus = 'all'),
-                  ),
-                  _filterChip(
-                    'حاضر',
-                    tempStatus == 'present',
-                    () => setSheetState(() => tempStatus = 'present'),
-                  ),
-                  _filterChip(
-                    'غائب',
-                    tempStatus == 'absent',
-                    () => setSheetState(() => tempStatus = 'absent'),
-                  ),
-                  _filterChip(
-                    'تحتاج مراجعة',
-                    tempStatus == 'needs_review',
-                    () => setSheetState(() => tempStatus = 'needs_review'),
-                  ),
-                ],
-              ),
-              const Divider(height: AppSpacing.xl),
-              Text('الترتيب', style: sectionStyle),
-              const SizedBox(height: AppSpacing.xs),
-              Wrap(
-                spacing: AppSpacing.xs,
-                runSpacing: AppSpacing.xs,
-                children: [
-                  _filterChip(
-                    'الأحدث أولاً',
-                    tempSort,
-                    () => setSheetState(() => tempSort = true),
-                  ),
-                  _filterChip(
-                    'الأقدم أولاً',
-                    !tempSort,
-                    () => setSheetState(() => tempSort = false),
-                  ),
-                ],
-              ),
-              const Divider(height: AppSpacing.xl),
-              Text('السنة', style: sectionStyle),
-              const SizedBox(height: AppSpacing.xs),
-              Wrap(
-                spacing: AppSpacing.xs,
-                runSpacing: AppSpacing.xs,
-                children: [
-                  _filterChip(
-                    'الكل',
-                    tempYear == null,
-                    () => setSheetState(() => tempYear = null),
-                  ),
-                  ...availableYears.map(
-                    (year) => _filterChip(
-                      '$year',
-                      tempYear == year,
-                      () => setSheetState(() => tempYear = year),
-                    ),
-                  ),
-                ],
-              ),
-              const Divider(height: AppSpacing.xl),
-              Text('الشهر', style: sectionStyle),
-              const SizedBox(height: AppSpacing.xs),
-              Wrap(
-                spacing: AppSpacing.xs,
-                runSpacing: AppSpacing.xs,
-                children: [
-                  _filterChip(
-                    'الكل',
-                    tempMonth == null,
-                    () => setSheetState(() => tempMonth = null),
-                  ),
-                  ...List.generate(12, (index) {
-                    final month = index + 1;
-                    return _filterChip(
-                      _monthsAr[index],
-                      tempMonth == month,
-                      () => setSheetState(() => tempMonth = month),
-                    );
-                  }),
-                ],
-              ),
-              const SizedBox(height: AppSpacing.lg),
-              Row(
-                children: [
-                  Expanded(
-                    child: OutlinedButton(
-                      onPressed: () {
-                        Navigator.pop(sheetContext);
-                        _resetFilters();
-                      },
-                      child: const Text('إعادة تعيين'),
-                    ),
-                  ),
-                  const SizedBox(width: AppSpacing.sm),
-                  Expanded(
-                    child: FilledButton(
-                      onPressed: () {
-                        setState(() {
-                          _statusFilter = tempStatus;
-                          _yearFilter = tempYear;
-                          _monthFilter = tempMonth;
-                          _sortDescending = tempSort;
-                        });
-                        Navigator.pop(sheetContext);
-                      },
-                      child: const Text('تطبيق'),
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          );
-        },
-      ),
-    );
-  }
-
-  Widget _filterChip(String label, bool selected, VoidCallback onTap) {
-    return ChoiceChip(
-      label: Text(label),
-      selected: selected,
-      onSelected: (_) => onTap(),
-      showCheckmark: false,
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     return FutureBuilder<List<AttendanceRecordModel>>(
@@ -251,8 +79,8 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
         final availableYears =
             rawItems.map((record) => record.workDate.year).toSet().toList()
               ..sort((a, b) => b.compareTo(a));
+
         final items = _applyFilters(rawItems);
-        final activeCount = _activeFiltersCount();
 
         return Column(
           children: [
@@ -266,56 +94,87 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  SegmentedButton<AttendanceViewType>(
-                    segments: const [
-                      ButtonSegment(
-                        value: AttendanceViewType.timeline,
-                        icon: Icon(Icons.timeline_outlined),
-                        label: Text('المخطط الزمني'),
-                      ),
-                      ButtonSegment(
-                        value: AttendanceViewType.visual,
-                        icon: Icon(Icons.bar_chart_outlined),
-                        label: Text('العرض الرسومي'),
-                      ),
-                    ],
-                    selected: {_viewType},
-                    showSelectedIcon: false,
-                    onSelectionChanged: (selection) {
-                      setState(() => _viewType = selection.first);
-                    },
-                  ),
-                  const SizedBox(height: AppSpacing.xs),
                   Row(
                     children: [
-                      OutlinedButton.icon(
-                        icon: const Icon(Icons.tune_outlined),
-                        label: Text(
-                          activeCount == 0
-                              ? 'الفلاتر'
-                              : 'الفلاتر ($activeCount)',
+                      Expanded(
+                        child: AppDropdownField<int>(
+                          hintText: 'السنة',
+                          value: _selectedYear,
+                          items: availableYears.map((year) {
+                            return DropdownMenuItem(
+                              value: year,
+                              child: Text('$year'),
+                            );
+                          }).toList(),
+                          onChanged: (val) {
+                            setState(() {
+                              _selectedYear = val;
+                              _selectedMonth = null;
+                            });
+                          },
                         ),
-                        onPressed: () => _showFilterBottomSheet(availableYears),
                       ),
-                      if (activeCount > 0) ...[
-                        const SizedBox(width: AppSpacing.xs),
-                        TextButton(
-                          onPressed: _resetFilters,
-                          child: const Text('مسح الفلاتر'),
+                      const SizedBox(width: AppSpacing.sm),
+                      Expanded(
+                        child: AppDropdownField<int>(
+                          hintText: 'الشهر',
+                          value: _selectedMonth,
+                          items: _selectedYear == null
+                              ? []
+                              : List.generate(12, (index) {
+                                  final month = index + 1;
+                                  return DropdownMenuItem(
+                                    value: month,
+                                    child: Text(_monthsAr[index]),
+                                  );
+                                }),
+                          onChanged: (val) {
+                            setState(() {
+                              _selectedMonth = val;
+                            });
+                          },
                         ),
-                      ],
+                      ),
                     ],
                   ),
+                  if (_selectedYear != null && _selectedMonth != null) ...[
+                    const SizedBox(height: AppSpacing.sm),
+                    SegmentedButton<AttendanceViewType>(
+                      segments: const [
+                        ButtonSegment(
+                          value: AttendanceViewType.timeline,
+                          icon: Icon(Icons.timeline_outlined),
+                          label: Text('المخطط الزمني'),
+                        ),
+                        ButtonSegment(
+                          value: AttendanceViewType.visual,
+                          icon: Icon(Icons.bar_chart_outlined),
+                          label: Text('العرض الرسومي'),
+                        ),
+                      ],
+                      selected: {_viewType},
+                      showSelectedIcon: false,
+                      onSelectionChanged: (selection) {
+                        setState(() => _viewType = selection.first);
+                      },
+                    ),
+                  ],
                 ],
               ),
             ),
             Expanded(
-              child: _viewType == AttendanceViewType.visual
+              child: (_selectedYear == null || _selectedMonth == null)
+                  ? const AppEmptyState(
+                      title: 'اختر السنة والشهر',
+                      message: 'يرجى تحديد الفترة لعرض تفاصيل الدوام.',
+                      icon: Icons.calendar_month_outlined,
+                    )
+                  : _viewType == AttendanceViewType.visual
                   ? AttendanceVisualSummaryChart(records: items)
                   : items.isEmpty
                   ? const AppEmptyState(
                       title: 'لا توجد سجلات مطابقة',
-                      message: 'غيّر الفلاتر أو أعد تعيينها لعرض سجلات أخرى.',
+                      message: 'لا توجد سجلات دوام في هذا الشهر.',
                       icon: Icons.event_busy_outlined,
                     )
                   : RefreshIndicator(
@@ -350,21 +209,19 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
   ) {
     var items = List<AttendanceRecordModel>.from(source);
 
-    if (_statusFilter != 'all') {
-      items = items.where((item) => item.status == _statusFilter).toList();
-    }
-    if (_yearFilter != null) {
-      items = items.where((item) => item.workDate.year == _yearFilter).toList();
-    }
-    if (_monthFilter != null) {
+    if (_selectedYear != null) {
       items = items
-          .where((item) => item.workDate.month == _monthFilter)
+          .where((item) => item.workDate.year == _selectedYear)
+          .toList();
+    }
+    if (_selectedMonth != null) {
+      items = items
+          .where((item) => item.workDate.month == _selectedMonth)
           .toList();
     }
 
     items.sort((a, b) {
-      final comparison = a.workDate.compareTo(b.workDate);
-      return _sortDescending ? -comparison : comparison;
+      return b.workDate.compareTo(a.workDate);
     });
     return items;
   }
