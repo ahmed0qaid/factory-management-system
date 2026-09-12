@@ -28,7 +28,7 @@ class AppFloatingNavigationBar extends StatelessWidget {
     required this.onDestinationSelected,
   });
 
-  static const double _height = 78;
+  static const double _height = 82;
   static const double _indicatorSize = 52;
 
   @override
@@ -175,34 +175,45 @@ class _NavigationDestination extends StatelessWidget {
         onTap: onTap,
         child: Padding(
           padding: const EdgeInsets.only(
-            top: AppSpacing.sm,
+            top: AppSpacing.xs,
             bottom: AppSpacing.xxs,
           ),
           child: Column(
-            mainAxisAlignment: MainAxisAlignment.end,
             children: [
-              SizedBox(
-                height: AppSpacing.xxl,
-                child: AnimatedOpacity(
-                  duration: const Duration(milliseconds: 160),
-                  opacity: selected ? 0 : 1,
-                  child: IconTheme(
-                    data: IconThemeData(
-                      color: scheme.onSurfaceVariant,
-                      size: AppIconSizes.standard,
+              Expanded(
+                child: Center(
+                  child: AnimatedOpacity(
+                    duration: const Duration(milliseconds: 160),
+                    opacity: selected ? 0 : 1,
+                    child: IconTheme(
+                      data: IconThemeData(
+                        color: scheme.onSurfaceVariant,
+                        size: AppIconSizes.standard,
+                      ),
+                      child: item.icon,
                     ),
-                    child: item.icon,
                   ),
                 ),
               ),
               const SizedBox(height: AppSpacing.xxs),
-              Text(
-                item.label,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: theme.textTheme.labelSmall?.copyWith(
-                  color: selected ? scheme.primary : scheme.onSurfaceVariant,
-                  fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+              SizedBox(
+                height: AppSpacing.lg,
+                width: double.infinity,
+                child: Center(
+                  child: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    child: Text(
+                      item.label,
+                      maxLines: 1,
+                      style: theme.textTheme.labelSmall?.copyWith(
+                        color:
+                            selected ? scheme.primary : scheme.onSurfaceVariant,
+                        fontWeight:
+                            selected ? FontWeight.w700 : FontWeight.w500,
+                        height: 1,
+                      ),
+                    ),
+                  ),
                 ),
               ),
             ],
