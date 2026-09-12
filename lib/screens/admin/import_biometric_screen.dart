@@ -99,13 +99,6 @@ class _ImportBiometricScreenState extends State<ImportBiometricScreen> {
       return;
     }
 
-    if (summary.groups.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('لا توجد سجلات صالحة في الملف للاستيراد')),
-      );
-      return;
-    }
-
     final hasReviewCases = summary.needsReviewGroups > 0;
     final confirm = await AppConfirmDialog.show(
       context,
@@ -125,7 +118,6 @@ class _ImportBiometricScreenState extends State<ImportBiometricScreen> {
         summary: summary,
         rawLogs: _previewData,
       );
-
       if (mounted) await _showImportResult(result);
     } catch (e, st) {
       if (mounted) {
@@ -390,8 +382,10 @@ class _ImportBiometricScreenState extends State<ImportBiometricScreen> {
     final scheme = theme.colorScheme;
     final groups = _summary?.groups ?? [];
     final startIndex = (_currentPage - 1) * _itemsPerPage;
-    final safeStart = startIndex.clamp(0, groups.length);
-    final endIndex = (safeStart + _itemsPerPage < groups.length)
+    final safeStart = startIndex < 0
+        ? 0
+        : (startIndex > groups.length ? groups.length : startIndex);
+    final endIndex = safeStart + _itemsPerPage < groups.length
         ? safeStart + _itemsPerPage
         : groups.length;
     final currentView = groups.isNotEmpty
@@ -467,10 +461,13 @@ class _ImportBiometricScreenState extends State<ImportBiometricScreen> {
                         message:
                             'اختر ملف Excel ثم اضغط «معاينة الملف» لفحص البيانات قبل الاستيراد.',
                         icon: Icons.table_view_outlined,
-                        actionLabel: _selectedFile == null ? 'اختيار ملف Excel' : null,
+                        actionLabel:
+                            _selectedFile == null ? 'اختيار ملف Excel' : null,
                         onAction: _selectedFile == null ? _pickFile : null,
                       ),
-                    if (_selectedFile != null && _summary == null && !_isLoading)
+                    if (_selectedFile != null &&
+                        _summary == null &&
+                        !_isLoading)
                       Padding(
                         padding: const EdgeInsets.only(top: 8),
                         child: Text(
@@ -635,7 +632,7 @@ class _ImportBiometricScreenState extends State<ImportBiometricScreen> {
       itemBuilder: (context, index) {
         final group = currentView[index];
         final isReady = !group.needsReview;
-        final bool isFirstOfDate =
+        final isFirstOfDate =
             index == 0 || currentView[index - 1].workDate != group.workDate;
         final theme = Theme.of(context);
         final scheme = theme.colorScheme;
