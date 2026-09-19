@@ -370,6 +370,17 @@ class _EmployeeShellState extends State<EmployeeShell> {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
 
+    Widget sectionLabel(String text) => Padding(
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
+      child: Text(
+        text,
+        style: theme.textTheme.labelMedium?.copyWith(
+          color: scheme.onSurfaceVariant,
+          fontWeight: FontWeight.w700,
+        ),
+      ),
+    );
+
     return Drawer(
       child: SafeArea(
         child: Column(
@@ -426,6 +437,7 @@ class _EmployeeShellState extends State<EmployeeShell> {
               child: ListView(
                 padding: const EdgeInsets.symmetric(vertical: 8),
                 children: [
+                  if (profile.isManagement) sectionLabel('الإدارة'),
                   if (profile.isManagement)
                     ListTile(
                       selected: _workspace == _ShellWorkspace.management,
@@ -451,6 +463,7 @@ class _EmployeeShellState extends State<EmployeeShell> {
                     ),
                   if (profile.isManagement) ...[
                     const Divider(),
+                    sectionLabel('المساحة الشخصية'),
                     ListTile(
                       selected: _workspace == _ShellWorkspace.personal,
                       leading: const Icon(Icons.person_outline),
@@ -464,6 +477,7 @@ class _EmployeeShellState extends State<EmployeeShell> {
                       ),
                     ),
                   ],
+                  if (!profile.isManagement) sectionLabel('المساحة الشخصية'),
                   ListTile(
                     leading: const Icon(Icons.event_available_outlined),
                     title: const Text('طلباتي وإجازاتي'),
@@ -478,6 +492,7 @@ class _EmployeeShellState extends State<EmployeeShell> {
                     ),
                   ),
                   const Divider(),
+                  sectionLabel('التطبيق'),
                   ListTile(
                     leading: const Icon(Icons.settings_outlined),
                     title: const Text('الإعدادات'),
