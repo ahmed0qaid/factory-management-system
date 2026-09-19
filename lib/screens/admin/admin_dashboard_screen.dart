@@ -7,7 +7,6 @@ import '../../widgets/common/app_card.dart';
 import '../../widgets/common/app_error_state.dart';
 import '../../widgets/common/app_loading_state.dart';
 import '../../widgets/common/app_scaffold.dart';
-import '../reports/reports_dashboard_screen.dart';
 import 'add_penalty_screen.dart';
 import 'attendance_policy_screen.dart';
 import 'create_employee_screen.dart';
@@ -186,14 +185,6 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                   const SizedBox(height: 12),
                   _buildMetrics(context, employees),
                   const SizedBox(height: 18),
-                  if (AppRoles.canViewReports(role)) ...[
-                    _ReportsShortcut(
-                      onTap: () => _open(
-                        ReportsDashboardScreen(currentProfile: widget.profile),
-                      ),
-                    ),
-                    const SizedBox(height: 22),
-                  ],
                   ..._buildSections(context, modules),
                 ],
               ),
@@ -489,41 +480,6 @@ class _AdminSection extends StatelessWidget {
           },
         ),
       ],
-    );
-  }
-}
-
-class _ReportsShortcut extends StatelessWidget {
-  final VoidCallback onTap;
-
-  const _ReportsShortcut({required this.onTap});
-
-  @override
-  Widget build(BuildContext context) {
-    return AppCard(
-      onTap: onTap,
-      child: Row(
-        children: [
-          const CircleAvatar(child: Icon(Icons.analytics_outlined)),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'مركز التقارير',
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                const SizedBox(height: 3),
-                const Text('التقارير الإدارية والمالية مع PDF والطباعة.'),
-              ],
-            ),
-          ),
-          const Icon(Icons.chevron_left),
-        ],
-      ),
     );
   }
 }
