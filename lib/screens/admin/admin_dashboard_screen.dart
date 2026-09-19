@@ -325,7 +325,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
       case AdminModuleCategory.attendance:
         return (
           'الدوام والورديات',
-          'السياسات والورديات والجداول والبصمة والإضافي',
+          'الورديات والسياسات والتعيين والجداول والبصمة',
           Icons.schedule_outlined,
         );
       case AdminModuleCategory.approvals:
