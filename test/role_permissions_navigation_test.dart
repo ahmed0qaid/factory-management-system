@@ -23,6 +23,26 @@ void main() {
       },
     );
 
+    test('HR attendance setup follows the operational workflow order', () {
+      final attendanceTypes = AppRoles.modulesFor(AppRoles.hrAdmin)
+          .where(
+            (module) => module.category == AdminModuleCategory.attendance,
+          )
+          .map((module) => module.type)
+          .toList();
+
+      expect(
+        attendanceTypes,
+        equals([
+          AdminModuleType.shifts,
+          AdminModuleType.attendancePolicy,
+          AdminModuleType.shiftAssignments,
+          AdminModuleType.monthlySchedules,
+          AdminModuleType.biometricImport,
+        ]),
+      );
+    });
+
     test(
       'general manager gets approvals but not structural HR configuration',
       () {
