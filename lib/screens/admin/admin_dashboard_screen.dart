@@ -7,7 +7,6 @@ import '../../widgets/common/app_card.dart';
 import '../../widgets/common/app_error_state.dart';
 import '../../widgets/common/app_loading_state.dart';
 import '../../widgets/common/app_scaffold.dart';
-import '../reports/reports_dashboard_screen.dart';
 import 'add_penalty_screen.dart';
 import 'attendance_policy_screen.dart';
 import 'create_employee_screen.dart';
@@ -27,8 +26,13 @@ import 'shifts_screen.dart';
 
 class AdminDashboardScreen extends StatefulWidget {
   final ProfileModel profile;
+  final bool embedded;
 
-  const AdminDashboardScreen({super.key, required this.profile});
+  const AdminDashboardScreen({
+    super.key,
+    required this.profile,
+    this.embedded = false,
+  });
 
   @override
   State<AdminDashboardScreen> createState() => _AdminDashboardScreenState();
@@ -146,16 +150,16 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     final role = widget.profile.role;
     final modules = AppRoles.modulesFor(role);
 
-    return AppScaffold(
-      title: 'لوحة الإدارة',
-      floatingActionButton: AppRoles.canCreateEmployees(role)
-          ? FloatingActionButton.extended(
-              onPressed: _openCreate,
-              icon: const Icon(Icons.person_add_outlined),
-              label: const Text('إضافة موظف'),
-            )
-          : null,
-      body: FutureBuilder<List<ProfileModel>>(
+    final Widget? createEmployeeButton =
+        AppRoles.canCreateEmployees(role)
+        ? FloatingActionButton.extended(
+            onPressed: _openCreate,
+            icon: const Icon(Icons.person_add_outlined),
+            label: const Text('إضافة موظف'),
+          )
+        : null;
+
+    final dashboardBody = FutureBuilder<List<ProfileModel>>(
         future: _employeesFuture,
         builder: (context, snapshot) {
           if (!snapshot.hasData && !snapshot.hasError) {
@@ -181,21 +185,34 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                   const SizedBox(height: 12),
                   _buildMetrics(context, employees),
                   const SizedBox(height: 18),
-                  if (AppRoles.canViewReports(role)) ...[
-                    _ReportsShortcut(
-                      onTap: () => _open(
-                        ReportsDashboardScreen(currentProfile: widget.profile),
-                      ),
-                    ),
-                    const SizedBox(height: 22),
-                  ],
                   ..._buildSections(context, modules),
                 ],
               ),
             ),
           );
         },
-      ),
+      );
+
+    if (!widget.embedded) {
+      return AppScaffold(
+        title: 'لوحة الإدارة',
+        floatingActionButton: createEmployeeButton,
+        body: dashboardBody,
+      );
+    }
+
+    if (createEmployeeButton == null) return dashboardBody;
+
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        dashboardBody,
+        PositionedDirectional(
+          end: 16,
+          bottom: 16,
+          child: createEmployeeButton,
+        ),
+      ],
     );
   }
 
@@ -308,7 +325,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
       case AdminModuleCategory.attendance:
         return (
           'الدوام والورديات',
-          'السياسات والورديات والجداول والبصمة والإضافي',
+          'الورديات والسياسات والتعيين والجداول والبصمة',
           Icons.schedule_outlined,
         );
       case AdminModuleCategory.approvals:
@@ -463,41 +480,6 @@ class _AdminSection extends StatelessWidget {
           },
         ),
       ],
-    );
-  }
-}
-
-class _ReportsShortcut extends StatelessWidget {
-  final VoidCallback onTap;
-
-  const _ReportsShortcut({required this.onTap});
-
-  @override
-  Widget build(BuildContext context) {
-    return AppCard(
-      onTap: onTap,
-      child: Row(
-        children: [
-          const CircleAvatar(child: Icon(Icons.analytics_outlined)),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'مركز التقارير',
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                const SizedBox(height: 3),
-                const Text('التقارير الإدارية والمالية مع PDF والطباعة.'),
-              ],
-            ),
-          ),
-          const Icon(Icons.chevron_left),
-        ],
-      ),
     );
   }
 }
