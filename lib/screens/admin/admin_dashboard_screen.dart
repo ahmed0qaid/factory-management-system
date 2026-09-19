@@ -27,8 +27,13 @@ import 'shifts_screen.dart';
 
 class AdminDashboardScreen extends StatefulWidget {
   final ProfileModel profile;
+  final bool embedded;
 
-  const AdminDashboardScreen({super.key, required this.profile});
+  const AdminDashboardScreen({
+    super.key,
+    required this.profile,
+    this.embedded = false,
+  });
 
   @override
   State<AdminDashboardScreen> createState() => _AdminDashboardScreenState();
@@ -146,16 +151,16 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     final role = widget.profile.role;
     final modules = AppRoles.modulesFor(role);
 
-    return AppScaffold(
-      title: 'لوحة الإدارة',
-      floatingActionButton: AppRoles.canCreateEmployees(role)
-          ? FloatingActionButton.extended(
-              onPressed: _openCreate,
-              icon: const Icon(Icons.person_add_outlined),
-              label: const Text('إضافة موظف'),
-            )
-          : null,
-      body: FutureBuilder<List<ProfileModel>>(
+    final Widget? createEmployeeButton =
+        AppRoles.canCreateEmployees(role)
+        ? FloatingActionButton.extended(
+            onPressed: _openCreate,
+            icon: const Icon(Icons.person_add_outlined),
+            label: const Text('إضافة موظف'),
+          )
+        : null;
+
+    final dashboardBody = FutureBuilder<List<ProfileModel>>(
         future: _employeesFuture,
         builder: (context, snapshot) {
           if (!snapshot.hasData && !snapshot.hasError) {
@@ -195,7 +200,28 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
             ),
           );
         },
-      ),
+      );
+
+    if (!widget.embedded) {
+      return AppScaffold(
+        title: 'لوحة الإدارة',
+        floatingActionButton: createEmployeeButton,
+        body: dashboardBody,
+      );
+    }
+
+    if (createEmployeeButton == null) return dashboardBody;
+
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        dashboardBody,
+        PositionedDirectional(
+          end: 16,
+          bottom: 16,
+          child: createEmployeeButton,
+        ),
+      ],
     );
   }
 
