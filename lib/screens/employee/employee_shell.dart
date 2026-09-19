@@ -26,6 +26,8 @@ import 'penalties_screen.dart';
 import 'profile_screen.dart';
 import 'settings_screen.dart';
 
+enum _ShellWorkspace { management, personal }
+
 class EmployeeShell extends StatefulWidget {
   const EmployeeShell({super.key});
 
@@ -41,7 +43,20 @@ class _EmployeeShellState extends State<EmployeeShell> {
   late Future<ProfileModel> _profileFuture;
   bool _isAuthenticated = false;
   bool _isAuthenticating = true;
+  bool _workspaceInitialized = false;
+  _ShellWorkspace _workspace = _ShellWorkspace.personal;
   String? _authenticationMessage;
+
+  Future<ProfileModel> _loadProfile() async {
+    final profile = await _service.getMyProfile();
+    if (!_workspaceInitialized) {
+      _workspace = profile.isManagement
+          ? _ShellWorkspace.management
+          : _ShellWorkspace.personal;
+      _workspaceInitialized = true;
+    }
+    return profile;
+  }
 
   @override
   void initState() {
@@ -59,7 +74,12 @@ class _EmployeeShellState extends State<EmployeeShell> {
   void _handleTabRequest() {
     final requested = EmployeeTabNavigation.requestedIndex.value;
     if (requested == null || requested < 0 || requested > 4) return;
-    if (mounted) setState(() => _index = requested);
+    if (mounted) {
+      setState(() {
+        _workspace = _ShellWorkspace.personal;
+        _index = requested;
+      });
+    }
     EmployeeTabNavigation.clear();
   }
 
@@ -137,14 +157,15 @@ class _EmployeeShellState extends State<EmployeeShell> {
       _isAuthenticated = true;
       _isAuthenticating = false;
       _authenticationMessage = null;
-      _profileFuture = _service.getMyProfile();
+      _profileFuture = _loadProfile();
     });
   }
 
   void _reloadProfile() {
     setState(() {
       _index = 0;
-      _profileFuture = _service.getMyProfile();
+      _workspaceInitialized = false;
+      _profileFuture = _loadProfile();
     });
   }
 
@@ -242,15 +263,27 @@ class _EmployeeShellState extends State<EmployeeShell> {
 
         if (_index >= pages.length) _index = 0;
 
+        final actions = <Widget>[
+          IconButton(
+            tooltip: 'الإشعارات',
+            onPressed: () => _openPage(const NotificationsScreen()),
+            icon: const Icon(Icons.notifications_none_outlined),
+          ),
+        ];
+
+        if (profile.isManagement &&
+            _workspace == _ShellWorkspace.management) {
+          return AppScaffold(
+            title: 'لوحة الإدارة',
+            actions: actions,
+            drawer: _buildDrawer(profile),
+            body: AdminDashboardScreen(profile: profile, embedded: true),
+          );
+        }
+
         return AppScaffold(
           title: destinations[_index].label,
-          actions: [
-            IconButton(
-              tooltip: 'الإشعارات',
-              onPressed: () => _openPage(const NotificationsScreen()),
-              icon: const Icon(Icons.notifications_none_outlined),
-            ),
-          ],
+          actions: actions,
           drawer: _buildDrawer(profile),
           body: IndexedStack(index: _index, children: pages),
           bottomNavigationBar: AppFloatingNavigationBar(
@@ -395,11 +428,14 @@ class _EmployeeShellState extends State<EmployeeShell> {
                 children: [
                   if (profile.isManagement)
                     ListTile(
+                      selected: _workspace == _ShellWorkspace.management,
                       leading: const Icon(Icons.admin_panel_settings_outlined),
                       title: const Text('لوحة الإدارة'),
                       subtitle: const Text('إدارة الموظفين والدوام والمالية'),
                       onTap: () => closeThen(
-                        () => open(AdminDashboardScreen(profile: profile)),
+                        () => setState(
+                          () => _workspace = _ShellWorkspace.management,
+                        ),
                       ),
                     ),
                   if (AppRoles.canViewReports(profile.role))
@@ -413,16 +449,30 @@ class _EmployeeShellState extends State<EmployeeShell> {
                         ),
                       ),
                     ),
-                  if (profile.isManagement) const Divider(),
+                  if (profile.isManagement) ...[
+                    const Divider(),
+                    ListTile(
+                      selected: _workspace == _ShellWorkspace.personal,
+                      leading: const Icon(Icons.person_outline),
+                      title: const Text('مساحتي الشخصية'),
+                      subtitle: const Text('دوامي وراتبي وسلفي وحسابي'),
+                      onTap: () => closeThen(
+                        () => setState(() {
+                          _workspace = _ShellWorkspace.personal;
+                          _index = 0;
+                        }),
+                      ),
+                    ),
+                  ],
                   ListTile(
                     leading: const Icon(Icons.event_available_outlined),
-                    title: const Text('الإجازات والاستئذان'),
+                    title: const Text('طلباتي وإجازاتي'),
                     onTap: () =>
                         closeThen(() => open(const LeaveRequestsScreen())),
                   ),
                   ListTile(
                     leading: const Icon(Icons.gavel_outlined),
-                    title: const Text('الجزاءات'),
+                    title: const Text('جزاءاتي'),
                     onTap: () => closeThen(
                       () => open(const PenaltiesScreen(showAppBar: true)),
                     ),
