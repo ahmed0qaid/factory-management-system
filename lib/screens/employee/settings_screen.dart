@@ -1,11 +1,12 @@
 import 'package:flutter/material.dart';
-import 'package:local_auth/local_auth.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../services/app_biometric_lock_service.dart';
+import '../../services/auth_service.dart';
 import '../../theme/app_theme_controller.dart';
 import '../../widgets/common/app_card.dart';
 import '../../widgets/common/app_loading_state.dart';
 import '../../widgets/common/app_scaffold.dart';
+import '../auth/change_password_screen.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -15,9 +16,13 @@ class SettingsScreen extends StatefulWidget {
 }
 
 class _SettingsScreenState extends State<SettingsScreen> {
+  final _auth = AuthService();
+  final _biometricService = AppBiometricLockService();
+
   bool _loading = true;
   bool _biometricsEnabled = false;
   bool _biometricsAvailable = false;
+  String? _userId;
 
   @override
   void initState() {
@@ -26,25 +31,30 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   Future<void> _load() async {
-    final prefs = await SharedPreferences.getInstance();
-    final localAuth = LocalAuthentication();
-    var available = false;
     try {
-      available =
-          await localAuth.isDeviceSupported() &&
-          await localAuth.canCheckBiometrics;
-    } catch (_) {
-      available = false;
+      final user = await _auth.getCurrentUser();
+      final available = await _biometricService.isAvailable();
+      final enabled = await _biometricService.isEnabledForUser(user.$id);
+      if (!mounted) return;
+      setState(() {
+        _userId = user.$id;
+        _biometricsEnabled = enabled;
+        _biometricsAvailable = available;
+        _loading = false;
+      });
+    } catch (error) {
+      if (!mounted) return;
+      setState(() => _loading = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('تعذر تحميل إعدادات الأمان: $error')),
+      );
     }
-    if (!mounted) return;
-    setState(() {
-      _biometricsEnabled = prefs.getBool('biometrics_enabled') ?? false;
-      _biometricsAvailable = available;
-      _loading = false;
-    });
   }
 
   Future<void> _toggleBiometrics(bool enabled) async {
+    final userId = _userId;
+    if (userId == null) return;
+
     if (enabled && !_biometricsAvailable) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -55,48 +65,27 @@ class _SettingsScreenState extends State<SettingsScreen> {
     }
 
     if (enabled) {
-      try {
-        final localAuth = LocalAuthentication();
-        final authenticated = await localAuth.authenticate(
-          localizedReason: 'تحقق من هويتك لتفعيل حماية التطبيق بالبصمة',
-          biometricOnly: true,
-          persistAcrossBackgrounding: true,
-        );
-        if (!authenticated) return;
-      } on LocalAuthException catch (error) {
+      final result = await _biometricService.authenticate(
+        localizedReason: 'تحقق من هويتك لتفعيل حماية التطبيق بالبصمة',
+      );
+      if (!result.authenticated) {
         if (!mounted) return;
-        final message = switch (error.code) {
-          LocalAuthExceptionCode.userCanceled => 'تم إلغاء التحقق من البصمة.',
-          LocalAuthExceptionCode.temporaryLockout =>
-            'تم إيقاف البصمة مؤقتًا. حاول لاحقًا.',
-          LocalAuthExceptionCode.biometricLockout =>
-            'البصمة مقفلة على الجهاز. افتح الجهاز بالطريقة الأساسية ثم أعد المحاولة.',
-          _ => 'تعذر التحقق من البصمة.',
-        };
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text(message)));
-        return;
-      } catch (_) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('تعذر التحقق من البصمة.')),
-          );
-        }
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(result.message ?? 'تعذر التحقق من البصمة.')),
+        );
         return;
       }
     }
 
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool('biometrics_enabled', enabled);
+    await _biometricService.setEnabledForUser(userId, enabled);
     if (!mounted) return;
     setState(() => _biometricsEnabled = enabled);
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(
           enabled
-              ? 'تم تفعيل حماية التطبيق بالبصمة.'
-              : 'تم تعطيل حماية التطبيق بالبصمة.',
+              ? 'تم تفعيل حماية التطبيق بالبصمة لهذا الحساب.'
+              : 'تم تعطيل حماية التطبيق بالبصمة لهذا الحساب.',
         ),
       ),
     );
@@ -195,19 +184,38 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     _sectionTitle(context, 'الأمان والدخول'),
                     const SizedBox(height: 8),
                     AppCard(
-                      child: SwitchListTile(
-                        contentPadding: EdgeInsets.zero,
-                        secondary: const Icon(Icons.fingerprint),
-                        title: const Text('حماية التطبيق بالبصمة'),
-                        subtitle: Text(
-                          _biometricsAvailable
-                              ? 'سيطلب التطبيق بصمتك عند فتح جلسة مسجلة مسبقًا.'
-                              : 'البصمة غير متاحة أو غير مهيأة على هذا الجهاز.',
-                        ),
-                        value: _biometricsEnabled,
-                        onChanged: _biometricsAvailable
-                            ? _toggleBiometrics
-                            : null,
+                      child: Column(
+                        children: [
+                          SwitchListTile(
+                            contentPadding: EdgeInsets.zero,
+                            secondary: const Icon(Icons.fingerprint),
+                            title: const Text('حماية التطبيق بالبصمة'),
+                            subtitle: Text(
+                              _biometricsAvailable
+                                  ? 'سيطلب التطبيق بصمتك لهذا الحساب عند فتح جلسة محفوظة.'
+                                  : 'البصمة غير متاحة أو غير مهيأة على هذا الجهاز.',
+                            ),
+                            value: _biometricsEnabled,
+                            onChanged: _biometricsAvailable
+                                ? _toggleBiometrics
+                                : null,
+                          ),
+                          const Divider(),
+                          ListTile(
+                            contentPadding: EdgeInsets.zero,
+                            leading: const Icon(Icons.password_outlined),
+                            title: const Text('تغيير كلمة المرور'),
+                            subtitle: const Text(
+                              'غيّر كلمة مرور حسابك الحالية من داخل التطبيق.',
+                            ),
+                            trailing: const Icon(Icons.chevron_left),
+                            onTap: () => Navigator.of(context).push(
+                              MaterialPageRoute(
+                                builder: (_) => const ChangePasswordScreen(),
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                     const SizedBox(height: 18),

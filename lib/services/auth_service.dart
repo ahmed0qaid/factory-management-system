@@ -17,15 +17,22 @@ class AuthService {
     );
   }
 
+  Future<void> changePassword({
+    required String oldPassword,
+    required String newPassword,
+  }) async {
+    await AppwriteService.account.updatePassword(
+      password: newPassword,
+      oldPassword: oldPassword,
+    );
+  }
+
   Future<void> changeTemporaryPassword({
     required String oldPassword,
     required String newPassword,
   }) async {
     final user = await AppwriteService.account.get();
-    await AppwriteService.account.updatePassword(
-      password: newPassword,
-      oldPassword: oldPassword,
-    );
+    await changePassword(oldPassword: oldPassword, newPassword: newPassword);
     await AppwriteService.tablesDB.updateRow(
       databaseId: AppConstants.databaseId,
       tableId: AppConstants.profilesTable,
