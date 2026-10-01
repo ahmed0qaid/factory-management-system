@@ -1,8 +1,9 @@
-import { Client, Users, Databases, ID, Permission, Role } from 'node-appwrite';
+import { Client, Users, Databases, Teams, ID, Permission, Role } from 'node-appwrite';
 
 const technicalEmailDomain = 'hr.local';
 const profilesTable = 'profiles';
 const managementRoles = ['hr_admin'];
+const assignableRoles = ['employee', 'general_manager', 'financial_manager', 'hr_admin'];
 
 export default async ({ req, res, log, error }) => {
   try {
@@ -13,18 +14,27 @@ export default async ({ req, res, log, error }) => {
 
     const users = new Users(client);
     const databases = new Databases(client);
+    const teams = new Teams(client);
     const databaseId = process.env.APPWRITE_DATABASE_ID || 'hr';
 
-    const actorId = req.headers['x-appwrite-user-id'] || process.env.APPWRITE_FUNCTION_USER_ID;
-    if (!actorId) return res.json({ success: false, error: 'Unauthorized' }, 401);
+    const actorId =
+      req.headers['x-appwrite-user-id'] || process.env.APPWRITE_FUNCTION_USER_ID;
+    if (!actorId) {
+      return res.json({ success: false, error: 'Unauthorized' }, 401);
+    }
 
-    const actorProfile = await databases.getDocument(databaseId, profilesTable, actorId);
+    const actorProfile = await databases.getDocument(
+      databaseId,
+      profilesTable,
+      actorId,
+    );
 
     if (!managementRoles.includes(actorProfile.role)) {
       return res.json({ success: false, error: 'Forbidden' }, 403);
     }
 
-    const body = typeof req.body === 'string' ? JSON.parse(req.body || '{}') : (req.body || {});
+    const body =
+      typeof req.body === 'string' ? JSON.parse(req.body || '{}') : req.body || {};
     const {
       employeeNumber,
       fullName,
@@ -37,28 +47,42 @@ export default async ({ req, res, log, error }) => {
       jobTitleId,
       jobTitleName,
       hireDate,
-      biometricEmployeeId
+      biometricEmployeeId,
     } = body;
-    const phone = body.phone && String(body.phone).trim()
-      ? String(body.phone).trim()
-      : null;
+    const phone =
+      body.phone && String(body.phone).trim() ? String(body.phone).trim() : null;
 
     if (!employeeNumber || !fullName || !temporaryPassword) {
       return res.json({ success: false, error: 'Missing required fields' }, 400);
     }
 
+    if (!assignableRoles.includes(role)) {
+      return res.json({ success: false, error: 'Invalid employee role' }, 400);
+    }
+
     if (temporaryPassword.length < 8) {
-      return res.json({
-        success: false,
-        error: 'كلمة المرور يجب أن تكون 8 أحرف على الأقل'
-      }, 400);
+      return res.json(
+        {
+          success: false,
+          error: 'كلمة المرور يجب أن تكون 8 أحرف على الأقل',
+        },
+        400,
+      );
     }
 
     if (phone && !/^\+[0-9]{8,15}$/.test(phone)) {
-      return res.json({
-        success: false,
-        error: 'أدخل رقم الهاتف بصيغة دولية مثل +967770000000'
-      }, 400);
+      return res.json(
+        {
+          success: false,
+          error: 'أدخل رقم الهاتف بصيغة دولية مثل +967770000000',
+        },
+        400,
+      );
+    }
+
+    const companyId = actorProfile.company_id;
+    if (!companyId) {
+      return res.json({ success: false, error: 'Actor company is missing' }, 400);
     }
 
     const email = `${String(employeeNumber).trim().toLowerCase()}@${technicalEmailDomain}`;
@@ -68,12 +92,12 @@ export default async ({ req, res, log, error }) => {
       email,
       phone || undefined,
       temporaryPassword,
-      fullName
+      fullName,
     );
 
     const monthlyEntitlement = Number(baseSalary) + Number(monthlyBonus);
     const profileData = {
-      company_id: actorProfile.company_id,
+      company_id: companyId,
       employee_number: employeeNumber,
       full_name: fullName,
       role,
@@ -93,6 +117,19 @@ export default async ({ req, res, log, error }) => {
     }
 
     try {
+      // Server SDK memberships are accepted immediately. Keeping every employee
+      // in the company team makes Role.team(companyId) permissions reliable for
+      // announcements and other company-scoped resources.
+      await teams.createMembership(
+        companyId,
+        [role],
+        undefined,
+        user.$id,
+        undefined,
+        undefined,
+        fullName,
+      );
+
       await databases.createDocument(
         databaseId,
         profilesTable,
@@ -101,21 +138,23 @@ export default async ({ req, res, log, error }) => {
         [
           Permission.read(Role.user(user.$id)),
           Permission.update(Role.user(user.$id)),
-          Permission.read(Role.team(actorProfile.company_id, 'hr_admin')),
-          Permission.update(Role.team(actorProfile.company_id, 'hr_admin')),
-          Permission.delete(Role.team(actorProfile.company_id, 'hr_admin')),
-        ]
+          Permission.read(Role.team(companyId, 'hr_admin')),
+          Permission.update(Role.team(companyId, 'hr_admin')),
+          Permission.delete(Role.team(companyId, 'hr_admin')),
+        ],
       );
-    } catch (rowError) {
-      // If row creation fails, delete the user in Auth to prevent orphaned users
+    } catch (setupError) {
+      // Roll back Auth user to avoid an orphaned account if either company-team
+      // membership or profile creation fails.
       try {
         await users.delete(user.$id);
       } catch (deleteError) {
         error(`Failed to delete orphaned user: ${deleteError.message}`);
       }
-      throw rowError; // Re-throw to be handled by the main catch block
+      throw setupError;
     }
 
+    log(`Created employee ${employeeNumber} in company team ${companyId}`);
     return res.json({
       success: true,
       userId: user.$id,
@@ -124,12 +163,14 @@ export default async ({ req, res, log, error }) => {
     });
   } catch (e) {
     error(String(e?.message || e));
-    
-    // Check if user already exists
+
     if (e.code === 409 || String(e?.message).includes('already exists')) {
-      return res.json({ success: false, error: 'يوجد موظف بنفس رقم الموظف' }, 400);
+      return res.json(
+        { success: false, error: 'يوجد موظف بنفس رقم الموظف' },
+        400,
+      );
     }
-    
+
     return res.json({ success: false, error: String(e?.message || e) }, 500);
   }
 };

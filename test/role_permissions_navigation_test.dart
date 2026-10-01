@@ -18,13 +18,34 @@ void main() {
         expect(types, contains(AdminModuleType.overtime));
         expect(types, contains(AdminModuleType.payroll));
         expect(types, contains(AdminModuleType.advances));
+        expect(types, contains(AdminModuleType.announcements));
         expect(types, contains(AdminModuleType.documents));
         expect(types, isNot(contains(AdminModuleType.audit)));
       },
     );
 
+    test('HR attendance setup follows the operational workflow order', () {
+      final attendanceTypes = AppRoles.modulesFor(AppRoles.hrAdmin)
+          .where(
+            (module) => module.category == AdminModuleCategory.attendance,
+          )
+          .map((module) => module.type)
+          .toList();
+
+      expect(
+        attendanceTypes,
+        equals([
+          AdminModuleType.shifts,
+          AdminModuleType.attendancePolicy,
+          AdminModuleType.shiftAssignments,
+          AdminModuleType.monthlySchedules,
+          AdminModuleType.biometricImport,
+        ]),
+      );
+    });
+
     test(
-      'general manager gets approvals but not structural HR configuration',
+      'general manager gets approvals and announcements but not structural HR configuration',
       () {
         final modules = AppRoles.modulesFor(AppRoles.generalManager);
         final types = modules.map((module) => module.type).toSet();
@@ -37,6 +58,7 @@ void main() {
         expect(types, contains(AdminModuleType.overtime));
         expect(types, contains(AdminModuleType.leaves));
         expect(types, contains(AdminModuleType.penalties));
+        expect(types, contains(AdminModuleType.announcements));
         expect(types, isNot(contains(AdminModuleType.attendancePolicy)));
         expect(types, isNot(contains(AdminModuleType.shifts)));
         expect(types, isNot(contains(AdminModuleType.shiftAssignments)));
@@ -59,6 +81,7 @@ void main() {
       expect(types, contains(AdminModuleType.payroll));
       expect(types, contains(AdminModuleType.advances));
       expect(types, contains(AdminModuleType.funds));
+      expect(types, isNot(contains(AdminModuleType.announcements)));
       expect(types, isNot(contains(AdminModuleType.attendancePolicy)));
       expect(types, isNot(contains(AdminModuleType.penalties)));
       expect(types, isNot(contains(AdminModuleType.overtime)));
@@ -81,5 +104,12 @@ void main() {
         expect(AppRoles.canManageAttendance(AppRoles.generalManager), isTrue);
       },
     );
+
+    test('announcements are managed by HR and general manager only', () {
+      expect(AppRoles.canManageAnnouncements(AppRoles.hrAdmin), isTrue);
+      expect(AppRoles.canManageAnnouncements(AppRoles.generalManager), isTrue);
+      expect(AppRoles.canManageAnnouncements(AppRoles.financialManager), isFalse);
+      expect(AppRoles.canManageAnnouncements(AppRoles.employee), isFalse);
+    });
   });
 }

@@ -9,6 +9,7 @@ import '../../widgets/common/app_error_state.dart';
 import '../../widgets/common/app_list_item.dart';
 import '../../widgets/common/app_loading_state.dart';
 import '../../widgets/common/app_scaffold.dart';
+import 'announcements_screen.dart';
 
 class NotificationsScreen extends StatefulWidget {
   const NotificationsScreen({super.key});
@@ -48,10 +49,23 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     }
   }
 
+  void _openAnnouncements() {
+    Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => const AnnouncementsScreen()),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return AppScaffold(
       title: 'الإشعارات',
+      actions: [
+        IconButton(
+          tooltip: 'الإعلانات والتعاميم',
+          onPressed: _openAnnouncements,
+          icon: const Icon(Icons.campaign_outlined),
+        ),
+      ],
       body: FutureBuilder<List<NotificationModel>>(
         future: _future,
         builder: (context, snapshot) {
@@ -68,15 +82,21 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
 
           final notifications = snapshot.data ?? const <NotificationModel>[];
           if (notifications.isEmpty) {
-            return const AppEmptyState(
+            return AppEmptyState(
               title: 'لا توجد إشعارات',
-              message: 'لا توجد تحديثات أو إجراءات جديدة تحتاج إلى انتباهك.',
+              message:
+                  'لا توجد تحديثات جديدة. يمكنك فتح الإعلانات والتعاميم من الزر أعلى الشاشة.',
               icon: Icons.notifications_none_outlined,
+              actionLabel: 'فتح الإعلانات',
+              onAction: _openAnnouncements,
             );
           }
 
           return RefreshIndicator(
-            onRefresh: () async => _reload(),
+            onRefresh: () async {
+              _reload();
+              await _future;
+            },
             child: Align(
               alignment: Alignment.topCenter,
               child: ConstrainedBox(

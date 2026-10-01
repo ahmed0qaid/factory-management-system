@@ -1,0 +1,65 @@
+name: Flutter CI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches:
+      - main
+      - refactor/navigation-information-architecture
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Set up Java
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.35.5'
+          channel: stable
+          cache: true
+
+      - name: Prepare local environment file
+        run: cp .env.example .env
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Report formatting drift without blocking verification
+        run: >-
+          dart format --output=none
+          lib
+          test/app_biometric_lock_service_test.dart
+          test/role_permissions_navigation_test.dart
+
+      - name: Analyze production code
+        run: flutter analyze lib --no-fatal-infos --no-fatal-warnings
+
+      - name: Run stable unit and widget tests
+        run: >-
+          flutter test
+          test/app_biometric_lock_service_test.dart
+          test/role_permissions_navigation_test.dart
+          test/excel_attendance_import_parser_test.dart
+          test/widget_test.dart
+
+      # temporary_employee_lifecycle_test.dart intentionally stays out of this
+      # suite. It talks to a live Appwrite instance and requires platform
+      # plugins, so it belongs in an explicit integration environment.
+
+      - name: Build debug APK
+        run: flutter build apk --debug

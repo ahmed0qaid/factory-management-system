@@ -7,7 +7,6 @@ import '../../widgets/common/app_card.dart';
 import '../../widgets/common/app_error_state.dart';
 import '../../widgets/common/app_loading_state.dart';
 import '../../widgets/common/app_scaffold.dart';
-import '../reports/reports_dashboard_screen.dart';
 import 'add_penalty_screen.dart';
 import 'attendance_policy_screen.dart';
 import 'create_employee_screen.dart';
@@ -17,6 +16,7 @@ import 'employee_shift_assignments_screen.dart';
 import 'import_biometric_screen.dart';
 import 'job_titles_screen.dart';
 import 'manage_advances_screen.dart';
+import 'manage_announcements_screen.dart';
 import 'manage_employees_screen.dart';
 import 'manage_funds_screen.dart';
 import 'manage_leaves_screen.dart';
@@ -27,8 +27,13 @@ import 'shifts_screen.dart';
 
 class AdminDashboardScreen extends StatefulWidget {
   final ProfileModel profile;
+  final bool embedded;
 
-  const AdminDashboardScreen({super.key, required this.profile});
+  const AdminDashboardScreen({
+    super.key,
+    required this.profile,
+    this.embedded = false,
+  });
 
   @override
   State<AdminDashboardScreen> createState() => _AdminDashboardScreenState();
@@ -91,6 +96,8 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
         _open(ManageAdvancesScreen(currentProfile: widget.profile));
       case AdminModuleType.funds:
         _open(ManageFundsScreen(currentProfile: widget.profile));
+      case AdminModuleType.announcements:
+        _open(ManageAnnouncementsScreen(currentProfile: widget.profile));
       case AdminModuleType.documents:
         _open(const EmployeeDocumentsScreen());
       case AdminModuleType.audit:
@@ -136,6 +143,8 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
         return Icons.calendar_month_outlined;
       case 'account_balance':
         return Icons.account_balance_outlined;
+      case 'campaign':
+        return Icons.campaign_outlined;
       default:
         return Icons.apps_outlined;
     }
@@ -146,56 +155,69 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     final role = widget.profile.role;
     final modules = AppRoles.modulesFor(role);
 
-    return AppScaffold(
-      title: 'لوحة الإدارة',
-      floatingActionButton: AppRoles.canCreateEmployees(role)
-          ? FloatingActionButton.extended(
-              onPressed: _openCreate,
-              icon: const Icon(Icons.person_add_outlined),
-              label: const Text('إضافة موظف'),
-            )
-          : null,
-      body: FutureBuilder<List<ProfileModel>>(
-        future: _employeesFuture,
-        builder: (context, snapshot) {
-          if (!snapshot.hasData && !snapshot.hasError) {
-            return const AppLoadingState(label: 'جاري تحميل لوحة الإدارة');
-          }
-          if (snapshot.hasError) {
-            return AppErrorState(
-              title: 'تعذر تحميل لوحة الإدارة',
-              message: '${snapshot.error}',
-              onRetry: _reload,
-            );
-          }
+    final Widget? createEmployeeButton =
+        AppRoles.canCreateEmployees(role)
+        ? FloatingActionButton.extended(
+            onPressed: _openCreate,
+            icon: const Icon(Icons.person_add_outlined),
+            label: const Text('إضافة موظف'),
+          )
+        : null;
 
-          final employees = snapshot.data ?? const <ProfileModel>[];
-          return Align(
-            alignment: Alignment.topCenter,
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 1200),
-              child: ListView(
-                padding: const EdgeInsets.fromLTRB(16, 16, 16, 120),
-                children: [
-                  _buildHeader(context),
-                  const SizedBox(height: 12),
-                  _buildMetrics(context, employees),
-                  const SizedBox(height: 18),
-                  if (AppRoles.canViewReports(role)) ...[
-                    _ReportsShortcut(
-                      onTap: () => _open(
-                        ReportsDashboardScreen(currentProfile: widget.profile),
-                      ),
-                    ),
-                    const SizedBox(height: 22),
-                  ],
-                  ..._buildSections(context, modules),
-                ],
-              ),
-            ),
+    final dashboardBody = FutureBuilder<List<ProfileModel>>(
+      future: _employeesFuture,
+      builder: (context, snapshot) {
+        if (!snapshot.hasData && !snapshot.hasError) {
+          return const AppLoadingState(label: 'جاري تحميل لوحة الإدارة');
+        }
+        if (snapshot.hasError) {
+          return AppErrorState(
+            title: 'تعذر تحميل لوحة الإدارة',
+            message: '${snapshot.error}',
+            onRetry: _reload,
           );
-        },
-      ),
+        }
+
+        final employees = snapshot.data ?? const <ProfileModel>[];
+        return Align(
+          alignment: Alignment.topCenter,
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 1200),
+            child: ListView(
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 120),
+              children: [
+                _buildHeader(context),
+                const SizedBox(height: 12),
+                _buildMetrics(context, employees),
+                const SizedBox(height: 18),
+                ..._buildSections(context, modules),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+
+    if (!widget.embedded) {
+      return AppScaffold(
+        title: 'لوحة الإدارة',
+        floatingActionButton: createEmployeeButton,
+        body: dashboardBody,
+      );
+    }
+
+    if (createEmployeeButton == null) return dashboardBody;
+
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        dashboardBody,
+        PositionedDirectional(
+          end: 16,
+          bottom: 16,
+          child: createEmployeeButton,
+        ),
+      ],
     );
   }
 
@@ -308,7 +330,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
       case AdminModuleCategory.attendance:
         return (
           'الدوام والورديات',
-          'السياسات والورديات والجداول والبصمة والإضافي',
+          'الورديات والسياسات والتعيين والجداول والبصمة',
           Icons.schedule_outlined,
         );
       case AdminModuleCategory.approvals:
@@ -326,7 +348,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
       case AdminModuleCategory.system:
         return (
           'إدارة النظام',
-          'المستندات والصلاحيات والعمليات الإدارية',
+          'الإعلانات والتعاميم ومستندات الموظفين والعمليات الإدارية',
           Icons.settings_suggest_outlined,
         );
     }
@@ -335,8 +357,9 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   IconData _roleIcon(String role) {
     if (AppRoles.isHr(role)) return Icons.badge_outlined;
     if (AppRoles.isGeneralManager(role)) return Icons.business_center_outlined;
-    if (AppRoles.isFinancialManager(role))
+    if (AppRoles.isFinancialManager(role)) {
       return Icons.account_balance_outlined;
+    }
     return Icons.person_outline;
   }
 
@@ -463,41 +486,6 @@ class _AdminSection extends StatelessWidget {
           },
         ),
       ],
-    );
-  }
-}
-
-class _ReportsShortcut extends StatelessWidget {
-  final VoidCallback onTap;
-
-  const _ReportsShortcut({required this.onTap});
-
-  @override
-  Widget build(BuildContext context) {
-    return AppCard(
-      onTap: onTap,
-      child: Row(
-        children: [
-          const CircleAvatar(child: Icon(Icons.analytics_outlined)),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'مركز التقارير',
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                const SizedBox(height: 3),
-                const Text('التقارير الإدارية والمالية مع PDF والطباعة.'),
-              ],
-            ),
-          ),
-          const Icon(Icons.chevron_left),
-        ],
-      ),
     );
   }
 }

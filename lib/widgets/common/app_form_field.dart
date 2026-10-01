@@ -10,6 +10,7 @@ class AppFormField extends StatefulWidget {
   final String? Function(String?)? validator;
   final TextInputType keyboardType;
   final TextInputAction? textInputAction;
+  final int? minLines;
   final int maxLines;
   final bool? enabled;
   final String? initialValue;
@@ -28,6 +29,7 @@ class AppFormField extends StatefulWidget {
     this.validator,
     this.keyboardType = TextInputType.text,
     this.textInputAction,
+    this.minLines,
     this.maxLines = 1,
     this.enabled,
     this.initialValue,
@@ -66,6 +68,7 @@ class _AppFormFieldState extends State<AppFormField> {
       keyboardType: widget.keyboardType,
       textInputAction: widget.textInputAction,
       validator: widget.validator,
+      minLines: widget.isPassword ? 1 : widget.minLines,
       maxLines: widget.isPassword ? 1 : widget.maxLines,
       onChanged: widget.onChanged,
       onFieldSubmitted: widget.onFieldSubmitted,

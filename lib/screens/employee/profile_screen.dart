@@ -5,6 +5,7 @@ import '../../theme/app_spacing.dart';
 import '../../utils/formatters.dart';
 import '../../widgets/common/app_card.dart';
 import '../../widgets/common/app_status_pill.dart';
+import 'my_documents_screen.dart';
 
 class ProfileScreen extends StatelessWidget {
   final ProfileModel profile;
@@ -103,9 +104,33 @@ class ProfileScreen extends StatelessWidget {
                 ],
               ),
             ),
+            const SizedBox(height: AppSpacing.md),
+            Text(
+              'ملف الموظف',
+              style: theme.textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+            const SizedBox(height: AppSpacing.sm),
+            AppCard(
+              child: ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: const Icon(Icons.folder_shared_outlined),
+                title: const Text('مستنداتي'),
+                subtitle: const Text(
+                  'عرض العقود والهويات والشهادات والمستندات المضافة إلى ملفك.',
+                ),
+                trailing: const Icon(Icons.chevron_left),
+                onTap: () => Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) => MyDocumentsScreen(employeeId: profile.id),
+                  ),
+                ),
+              ),
+            ),
             const SizedBox(height: AppSpacing.sm + AppSpacing.xs),
             Text(
-              'يمكن تعديل إعدادات الأمان والبصمة من شاشة «الإعدادات» في القائمة الجانبية.',
+              'يمكن تعديل إعدادات الأمان وقفل الجهاز من شاشة «الإعدادات» في القائمة الجانبية.',
               style: theme.textTheme.bodySmall?.copyWith(
                 color: scheme.onSurfaceVariant,
               ),

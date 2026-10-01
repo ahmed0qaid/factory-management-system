@@ -1,9 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:local_auth/local_auth.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../models/profile_model.dart';
 import '../../permissions/role_permissions.dart';
+import '../../services/app_biometric_lock_service.dart';
 import '../../services/auth_service.dart';
 import '../../services/employee_service.dart';
 import '../../services/employee_tab_navigation.dart';
@@ -26,6 +25,8 @@ import 'penalties_screen.dart';
 import 'profile_screen.dart';
 import 'settings_screen.dart';
 
+enum _ShellWorkspace { management, personal }
+
 class EmployeeShell extends StatefulWidget {
   const EmployeeShell({super.key});
 
@@ -36,18 +37,23 @@ class EmployeeShell extends StatefulWidget {
 class _EmployeeShellState extends State<EmployeeShell> {
   final _service = EmployeeService();
   final _auth = AuthService();
+  final _biometricService = AppBiometricLockService();
 
   int _index = 0;
   late Future<ProfileModel> _profileFuture;
   bool _isAuthenticated = false;
   bool _isAuthenticating = true;
+  bool _isSigningOut = false;
+  bool _workspaceInitialized = false;
+  _ShellWorkspace _workspace = _ShellWorkspace.personal;
   String? _authenticationMessage;
+  String? _currentUserId;
 
   @override
   void initState() {
     super.initState();
     EmployeeTabNavigation.requestedIndex.addListener(_handleTabRequest);
-    _checkBiometricsAndLoad();
+    _initializeSession();
   }
 
   @override
@@ -59,103 +65,133 @@ class _EmployeeShellState extends State<EmployeeShell> {
   void _handleTabRequest() {
     final requested = EmployeeTabNavigation.requestedIndex.value;
     if (requested == null || requested < 0 || requested > 4) return;
-    if (mounted) setState(() => _index = requested);
+    if (mounted) {
+      setState(() {
+        _workspace = _ShellWorkspace.personal;
+        _index = requested;
+      });
+    }
     EmployeeTabNavigation.clear();
   }
 
-  Future<void> _checkBiometricsAndLoad() async {
+  void _initializeWorkspace(ProfileModel profile) {
+    if (_workspaceInitialized) return;
+    _workspace = profile.isManagement
+        ? _ShellWorkspace.management
+        : _ShellWorkspace.personal;
+    _workspaceInitialized = true;
+  }
+
+  Future<void> _initializeSession() async {
     if (mounted) {
       setState(() {
         _isAuthenticating = true;
+        _isAuthenticated = false;
         _authenticationMessage = null;
       });
     }
 
-    final prefs = await SharedPreferences.getInstance();
-    final enabled = prefs.getBool('biometrics_enabled') ?? false;
+    try {
+      final user = await _auth.getCurrentUser();
+      final profile = await _service.getMyProfile();
+      _currentUserId = user.$id;
+      _initializeWorkspace(profile);
+      _profileFuture = Future.value(profile);
 
-    if (enabled) {
-      final localAuth = LocalAuthentication();
-      try {
-        final supported = await localAuth.isDeviceSupported();
-        final canCheck = await localAuth.canCheckBiometrics;
-        if (!supported || !canCheck) {
-          if (!mounted) return;
-          setState(() {
-            _isAuthenticated = false;
-            _isAuthenticating = false;
-            _authenticationMessage =
-                'تعذر استخدام البصمة على هذا الجهاز. يمكنك إعادة المحاولة أو تسجيل الخروج.';
-          });
-          return;
-        }
-
-        final authenticated = await localAuth.authenticate(
-          localizedReason: 'تحقق من هويتك لفتح نظام إدارة موظفي المصنع',
-          biometricOnly: true,
-          persistAcrossBackgrounding: true,
-        );
-
-        if (!authenticated) {
-          if (!mounted) return;
-          setState(() {
-            _isAuthenticated = false;
-            _isAuthenticating = false;
-            _authenticationMessage = 'لم يتم التحقق من البصمة.';
-          });
-          return;
-        }
-      } on LocalAuthException catch (error) {
+      // تغيير كلمة المرور المؤقتة شرط سابق على أي قفل محلي بالبصمة.
+      if (profile.mustChangePassword) {
         if (!mounted) return;
         setState(() {
-          _isAuthenticated = false;
+          _isAuthenticated = true;
           _isAuthenticating = false;
-          _authenticationMessage = switch (error.code) {
-            LocalAuthExceptionCode.userCanceled => 'تم إلغاء التحقق من البصمة.',
-            LocalAuthExceptionCode.temporaryLockout =>
-              'تم إيقاف البصمة مؤقتًا بسبب محاولات متكررة. حاول لاحقًا.',
-            LocalAuthExceptionCode.biometricLockout =>
-              'البصمة مقفلة على الجهاز. افتح الجهاز بالطريقة الأساسية ثم أعد المحاولة.',
-            _ => 'تعذر التحقق من البصمة. لم يتم تجاوز حماية التطبيق.',
-          };
-        });
-        return;
-      } catch (_) {
-        if (!mounted) return;
-        setState(() {
-          _isAuthenticated = false;
-          _isAuthenticating = false;
-          _authenticationMessage =
-              'حدث خطأ أثناء التحقق من البصمة. لم يتم تجاوز حماية التطبيق.';
         });
         return;
       }
-    }
 
-    if (!mounted) return;
-    setState(() {
-      _isAuthenticated = true;
-      _isAuthenticating = false;
-      _authenticationMessage = null;
-      _profileFuture = _service.getMyProfile();
-    });
+      final enabled = await _biometricService.isEnabledForUser(user.$id);
+      if (enabled) {
+        final result = await _biometricService.authenticate(
+          localizedReason: 'تحقق من هويتك لفتح نظام إدارة موظفي المصنع',
+        );
+        if (!result.authenticated) {
+          if (!mounted) return;
+          setState(() {
+            _isAuthenticated = false;
+            _isAuthenticating = false;
+            _authenticationMessage = result.message;
+          });
+          return;
+        }
+      }
+
+      if (!mounted) return;
+      setState(() {
+        _isAuthenticated = true;
+        _isAuthenticating = false;
+        _authenticationMessage = null;
+      });
+    } catch (error) {
+      _profileFuture = Future<ProfileModel>.error(error);
+      if (!mounted) return;
+      setState(() {
+        _isAuthenticated = true;
+        _isAuthenticating = false;
+      });
+    }
   }
 
   void _reloadProfile() {
     setState(() {
       _index = 0;
-      _profileFuture = _service.getMyProfile();
+      _workspaceInitialized = false;
     });
+    _initializeSession();
   }
 
   Future<void> _signOut() async {
+    if (_isSigningOut) return;
     final navigator = Navigator.of(context);
-    await _auth.signOut();
-    if (!mounted) return;
-    navigator.pushAndRemoveUntil(
-      MaterialPageRoute(builder: (_) => const LoginScreen()),
-      (_) => false,
+    final messenger = ScaffoldMessenger.of(context);
+
+    setState(() => _isSigningOut = true);
+    try {
+      await _auth.signOut();
+      if (!mounted) return;
+      navigator.pushAndRemoveUntil(
+        MaterialPageRoute(builder: (_) => const LoginScreen()),
+        (_) => false,
+      );
+    } catch (error) {
+      if (!mounted) return;
+      messenger.showSnackBar(
+        SnackBar(content: Text('تعذر تسجيل الخروج: $error')),
+      );
+    } finally {
+      if (mounted) setState(() => _isSigningOut = false);
+    }
+  }
+
+  Future<void> _requestSignOut() async {
+    if (_isSigningOut) return;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('تسجيل الخروج'),
+        content: const Text('هل تريد تسجيل الخروج من الحساب الحالي؟'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('إلغاء'),
+          ),
+          FilledButton.icon(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            icon: const Icon(Icons.logout),
+            label: const Text('تسجيل الخروج'),
+          ),
+        ],
+      ),
     );
+    if (confirmed == true && mounted) await _signOut();
   }
 
   void _openPage(Widget page) {
@@ -242,15 +278,27 @@ class _EmployeeShellState extends State<EmployeeShell> {
 
         if (_index >= pages.length) _index = 0;
 
+        final actions = <Widget>[
+          IconButton(
+            tooltip: 'الإشعارات',
+            onPressed: () => _openPage(const NotificationsScreen()),
+            icon: const Icon(Icons.notifications_none_outlined),
+          ),
+        ];
+
+        if (profile.isManagement &&
+            _workspace == _ShellWorkspace.management) {
+          return AppScaffold(
+            title: 'لوحة الإدارة',
+            actions: actions,
+            drawer: _buildDrawer(profile),
+            body: AdminDashboardScreen(profile: profile, embedded: true),
+          );
+        }
+
         return AppScaffold(
           title: destinations[_index].label,
-          actions: [
-            IconButton(
-              tooltip: 'الإشعارات',
-              onPressed: () => _openPage(const NotificationsScreen()),
-              icon: const Icon(Icons.notifications_none_outlined),
-            ),
-          ],
+          actions: actions,
           drawer: _buildDrawer(profile),
           body: IndexedStack(index: _index, children: pages),
           bottomNavigationBar: AppFloatingNavigationBar(
@@ -298,7 +346,7 @@ class _EmployeeShellState extends State<EmployeeShell> {
               const SizedBox(height: 8),
               Text(
                 _authenticationMessage ??
-                    'استخدم البصمة المفعلة على جهازك للمتابعة.',
+                    'استخدم البصمة المفعلة لهذا الحساب للمتابعة.',
                 textAlign: TextAlign.center,
                 style: theme.textTheme.bodyMedium?.copyWith(
                   color: scheme.onSurfaceVariant,
@@ -308,16 +356,16 @@ class _EmployeeShellState extends State<EmployeeShell> {
               SizedBox(
                 width: double.infinity,
                 child: AppLoadingButton(
-                  onPressed: _checkBiometricsAndLoad,
+                  onPressed: _initializeSession,
                   icon: Icons.fingerprint,
                   text: 'إعادة محاولة البصمة',
                 ),
               ),
               const SizedBox(height: 8),
               TextButton.icon(
-                onPressed: _signOut,
+                onPressed: _isSigningOut ? null : _requestSignOut,
                 icon: const Icon(Icons.logout),
-                label: const Text('تسجيل الخروج'),
+                label: Text(_isSigningOut ? 'جاري تسجيل الخروج...' : 'تسجيل الخروج'),
               ),
             ],
           ),
@@ -336,6 +384,17 @@ class _EmployeeShellState extends State<EmployeeShell> {
 
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
+
+    Widget sectionLabel(String text) => Padding(
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
+      child: Text(
+        text,
+        style: theme.textTheme.labelMedium?.copyWith(
+          color: scheme.onSurfaceVariant,
+          fontWeight: FontWeight.w700,
+        ),
+      ),
+    );
 
     return Drawer(
       child: SafeArea(
@@ -393,13 +452,17 @@ class _EmployeeShellState extends State<EmployeeShell> {
               child: ListView(
                 padding: const EdgeInsets.symmetric(vertical: 8),
                 children: [
+                  if (profile.isManagement) sectionLabel('الإدارة'),
                   if (profile.isManagement)
                     ListTile(
+                      selected: _workspace == _ShellWorkspace.management,
                       leading: const Icon(Icons.admin_panel_settings_outlined),
                       title: const Text('لوحة الإدارة'),
                       subtitle: const Text('إدارة الموظفين والدوام والمالية'),
                       onTap: () => closeThen(
-                        () => open(AdminDashboardScreen(profile: profile)),
+                        () => setState(
+                          () => _workspace = _ShellWorkspace.management,
+                        ),
                       ),
                     ),
                   if (AppRoles.canViewReports(profile.role))
@@ -413,21 +476,38 @@ class _EmployeeShellState extends State<EmployeeShell> {
                         ),
                       ),
                     ),
-                  if (profile.isManagement) const Divider(),
+                  if (profile.isManagement) ...[
+                    const Divider(),
+                    sectionLabel('المساحة الشخصية'),
+                    ListTile(
+                      selected: _workspace == _ShellWorkspace.personal,
+                      leading: const Icon(Icons.person_outline),
+                      title: const Text('مساحتي الشخصية'),
+                      subtitle: const Text('دوامي وراتبي وسلفي وحسابي'),
+                      onTap: () => closeThen(
+                        () => setState(() {
+                          _workspace = _ShellWorkspace.personal;
+                          _index = 0;
+                        }),
+                      ),
+                    ),
+                  ],
+                  if (!profile.isManagement) sectionLabel('المساحة الشخصية'),
                   ListTile(
                     leading: const Icon(Icons.event_available_outlined),
-                    title: const Text('الإجازات والاستئذان'),
+                    title: const Text('طلباتي وإجازاتي'),
                     onTap: () =>
                         closeThen(() => open(const LeaveRequestsScreen())),
                   ),
                   ListTile(
                     leading: const Icon(Icons.gavel_outlined),
-                    title: const Text('الجزاءات'),
+                    title: const Text('جزاءاتي'),
                     onTap: () => closeThen(
                       () => open(const PenaltiesScreen(showAppBar: true)),
                     ),
                   ),
                   const Divider(),
+                  sectionLabel('التطبيق'),
                   ListTile(
                     leading: const Icon(Icons.settings_outlined),
                     title: const Text('الإعدادات'),
@@ -439,12 +519,24 @@ class _EmployeeShellState extends State<EmployeeShell> {
             ),
             const Divider(height: 1),
             ListTile(
-              leading: Icon(Icons.logout, color: scheme.error),
+              enabled: !_isSigningOut,
+              leading: _isSigningOut
+                  ? const SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : Icon(Icons.logout, color: scheme.error),
               title: Text(
-                'تسجيل الخروج',
+                _isSigningOut ? 'جاري تسجيل الخروج...' : 'تسجيل الخروج',
                 style: TextStyle(color: scheme.error),
               ),
-              onTap: _signOut,
+              onTap: _isSigningOut
+                  ? null
+                  : () {
+                      Navigator.of(context).pop();
+                      _requestSignOut();
+                    },
             ),
           ],
         ),

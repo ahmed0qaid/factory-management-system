@@ -10,10 +10,19 @@ class AuthService {
   }) async {
     final email =
         '${employeeNumber.trim().toLowerCase()}@${AppConstants.technicalEmailDomain}';
-    print('Login technical email: $email');
     await AppwriteService.account.createEmailPasswordSession(
       email: email,
       password: password,
+    );
+  }
+
+  Future<void> changePassword({
+    required String oldPassword,
+    required String newPassword,
+  }) async {
+    await AppwriteService.account.updatePassword(
+      password: newPassword,
+      oldPassword: oldPassword,
     );
   }
 
@@ -22,10 +31,7 @@ class AuthService {
     required String newPassword,
   }) async {
     final user = await AppwriteService.account.get();
-    await AppwriteService.account.updatePassword(
-      password: newPassword,
-      oldPassword: oldPassword,
-    );
+    await changePassword(oldPassword: oldPassword, newPassword: newPassword);
     await AppwriteService.tablesDB.updateRow(
       databaseId: AppConstants.databaseId,
       tableId: AppConstants.profilesTable,

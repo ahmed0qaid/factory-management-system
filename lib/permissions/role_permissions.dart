@@ -112,19 +112,19 @@ class AppRoles {
     if (canConfigureAttendance(role)) {
       modules.addAll(const [
         AdminModule(
-          type: AdminModuleType.attendancePolicy,
-          category: AdminModuleCategory.attendance,
-          title: 'سياسات الدوام',
-          description: 'إعداد فترات السماح وقواعد احتساب الحضور والتأخير',
-          iconName: 'calendar',
-          manageMode: true,
-        ),
-        AdminModule(
           type: AdminModuleType.shifts,
           category: AdminModuleCategory.attendance,
           title: 'الورديات',
           description: 'إضافة وتعديل الورديات وأوقات العمل',
           iconName: 'schedule',
+          manageMode: true,
+        ),
+        AdminModule(
+          type: AdminModuleType.attendancePolicy,
+          category: AdminModuleCategory.attendance,
+          title: 'سياسات الدوام',
+          description: 'إعداد فترات السماح وقواعد احتساب الحضور والتأخير',
+          iconName: 'calendar',
           manageMode: true,
         ),
         AdminModule(
@@ -232,6 +232,19 @@ class AppRoles {
       );
     }
 
+    if (canManageAnnouncements(role)) {
+      modules.add(
+        const AdminModule(
+          type: AdminModuleType.announcements,
+          category: AdminModuleCategory.system,
+          title: 'الإعلانات والتعاميم',
+          description: 'نشر التعاميم وإرسالها إلى موظفي المصنع',
+          iconName: 'campaign',
+          manageMode: true,
+        ),
+      );
+    }
+
     if (canManageDocuments(role)) {
       modules.add(
         const AdminModule(
@@ -265,6 +278,7 @@ enum AdminModuleType {
   payroll,
   advances,
   funds,
+  announcements,
   documents,
   audit,
 }

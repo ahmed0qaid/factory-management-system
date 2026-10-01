@@ -8,6 +8,8 @@ import 'screens/employee/employee_shell.dart';
 import 'services/appwrite_service.dart';
 import 'theme/app_theme.dart';
 import 'theme/app_theme_controller.dart';
+import 'widgets/common/app_error_state.dart';
+import 'widgets/common/app_loading_state.dart';
 
 class HrApp extends StatelessWidget {
   const HrApp({super.key});
@@ -58,34 +60,55 @@ class HrApp extends StatelessWidget {
   }
 }
 
-class AuthGate extends StatelessWidget {
+class AuthGate extends StatefulWidget {
   const AuthGate({super.key});
 
   @override
+  State<AuthGate> createState() => _AuthGateState();
+}
+
+class _AuthGateState extends State<AuthGate> {
+  late Future<Object> _sessionFuture;
+
+  @override
+  void initState() {
+    super.initState();
+    _sessionFuture = AppwriteService.account.get();
+  }
+
+  void _retry() {
+    setState(() {
+      _sessionFuture = AppwriteService.account.get();
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
-    return FutureBuilder(
-      future: AppwriteService.account.get(),
+    return FutureBuilder<Object>(
+      future: _sessionFuture,
       builder: (context, snapshot) {
         if (snapshot.connectionState != ConnectionState.done) {
           return const Scaffold(
-            body: Center(child: CircularProgressIndicator()),
+            body: AppLoadingState(label: 'جاري التحقق من الجلسة'),
           );
         }
+
         if (snapshot.hasError) {
           final error = snapshot.error;
-          if (error is AppwriteException) return const LoginScreen();
+          if (error is AppwriteException && error.code == 401) {
+            return const LoginScreen();
+          }
+
           return Scaffold(
-            body: Center(
-              child: Padding(
-                padding: const EdgeInsets.all(24),
-                child: Text(
-                  'تعذر الاتصال بالخدمة: $error',
-                  textAlign: TextAlign.center,
-                ),
-              ),
+            body: AppErrorState(
+              title: 'تعذر الاتصال بالخدمة',
+              message:
+                  'لم نتمكن من التحقق من الجلسة الحالية. تحقق من الاتصال ثم أعد المحاولة.',
+              onRetry: _retry,
             ),
           );
         }
+
         return const EmployeeShell();
       },
     );
