@@ -58,7 +58,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     if (enabled && !_biometricsAvailable) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('المصادقة بالبصمة غير متاحة على هذا الجهاز.'),
+          content: Text('قفل الجهاز الآمن غير متاح أو غير مهيأ على هذا الجهاز.'),
         ),
       );
       return;
@@ -66,12 +66,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
     if (enabled) {
       final result = await _biometricService.authenticate(
-        localizedReason: 'تحقق من هويتك لتفعيل حماية التطبيق بالبصمة',
+        localizedReason:
+            'تحقق من هويتك لتفعيل حماية التطبيق بالبصمة أو قفل الجهاز',
       );
       if (!result.authenticated) {
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(result.message ?? 'تعذر التحقق من البصمة.')),
+          SnackBar(
+            content: Text(result.message ?? 'تعذر التحقق من الهوية.'),
+          ),
         );
         return;
       }
@@ -84,8 +87,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
       SnackBar(
         content: Text(
           enabled
-              ? 'تم تفعيل حماية التطبيق بالبصمة لهذا الحساب.'
-              : 'تم تعطيل حماية التطبيق بالبصمة لهذا الحساب.',
+              ? 'تم تفعيل حماية التطبيق لهذا الحساب.'
+              : 'تم تعطيل حماية التطبيق لهذا الحساب.',
         ),
       ),
     );
@@ -189,11 +192,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           SwitchListTile(
                             contentPadding: EdgeInsets.zero,
                             secondary: const Icon(Icons.fingerprint),
-                            title: const Text('حماية التطبيق بالبصمة'),
+                            title: const Text('حماية التطبيق بقفل الجهاز'),
                             subtitle: Text(
                               _biometricsAvailable
-                                  ? 'سيطلب التطبيق بصمتك لهذا الحساب عند فتح جلسة محفوظة.'
-                                  : 'البصمة غير متاحة أو غير مهيأة على هذا الجهاز.',
+                                  ? 'يستخدم التطبيق البصمة أولًا، ويمكن للنظام عرض رمز أو كلمة مرور الجهاز كبديل عند الحاجة.'
+                                  : 'قفل الجهاز الآمن غير متاح أو غير مهيأ على هذا الجهاز.',
                             ),
                             value: _biometricsEnabled,
                             onChanged: _biometricsAvailable
