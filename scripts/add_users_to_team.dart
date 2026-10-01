@@ -1,39 +1,83 @@
+import 'dart:io';
+
 import 'package:dart_appwrite/dart_appwrite.dart';
 
-void main() async {
-  Client client = Client();
-  client
-      .setEndpoint('https://fra.cloud.appwrite.io/v1')
-      .setProject('6a6a49d1000884049205')
-      .setKey('standard_8831478838d66625e099e541665906fd006bd08bf2a3c096a2f8f9309808423ce8f9d92445107edbb603f6db41f75886a3e090cb5b8c1e38a8958ddf55527c53742cdb09a5ece5f901fac546e1540f37eefbe1dcfc4eb8e3b629bd485757dcd2c9eef58ca287bb38ee33c5538cac13c601c1a292125b91dd354467c72251ed93');
+Map<String, String> _readEnvFile(String path) {
+  final file = File(path);
+  if (!file.existsSync()) return const {};
 
-  Teams teams = Teams(client);
-  Users users = Users(client);
+  final values = <String, String>{};
+  for (final rawLine in file.readAsLinesSync()) {
+    final line = rawLine.trim();
+    if (line.isEmpty || line.startsWith('#')) continue;
+    final separator = line.indexOf('=');
+    if (separator <= 0) continue;
+    final key = line.substring(0, separator).trim();
+    final value = line.substring(separator + 1).trim();
+    values[key] = value;
+  }
+  return values;
+}
+
+String _configValue(Map<String, String> fileEnv, String key) {
+  return Platform.environment[key]?.trim().isNotEmpty == true
+      ? Platform.environment[key]!.trim()
+      : (fileEnv[key]?.trim() ?? '');
+}
+
+Future<void> main() async {
+  final fileEnv = _readEnvFile('.env');
+  final endpoint = _configValue(fileEnv, 'APPWRITE_ENDPOINT');
+  final projectId = _configValue(fileEnv, 'APPWRITE_PROJECT_ID');
+  final apiKey = _configValue(fileEnv, 'APPWRITE_API_KEY');
+  final teamId = _configValue(fileEnv, 'APPWRITE_COMPANY_TEAM_ID').isNotEmpty
+      ? _configValue(fileEnv, 'APPWRITE_COMPANY_TEAM_ID')
+      : 'company_main';
+
+  if (endpoint.isEmpty || projectId.isEmpty || apiKey.isEmpty) {
+    stderr.writeln(
+      'Missing APPWRITE_ENDPOINT, APPWRITE_PROJECT_ID, or APPWRITE_API_KEY. '
+      'Provide them through environment variables or a local .env file.',
+    );
+    exitCode = 1;
+    return;
+  }
+
+  final client = Client()
+    ..setEndpoint(endpoint)
+    ..setProject(projectId)
+    ..setKey(apiKey);
+
+  final teams = Teams(client);
+  final users = Users(client);
 
   try {
     final allUsers = await users.list();
-    print('Found ${allUsers.total} users.');
-    
+    stdout.writeln('Found ${allUsers.total} users.');
+
     for (final user in allUsers.users) {
-      if (user.email.startsWith('hr')) continue; // Skip HR
+      if (user.email.startsWith('hr')) continue;
       try {
         await teams.createMembership(
-          teamId: 'company_main',
+          teamId: teamId,
           email: user.email,
-          roles: ['employee'],
-          url: 'http://localhost', // Must be registered platform
+          roles: const ['employee'],
+          url: 'http://localhost',
           name: user.name,
         );
-        print('Added ${user.email} to team company_main');
-      } catch (e) {
-        if (e.toString().contains('already a member') || e.toString().contains('already exists')) {
-          print('${user.email} is already in the team');
+        stdout.writeln('Added ${user.email} to team $teamId');
+      } catch (error) {
+        final message = error.toString().toLowerCase();
+        if (message.contains('already a member') ||
+            message.contains('already exists')) {
+          stdout.writeln('${user.email} is already in team $teamId');
         } else {
-          print('Error adding ${user.email}: $e');
+          stderr.writeln('Error adding ${user.email}: $error');
         }
       }
     }
-  } catch (e) {
-    print('Error: $e');
+  } catch (error) {
+    stderr.writeln('Unable to synchronize team memberships: $error');
+    exitCode = 1;
   }
 }
