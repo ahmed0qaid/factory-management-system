@@ -16,6 +16,7 @@ import 'employee_shift_assignments_screen.dart';
 import 'import_biometric_screen.dart';
 import 'job_titles_screen.dart';
 import 'manage_advances_screen.dart';
+import 'manage_announcements_screen.dart';
 import 'manage_employees_screen.dart';
 import 'manage_funds_screen.dart';
 import 'manage_leaves_screen.dart';
@@ -95,6 +96,8 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
         _open(ManageAdvancesScreen(currentProfile: widget.profile));
       case AdminModuleType.funds:
         _open(ManageFundsScreen(currentProfile: widget.profile));
+      case AdminModuleType.announcements:
+        _open(ManageAnnouncementsScreen(currentProfile: widget.profile));
       case AdminModuleType.documents:
         _open(const EmployeeDocumentsScreen());
       case AdminModuleType.audit:
@@ -140,6 +143,8 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
         return Icons.calendar_month_outlined;
       case 'account_balance':
         return Icons.account_balance_outlined;
+      case 'campaign':
+        return Icons.campaign_outlined;
       default:
         return Icons.apps_outlined;
     }
@@ -160,38 +165,38 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
         : null;
 
     final dashboardBody = FutureBuilder<List<ProfileModel>>(
-        future: _employeesFuture,
-        builder: (context, snapshot) {
-          if (!snapshot.hasData && !snapshot.hasError) {
-            return const AppLoadingState(label: 'جاري تحميل لوحة الإدارة');
-          }
-          if (snapshot.hasError) {
-            return AppErrorState(
-              title: 'تعذر تحميل لوحة الإدارة',
-              message: '${snapshot.error}',
-              onRetry: _reload,
-            );
-          }
-
-          final employees = snapshot.data ?? const <ProfileModel>[];
-          return Align(
-            alignment: Alignment.topCenter,
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 1200),
-              child: ListView(
-                padding: const EdgeInsets.fromLTRB(16, 16, 16, 120),
-                children: [
-                  _buildHeader(context),
-                  const SizedBox(height: 12),
-                  _buildMetrics(context, employees),
-                  const SizedBox(height: 18),
-                  ..._buildSections(context, modules),
-                ],
-              ),
-            ),
+      future: _employeesFuture,
+      builder: (context, snapshot) {
+        if (!snapshot.hasData && !snapshot.hasError) {
+          return const AppLoadingState(label: 'جاري تحميل لوحة الإدارة');
+        }
+        if (snapshot.hasError) {
+          return AppErrorState(
+            title: 'تعذر تحميل لوحة الإدارة',
+            message: '${snapshot.error}',
+            onRetry: _reload,
           );
-        },
-      );
+        }
+
+        final employees = snapshot.data ?? const <ProfileModel>[];
+        return Align(
+          alignment: Alignment.topCenter,
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 1200),
+            child: ListView(
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 120),
+              children: [
+                _buildHeader(context),
+                const SizedBox(height: 12),
+                _buildMetrics(context, employees),
+                const SizedBox(height: 18),
+                ..._buildSections(context, modules),
+              ],
+            ),
+          ),
+        );
+      },
+    );
 
     if (!widget.embedded) {
       return AppScaffold(
@@ -343,7 +348,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
       case AdminModuleCategory.system:
         return (
           'إدارة النظام',
-          'المستندات والصلاحيات والعمليات الإدارية',
+          'الإعلانات والتعاميم ومستندات الموظفين والعمليات الإدارية',
           Icons.settings_suggest_outlined,
         );
     }
@@ -352,8 +357,9 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   IconData _roleIcon(String role) {
     if (AppRoles.isHr(role)) return Icons.badge_outlined;
     if (AppRoles.isGeneralManager(role)) return Icons.business_center_outlined;
-    if (AppRoles.isFinancialManager(role))
+    if (AppRoles.isFinancialManager(role)) {
       return Icons.account_balance_outlined;
+    }
     return Icons.person_outline;
   }
 
