@@ -10,7 +10,6 @@ class AuthService {
   }) async {
     final email =
         '${employeeNumber.trim().toLowerCase()}@${AppConstants.technicalEmailDomain}';
-    print('Login technical email: $email');
     await AppwriteService.account.createEmailPasswordSession(
       email: email,
       password: password,
