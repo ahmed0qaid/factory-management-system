@@ -58,7 +58,6 @@ class _ManageAnnouncementsScreenState
 
     final saved = await showDialog<bool>(
       context: context,
-      barrierDismissible: !isSaving,
       builder: (dialogContext) {
         return StatefulBuilder(
           builder: (context, setDialogState) {
@@ -85,9 +84,18 @@ class _ManageAnnouncementsScreenState
                   );
                   if (!mounted || !dialogContext.mounted) return;
                   Navigator.of(dialogContext).pop(true);
-                  final message = result.notificationsFailed == 0
-                      ? 'تم نشر الإعلان وإرسال إشعار إلى ${result.notificationsSent} موظفًا.'
-                      : 'تم نشر الإعلان. أُرسل ${result.notificationsSent} إشعارًا وتعذر إرسال ${result.notificationsFailed}.';
+
+                  final String message;
+                  if (!result.notificationDeliveryCompleted) {
+                    message =
+                        'تم نشر الإعلان. تعذر توزيع الإشعارات الفردية، لكن الإعلان متاح للموظفين من شاشة الإعلانات.';
+                  } else if (result.notificationsFailed == 0) {
+                    message =
+                        'تم نشر الإعلان وإرسال إشعار إلى ${result.notificationsSent} موظفًا.';
+                  } else {
+                    message =
+                        'تم نشر الإعلان. أُرسل ${result.notificationsSent} إشعارًا وتعذر إرسال ${result.notificationsFailed}. الإعلان ما زال متاحًا من شاشة الإعلانات.';
+                  }
                   ScaffoldMessenger.of(this.context).showSnackBar(
                     SnackBar(content: Text(message)),
                   );
@@ -167,9 +175,8 @@ class _ManageAnnouncementsScreenState
                                 final now = DateTime.now();
                                 final selected = await showDatePicker(
                                   context: context,
-                                  initialDate: expiresAt ?? now.add(
-                                    const Duration(days: 7),
-                                  ),
+                                  initialDate: expiresAt ??
+                                      now.add(const Duration(days: 7)),
                                   firstDate: DateTime(
                                     now.year,
                                     now.month,
@@ -290,7 +297,7 @@ class _ManageAnnouncementsScreenState
           if (announcements.isEmpty) {
             return AppEmptyState(
               title: 'لا توجد إعلانات بعد',
-              message: 'أنشئ أول إعلان ليصل إلى موظفي المصنع.',
+              message: 'أنشئ أول إعلان ليظهر لموظفي المصنع.',
               icon: Icons.campaign_outlined,
               actionLabel: 'إنشاء إعلان',
               onAction: _showEditor,
