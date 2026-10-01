@@ -232,6 +232,19 @@ class AppRoles {
       );
     }
 
+    if (canManageAnnouncements(role)) {
+      modules.add(
+        const AdminModule(
+          type: AdminModuleType.announcements,
+          category: AdminModuleCategory.system,
+          title: 'الإعلانات والتعاميم',
+          description: 'نشر التعاميم وإرسالها إلى موظفي المصنع',
+          iconName: 'campaign',
+          manageMode: true,
+        ),
+      );
+    }
+
     if (canManageDocuments(role)) {
       modules.add(
         const AdminModule(
@@ -265,6 +278,7 @@ enum AdminModuleType {
   payroll,
   advances,
   funds,
+  announcements,
   documents,
   audit,
 }
