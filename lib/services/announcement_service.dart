@@ -8,11 +8,13 @@ class AnnouncementPublishResult {
   final String announcementId;
   final int notificationsSent;
   final int notificationsFailed;
+  final bool notificationDeliveryCompleted;
 
   const AnnouncementPublishResult({
     required this.announcementId,
     required this.notificationsSent,
     required this.notificationsFailed,
+    required this.notificationDeliveryCompleted,
   });
 }
 
@@ -33,6 +35,21 @@ class AnnouncementService {
     return response.rows;
   }
 
+  Future<List<models.Row>> getActiveAnnouncements({
+    required String companyId,
+    int limit = 50,
+  }) async {
+    final rows = await getAnnouncements(companyId: companyId, limit: limit);
+    final now = DateTime.now();
+    return rows.where((row) {
+      final publishAt = _parseDate(row.data['publish_at']);
+      final expiresAt = _parseDate(row.data['expires_at']);
+      if (publishAt != null && publishAt.isAfter(now)) return false;
+      if (expiresAt != null && expiresAt.isBefore(now)) return false;
+      return true;
+    }).toList();
+  }
+
   Future<AnnouncementPublishResult> createAnnouncement({
     required String companyId,
     required String title,
@@ -40,6 +57,18 @@ class AnnouncementService {
     DateTime? publishAt,
     DateTime? expiresAt,
   }) async {
+    final cleanTitle = title.trim();
+    final cleanBody = body.trim();
+    if (cleanTitle.isEmpty || cleanBody.isEmpty) {
+      throw ArgumentError('عنوان الإعلان ونصه مطلوبان.');
+    }
+    if (cleanTitle.length > 160) {
+      throw ArgumentError('عنوان الإعلان يجب ألا يتجاوز 160 حرفًا.');
+    }
+    if (cleanBody.length > 5000) {
+      throw ArgumentError('نص الإعلان يجب ألا يتجاوز 5000 حرف.');
+    }
+
     final publishedAt = publishAt ?? DateTime.now();
     final announcementId = ID.unique();
 
@@ -49,8 +78,8 @@ class AnnouncementService {
       rowId: announcementId,
       data: {
         'company_id': companyId,
-        'title': title.trim(),
-        'body': body.trim(),
+        'title': cleanTitle,
+        'body': cleanBody,
         'publish_at': publishedAt.toIso8601String(),
         'expires_at': expiresAt?.toIso8601String(),
       },
@@ -63,51 +92,62 @@ class AnnouncementService {
       ],
     );
 
-    final profiles = await AppwriteService.tablesDB.listRows(
-      databaseId: AppConstants.databaseId,
-      tableId: AppConstants.profilesTable,
-      queries: [
-        Query.equal('company_id', companyId),
-        Query.equal('active', true),
-        Query.limit(500),
-      ],
-    );
-
     var sent = 0;
     var failed = 0;
-    for (final profile in profiles.rows) {
-      try {
-        await AppwriteService.tablesDB.createRow(
-          databaseId: AppConstants.databaseId,
-          tableId: AppConstants.notificationsTable,
-          rowId: ID.unique(),
-          data: {
-            'company_id': companyId,
-            'employee_id': profile.$id,
-            'title': title.trim(),
-            'body': body.trim(),
-            'type': 'announcement',
-            'reference_table': AppConstants.announcementsTable,
-            'reference_id': announcementId,
-            'is_read': false,
-            'created_at': DateTime.now().toIso8601String(),
-          },
-          permissions: [
-            Permission.read(Role.user(profile.$id)),
-            Permission.update(Role.user(profile.$id)),
-            Permission.read(Role.team(companyId, 'hr_admin')),
-          ],
-        );
-        sent++;
-      } catch (_) {
-        failed++;
+    var deliveryCompleted = true;
+
+    try {
+      final profiles = await AppwriteService.tablesDB.listRows(
+        databaseId: AppConstants.databaseId,
+        tableId: AppConstants.profilesTable,
+        queries: [
+          Query.equal('company_id', companyId),
+          Query.equal('active', true),
+          Query.limit(500),
+        ],
+      );
+
+      final notificationBody = cleanBody.length > 1000
+          ? '${cleanBody.substring(0, 997)}...'
+          : cleanBody;
+
+      for (final profile in profiles.rows) {
+        try {
+          await AppwriteService.tablesDB.createRow(
+            databaseId: AppConstants.databaseId,
+            tableId: AppConstants.notificationsTable,
+            rowId: ID.unique(),
+            data: {
+              'company_id': companyId,
+              'employee_id': profile.$id,
+              'title': cleanTitle,
+              'body': notificationBody,
+              'type': 'announcement',
+              'reference_table': AppConstants.announcementsTable,
+              'reference_id': announcementId,
+              'is_read': false,
+              'created_at': DateTime.now().toIso8601String(),
+            },
+            permissions: [
+              Permission.read(Role.user(profile.$id)),
+              Permission.update(Role.user(profile.$id)),
+              Permission.read(Role.team(companyId, 'hr_admin')),
+            ],
+          );
+          sent++;
+        } catch (_) {
+          failed++;
+        }
       }
+    } catch (_) {
+      deliveryCompleted = false;
     }
 
     return AnnouncementPublishResult(
       announcementId: announcementId,
       notificationsSent: sent,
       notificationsFailed: failed,
+      notificationDeliveryCompleted: deliveryCompleted,
     );
   }
 
@@ -117,13 +157,25 @@ class AnnouncementService {
     required String body,
     DateTime? expiresAt,
   }) async {
+    final cleanTitle = title.trim();
+    final cleanBody = body.trim();
+    if (cleanTitle.isEmpty || cleanBody.isEmpty) {
+      throw ArgumentError('عنوان الإعلان ونصه مطلوبان.');
+    }
+    if (cleanTitle.length > 160) {
+      throw ArgumentError('عنوان الإعلان يجب ألا يتجاوز 160 حرفًا.');
+    }
+    if (cleanBody.length > 5000) {
+      throw ArgumentError('نص الإعلان يجب ألا يتجاوز 5000 حرف.');
+    }
+
     await AppwriteService.tablesDB.updateRow(
       databaseId: AppConstants.databaseId,
       tableId: AppConstants.announcementsTable,
       rowId: announcementId,
       data: {
-        'title': title.trim(),
-        'body': body.trim(),
+        'title': cleanTitle,
+        'body': cleanBody,
         'expires_at': expiresAt?.toIso8601String(),
       },
     );
@@ -135,5 +187,11 @@ class AnnouncementService {
       tableId: AppConstants.announcementsTable,
       rowId: announcementId,
     );
+  }
+
+  DateTime? _parseDate(dynamic value) {
+    if (value == null) return null;
+    if (value is DateTime) return value;
+    return DateTime.tryParse(value.toString());
   }
 }
