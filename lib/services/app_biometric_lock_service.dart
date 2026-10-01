@@ -22,8 +22,9 @@ class AppBiometricLockService {
 
   Future<bool> isAvailable() async {
     try {
-      return await _localAuth.isDeviceSupported() &&
-          await _localAuth.canCheckBiometrics;
+      // isDeviceSupported covers biometric authentication and the platform's
+      // secure device credential fallback (PIN/password/pattern) when allowed.
+      return await _localAuth.isDeviceSupported();
     } catch (_) {
       return false;
     }
@@ -47,39 +48,39 @@ class AppBiometricLockService {
       return const AppBiometricAuthResult(
         authenticated: false,
         message:
-            'تعذر استخدام البصمة على هذا الجهاز. يمكنك إعادة المحاولة أو تسجيل الخروج.',
+            'تعذر استخدام حماية الجهاز. يمكنك إعادة المحاولة أو تسجيل الخروج.',
       );
     }
 
     try {
       final authenticated = await _localAuth.authenticate(
         localizedReason: localizedReason,
-        biometricOnly: true,
+        biometricOnly: false,
         persistAcrossBackgrounding: true,
       );
 
       if (!authenticated) {
         return const AppBiometricAuthResult(
           authenticated: false,
-          message: 'لم يتم التحقق من البصمة.',
+          message: 'لم يتم التحقق من هوية المستخدم.',
         );
       }
 
       return const AppBiometricAuthResult(authenticated: true);
     } on LocalAuthException catch (error) {
       final message = switch (error.code) {
-        LocalAuthExceptionCode.userCanceled => 'تم إلغاء التحقق من البصمة.',
+        LocalAuthExceptionCode.userCanceled => 'تم إلغاء التحقق من الهوية.',
         LocalAuthExceptionCode.temporaryLockout =>
-          'تم إيقاف البصمة مؤقتًا بسبب محاولات متكررة. حاول لاحقًا.',
+          'تم إيقاف التحقق مؤقتًا بسبب محاولات متكررة. حاول لاحقًا أو استخدم قفل الجهاز عند ظهوره.',
         LocalAuthExceptionCode.biometricLockout =>
-          'البصمة مقفلة على الجهاز. افتح الجهاز بالطريقة الأساسية ثم أعد المحاولة.',
-        _ => 'تعذر التحقق من البصمة. لم يتم تجاوز حماية التطبيق.',
+          'البصمة مقفلة. استخدم رمز أو كلمة مرور الجهاز عند ظهور خيار قفل الجهاز.',
+        _ => 'تعذر التحقق من الهوية. لم يتم تجاوز حماية التطبيق.',
       };
       return AppBiometricAuthResult(authenticated: false, message: message);
     } catch (_) {
       return const AppBiometricAuthResult(
         authenticated: false,
-        message: 'حدث خطأ أثناء التحقق من البصمة. لم يتم تجاوز حماية التطبيق.',
+        message: 'حدث خطأ أثناء التحقق من الهوية. لم يتم تجاوز حماية التطبيق.',
       );
     }
   }
