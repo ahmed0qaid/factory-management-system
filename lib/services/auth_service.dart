@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:appwrite/models.dart' as models;
 
 import '../config/constants.dart';
@@ -32,12 +34,32 @@ class AuthService {
   }) async {
     final user = await AppwriteService.account.get();
     await changePassword(oldPassword: oldPassword, newPassword: newPassword);
-    await AppwriteService.tablesDB.updateRow(
-      databaseId: AppConstants.databaseId,
-      tableId: AppConstants.profilesTable,
-      rowId: user.$id,
-      data: {'must_change_password': false},
+
+    final execution = await AppwriteService.functions.createExecution(
+      functionId: AppConstants.updateEmployeeCredentialsFunctionId,
+      body: jsonEncode({
+        'profileId': user.$id,
+        'action': 'completeOwnPasswordChange',
+      }),
+      xasync: false,
     );
+
+    if (execution.status.name.toLowerCase() != 'completed') {
+      throw Exception(
+        execution.errors.isNotEmpty
+            ? execution.errors
+            : 'تعذر إكمال تحديث حالة كلمة المرور',
+      );
+    }
+
+    final response = jsonDecode(
+      execution.responseBody.isEmpty ? '{}' : execution.responseBody,
+    );
+    if (response is Map && response['success'] != true) {
+      throw Exception(
+        response['error'] ?? 'تعذر إكمال تحديث حالة كلمة المرور',
+      );
+    }
   }
 
   Future<void> signOut() =>
