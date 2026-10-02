@@ -112,6 +112,16 @@ class SalaryCalculationService {
     required int month,
     required FridaySalaryMode fridayMode,
   }) {
+    final unresolvedAttendanceCount = attendanceRecords
+        .where((record) => record.hasUnresolvedReview)
+        .length;
+    if (unresolvedAttendanceCount > 0) {
+      final monthKey = '$year-${month.toString().padLeft(2, '0')}';
+      throw StateError(
+        'لا يمكن احتساب أو اعتماد راتب ${employee.fullName} عن $monthKey قبل حسم $unresolvedAttendanceCount حالة حضور معلقة.',
+      );
+    }
+
     final grossSalary = calculateGrossSalary(
       employee.baseSalary,
       employee.monthlyBonus,
@@ -128,9 +138,6 @@ class SalaryCalculationService {
     final dailyWorkHours = employee.dailyWorkHours;
     final hourlyWage = calculateHourlyWage(dailyWage, dailyWorkHours);
 
-    final unresolvedAttendanceCount = attendanceRecords
-        .where((record) => record.hasUnresolvedReview)
-        .length;
     final finalizedAttendance = attendanceRecords
         .where((record) => !record.hasUnresolvedReview)
         .toList();
@@ -162,7 +169,7 @@ class SalaryCalculationService {
       hourlyWage: hourlyWage,
       presentDays: presentDays,
       absentDays: absentDays,
-      unresolvedAttendanceCount: unresolvedAttendanceCount,
+      unresolvedAttendanceCount: 0,
       attendanceSalary: attendanceSalary,
       absenceDeduction: absenceDeduction,
       penaltiesDeduction: penaltiesDeduction,
