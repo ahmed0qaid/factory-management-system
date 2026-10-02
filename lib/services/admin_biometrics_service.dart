@@ -2,7 +2,7 @@ import 'package:appwrite/appwrite.dart';
 import 'package:flutter/foundation.dart';
 
 import '../config/constants.dart';
-import '../models/overtime_record_model.dart';
+
 import '../models/shift_model.dart';
 import '../models/temporary_employee_model.dart';
 import 'appwrite_service.dart';
@@ -10,6 +10,7 @@ import 'auth_service.dart';
 import 'biometric_preprocessor.dart';
 import 'canonical_attendance_schedule_service.dart';
 import 'company_context_service.dart';
+import 'overtime_admin_service.dart';
 
 class AdminBiometricsService {
   final CanonicalAttendanceScheduleService _canonicalScheduleService =
@@ -102,58 +103,7 @@ class AdminBiometricsService {
     );
   }
 
-  Future<List<OvertimeRecordModel>> getPendingOvertime() async {
-    final companyId = await CompanyContextService.getCurrentCompanyId();
-    final docs = await AppwriteService.tablesDB.listRows(
-      databaseId: AppConstants.databaseId,
-      tableId: AppConstants.overtimeRecordsTable,
-      queries: [
-        Query.equal('company_id', companyId),
-        Query.equal('approval_status', 'pending'),
-        Query.orderDesc('created_at'),
-      ],
-    );
-    return docs.rows
-        .map((row) => OvertimeRecordModel.fromMap(row.data, id: row.$id))
-        .toList();
-  }
 
-  Future<void> updateOvertimeStatus(
-    String overtimeId,
-    String approvalStatus,
-  ) async {
-    await _requireCurrentCompanyRow(
-      tableId: AppConstants.overtimeRecordsTable,
-      rowId: overtimeId,
-    );
-    await AppwriteService.tablesDB.updateRow(
-      databaseId: AppConstants.databaseId,
-      tableId: AppConstants.overtimeRecordsTable,
-      rowId: overtimeId,
-      data: {
-        'approval_status': approvalStatus,
-        if (approvalStatus == 'approved')
-          'approved_at': DateTime.now().toIso8601String(),
-      },
-    );
-  }
-
-  Future<void> payOvertime(String overtimeId, num amount) async {
-    await _requireCurrentCompanyRow(
-      tableId: AppConstants.overtimeRecordsTable,
-      rowId: overtimeId,
-    );
-    await AppwriteService.tablesDB.updateRow(
-      databaseId: AppConstants.databaseId,
-      tableId: AppConstants.overtimeRecordsTable,
-      rowId: overtimeId,
-      data: {
-        'payment_status': 'paid',
-        'paid_amount': amount,
-        'paid_at': DateTime.now().toIso8601String(),
-      },
-    );
-  }
 
   Future<T> _retryOnRateLimit<T>(Future<T> Function() action) async {
     var delay = const Duration(seconds: 2);
@@ -269,11 +219,6 @@ class AdminBiometricsService {
       maxDate: maxPunch,
     );
     final existingAttendance = await _fetchAttendanceByEmployeeDate(
-      companyId: scopedCompanyId,
-      minDate: minWork,
-      maxDate: maxWork,
-    );
-    final existingOvertimeAttendanceIds = await _fetchOvertimeAttendanceIds(
       companyId: scopedCompanyId,
       minDate: minWork,
       maxDate: maxWork,
@@ -522,10 +467,12 @@ class AdminBiometricsService {
         });
         attendanceCreated++;
         existingAttendance[attendanceKey] = {'\$id': attendanceId};
+        await OvertimeAdminService().syncOvertimeForAttendance(attendanceId);
       } on AppwriteException catch (e) {
         if (e.code == 409 || e.type == 'document_already_exists') {
           attendanceSkipped++;
           existingAttendance[attendanceKey] = {'\$id': attendanceId};
+        await OvertimeAdminService().syncOvertimeForAttendance(attendanceId);
           continue;
         }
         attendanceFailed++;
@@ -543,52 +490,6 @@ class AdminBiometricsService {
           errors.add('Attendance: ${e.toString().split('\n').first}');
         }
         continue;
-      }
-
-      if (group.expectedOvertimeMinutes > 0 &&
-          group.canonicalScheduleResolved &&
-          group.isScheduledWorkingDay &&
-          group.shiftEnd != null &&
-          group.actualCheckOut != null) {
-        if (existingOvertimeAttendanceIds.contains(attendanceId)) {
-          skippedOvertime++;
-        } else {
-          final overtimeId = _safeRowId('ot_$attendanceId');
-          try {
-            await _retryOnRateLimit(() async {
-              await AppwriteService.tablesDB.createRow(
-                databaseId: AppConstants.databaseId,
-                tableId: AppConstants.overtimeRecordsTable,
-                rowId: overtimeId,
-                data: _removeNulls({
-                  'company_id': scopedCompanyId,
-                  'employee_id': employeeId,
-                  'attendance_record_id': attendanceId,
-                  'work_date': dateStr,
-                  'shift_end': group.shiftEnd!.toIso8601String(),
-                  'actual_check_out': group.actualCheckOut!.toIso8601String(),
-                  'overtime_minutes': group.expectedOvertimeMinutes,
-                  'approval_status': 'pending',
-                  'payment_status': 'unpaid',
-                  'created_at': DateTime.now().toIso8601String(),
-                }),
-              );
-            });
-            createdOvertime++;
-            existingOvertimeAttendanceIds.add(attendanceId);
-          } on AppwriteException catch (e) {
-            if (e.code == 409 || e.type == 'document_already_exists') {
-              skippedOvertime++;
-              existingOvertimeAttendanceIds.add(attendanceId);
-            } else if (!errors.any((item) => item.startsWith('Overtime:'))) {
-              errors.add('Overtime: ${e.message ?? e.toString()}');
-            }
-          } catch (e) {
-            if (!errors.any((item) => item.startsWith('Overtime:'))) {
-              errors.add('Overtime: ${e.toString().split('\n').first}');
-            }
-          }
-        }
       }
     }
 

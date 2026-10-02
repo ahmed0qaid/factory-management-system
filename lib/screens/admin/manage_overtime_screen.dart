@@ -9,8 +9,6 @@ import '../../utils/formatters.dart';
 import '../../widgets/common/app_card.dart';
 import '../../widgets/common/app_confirm_dialog.dart';
 import '../../widgets/common/app_empty_state.dart';
-import '../../widgets/common/app_form_dialog.dart';
-import '../../widgets/common/app_form_field.dart';
 import '../../widgets/common/app_loading_state.dart';
 import '../../widgets/common/app_scaffold.dart';
 import '../../widgets/common/app_status_pill.dart';
@@ -24,38 +22,58 @@ class ManageOvertimeScreen extends StatefulWidget {
   State<ManageOvertimeScreen> createState() => _ManageOvertimeScreenState();
 }
 
-class _ManageOvertimeScreenState extends State<ManageOvertimeScreen> {
+class _ManageOvertimeScreenState extends State<ManageOvertimeScreen>
+    with SingleTickerProviderStateMixin {
   final _overtimeService = OvertimeAdminService();
   final _adminService = AdminService();
 
+  late TabController _tabController;
+
   bool _isLoading = true;
   String? _processingId;
-  List<OvertimeRecordModel> _pendingOvertime = [];
+  List<OvertimeRecordModel> _records = [];
   Map<String, ProfileModel> _employees = {};
+  
+  String _searchQuery = '';
 
   @override
   void initState() {
     super.initState();
+    _tabController = TabController(length: 4, vsync: this);
+    _tabController.addListener(() {
+      if (!_tabController.indexIsChanging) {
+        setState(() {});
+      }
+    });
     _loadData();
+  }
+  
+  @override
+  void dispose() {
+    _tabController.dispose();
+    super.dispose();
   }
 
   Future<void> _loadData() async {
     setState(() => _isLoading = true);
     try {
       await CompanyContextService.requireCompany(widget.companyId);
-      final recordsFuture = _overtimeService.getPendingOvertime();
+      final recordsFuture = _overtimeService.getOvertimeRecords();
       final employeesFuture = _adminService.getEmployees(limit: 500);
+      
       final records = await recordsFuture;
       final employees = await employeesFuture;
+      
       if (!mounted) return;
+
       setState(() {
-        _pendingOvertime = records;
+        _records = records;
         _employees = {for (final employee in employees) employee.id: employee};
       });
     } catch (error) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('تعذر تحميل سجلات الوقت الإضافي: $error')),
+          SnackBar(content: Text('خطأ في تحميل السجلات: $error')),
         );
       }
     } finally {
@@ -63,43 +81,113 @@ class _ManageOvertimeScreenState extends State<ManageOvertimeScreen> {
     }
   }
 
-  Future<void> _confirmStatusChange(
-    OvertimeRecordModel record,
-    String status,
-  ) async {
-    final employee = _employees[record.employeeId];
-    final approving = status == 'approved';
-    final confirmed = await AppConfirmDialog.show(
-      context,
-      title: approving ? 'اعتماد الوقت الإضافي' : 'رفض الوقت الإضافي',
-      content:
-          '${approving ? 'اعتماد' : 'رفض'} ${record.overtimeMinutes} دقيقة إضافية للموظف ${employee?.fullName ?? 'غير معروف'} بتاريخ ${Formatters.date(record.workDate)}؟',
-      confirmText: approving ? 'اعتماد' : 'رفض',
-      isDestructive: !approving,
-    );
-    if (confirmed != true) return;
-    await _updateStatus(record.id, status);
+  List<OvertimeRecordModel> get _filteredRecords {
+    String currentStatus = 'pending';
+    bool wantPaid = false;
+    
+    switch (_tabController.index) {
+      case 0:
+        currentStatus = 'pending';
+        break;
+      case 1:
+        currentStatus = 'approved';
+        wantPaid = false;
+        break;
+      case 2:
+        currentStatus = 'rejected';
+        break;
+      case 3:
+        currentStatus = 'approved';
+        wantPaid = true;
+        break;
+    }
+
+    return _records.where((r) {
+      if (currentStatus == 'pending' || currentStatus == 'rejected') {
+        if (r.approvalStatus != currentStatus) return false;
+      } else if (currentStatus == 'approved') {
+        if (r.approvalStatus != 'approved') return false;
+        if (wantPaid && r.paymentStatus != 'paid') return false;
+        if (!wantPaid && r.paymentStatus == 'paid') return false;
+      }
+
+      if (_searchQuery.isNotEmpty) {
+        final emp = _employees[r.employeeId];
+        final name = emp?.fullName.toLowerCase() ?? '';
+        if (!name.contains(_searchQuery.toLowerCase())) return false;
+      }
+      return true;
+    }).toList();
   }
 
-  Future<void> _updateStatus(String id, String status) async {
-    setState(() => _processingId = id);
-    try {
-      await _overtimeService.updateOvertimeStatus(id, status);
+  Future<void> _changeStatus(OvertimeRecordModel record, String newStatus) async {
+    final employee = _employees[record.employeeId];
+    final isApproving = newStatus == 'approved';
+    
+    final noteController = TextEditingController();
+    
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: Text(isApproving ? 'اعتماد العمل الإضافي' : 'رفض العمل الإضافي'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text('الموظف: ${employee?.fullName ?? 'غير معروف'}'),
+              Text('التاريخ: ${Formatters.date(record.workDate)}'),
+              Text('الدقائق: ${record.overtimeMinutes} دقيقة'),
+              const SizedBox(height: 16),
+              TextField(
+                controller: noteController,
+                decoration: const InputDecoration(
+                  labelText: 'الملاحظة (مطلوبة)',
+                  border: OutlineInputBorder(),
+                ),
+                maxLines: 3,
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('إلغاء'),
+            ),
+            ElevatedButton(
+              onPressed: () => Navigator.pop(context, true),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: isApproving ? Colors.green : Colors.red,
+                foregroundColor: Colors.white,
+              ),
+              child: Text(isApproving ? 'اعتماد' : 'رفض'),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (confirmed != true) return;
+
+    if (noteController.text.trim().isEmpty) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            status == 'approved'
-                ? 'تم اعتماد الوقت الإضافي.'
-                : 'تم رفض الوقت الإضافي.',
-          ),
-        ),
+        const SnackBar(content: Text('يجب إدخال ملاحظة')),
+      );
+      return;
+    }
+
+    setState(() => _processingId = record.id);
+    try {
+      await _overtimeService.updateOvertimeStatus(record.id, newStatus, noteController.text);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(isApproving ? 'تم الاعتماد بنجاح' : 'تم الرفض بنجاح')),
       );
       await _loadData();
     } catch (error) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('تعذر تحديث حالة الوقت الإضافي: $error')),
+          SnackBar(content: Text('خطأ: $error')),
         );
       }
     } finally {
@@ -107,338 +195,177 @@ class _ManageOvertimeScreenState extends State<ManageOvertimeScreen> {
     }
   }
 
-  Future<void> _showPayDialog(
-    OvertimeRecordModel record,
-    ProfileModel employee,
-  ) async {
-    if (record.approvalStatus != 'approved') {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('يجب اعتماد الوقت الإضافي قبل تسجيل الدفع.'),
-        ),
-      );
-      return;
-    }
-    if (record.paymentStatus == 'paid') {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('تم دفع هذا السجل مسبقًا.')));
-      return;
-    }
-
-    final hourlyRate = employee.baseSalary > 0
-        ? (employee.baseSalary / 30 / 8)
-        : 0;
-    final suggestedAmount = hourlyRate * 1.5 * (record.overtimeMinutes / 60);
-    final controller = TextEditingController(
-      text: suggestedAmount.toStringAsFixed(2),
+  Future<void> _payRecord(OvertimeRecordModel record) async {
+    final employee = _employees[record.employeeId];
+    final confirmed = await AppConfirmDialog.show(
+      context,
+      title: 'دفع العمل الإضافي',
+      content: 'تأكيد دفع العمل الإضافي للموظف ${employee?.fullName ?? ''}؟',
+      confirmText: 'دفع',
     );
+    if (confirmed != true) return;
 
+    setState(() => _processingId = record.id);
     try {
-      await AppFormDialog.show<void>(
-        context,
-        title: 'تسجيل دفع الوقت الإضافي',
-        submitText: 'تأكيد الدفع',
-        onSubmit: () async {
-          final amount = double.tryParse(controller.text.trim());
-          if (amount == null || amount < 0) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('أدخل مبلغًا صحيحًا.')),
-            );
-            return false;
-          }
-          try {
-            await _overtimeService.payOvertime(record.id, amount);
-            if (!mounted) return false;
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text(
-                  'تم تسجيل دفع ${Formatters.money(amount)} للموظف ${employee.fullName}.',
-                ),
-              ),
-            );
-            await _loadData();
-            return true;
-          } catch (error) {
-            if (mounted) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content: Text('تعذر تسجيل الدفع: $error')),
-              );
-            }
-            return false;
-          }
-        },
-        builder: (context, setDialogState) {
-          final scheme = Theme.of(context).colorScheme;
-          return Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Text(
-                employee.fullName,
-                style: Theme.of(
-                  context,
-                ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
-              ),
-              Text(
-                '${employee.employeeNumber} • ${Formatters.date(record.workDate)}',
-                style: Theme.of(
-                  context,
-                ).textTheme.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                'الوقت المعتمد: ${Formatters.minutesToHours(record.overtimeMinutes)}',
-              ),
-              const SizedBox(height: 16),
-              AppFormField(
-                controller: controller,
-                labelText: 'المبلغ المستحق',
-                prefixIcon: Icons.payments_outlined,
-                keyboardType: const TextInputType.numberWithOptions(
-                  decimal: true,
-                ),
-              ),
-            ],
-          );
-        },
+      await _overtimeService.payOvertime(record.id);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('تم تسجيل الدفع بنجاح')),
       );
+      await _loadData();
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('خطأ: $error')),
+        );
+      }
     } finally {
-      controller.dispose();
+      if (mounted) setState(() => _processingId = null);
     }
   }
 
   @override
   Widget build(BuildContext context) {
     return AppScaffold(
-      title: 'الوقت الإضافي',
-      body: _isLoading
-          ? const AppLoadingState(label: 'جاري تحميل الوقت الإضافي')
-          : _pendingOvertime.isEmpty
-          ? const AppEmptyState(
-              title: 'لا توجد سجلات معلقة',
-              message: 'لا توجد سجلات وقت إضافي تحتاج إلى متابعة.',
-              icon: Icons.more_time_outlined,
-            )
-          : RefreshIndicator(
-              onRefresh: _loadData,
-              child: Align(
-                alignment: Alignment.topCenter,
-                child: ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 860),
-                  child: ListView.builder(
-                    padding: const EdgeInsets.all(16),
-                    itemCount: _pendingOvertime.length,
-                    itemBuilder: (context, index) {
-                      final record = _pendingOvertime[index];
-                      final employee = _employees[record.employeeId];
-                      final processing = _processingId == record.id;
-                      return _OvertimeCard(
-                        record: record,
-                        employee: employee,
-                        processing: processing,
-                        onApprove: () =>
-                            _confirmStatusChange(record, 'approved'),
-                        onReject: () =>
-                            _confirmStatusChange(record, 'rejected'),
-                        onPay:
-                            employee != null &&
-                                record.approvalStatus == 'approved' &&
-                                record.paymentStatus != 'paid'
-                            ? () => _showPayDialog(record, employee)
-                            : null,
-                      );
-                    },
-                  ),
-                ),
-              ),
-            ),
-    );
-  }
-}
-
-class _OvertimeCard extends StatelessWidget {
-  final OvertimeRecordModel record;
-  final ProfileModel? employee;
-  final bool processing;
-  final VoidCallback onApprove;
-  final VoidCallback onReject;
-  final VoidCallback? onPay;
-
-  const _OvertimeCard({
-    required this.record,
-    required this.employee,
-    required this.processing,
-    required this.onApprove,
-    required this.onReject,
-    required this.onPay,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final scheme = theme.colorScheme;
-    final employeeName = employee?.fullName ?? 'موظف غير معروف';
-    final metadata = <String>[
-      if (employee != null) employee!.employeeNumber,
-      if (employee?.departmentName?.trim().isNotEmpty == true)
-        employee!.departmentName!.trim(),
-    ].join(' • ');
-
-    return AppCard(
-      margin: const EdgeInsets.only(bottom: 12),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
+      title: 'إدارة العمل الإضافي',
+      body: Column(
         children: [
-          Row(
-            children: [
-              CircleAvatar(
-                backgroundColor: scheme.primaryContainer,
-                foregroundColor: scheme.onPrimaryContainer,
-                child: Text(employeeName.isEmpty ? 'م' : employeeName[0]),
+          TabBar(
+            controller: _tabController,
+            tabs: const [
+              Tab(text: 'قيد الانتظار'),
+              Tab(text: 'معتمد (غير مدفوع)'),
+              Tab(text: 'مرفوض'),
+              Tab(text: 'مدفوع'),
+            ],
+            labelColor: Theme.of(context).colorScheme.primary,
+            unselectedLabelColor: Colors.grey,
+          ),
+          Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: TextField(
+              decoration: const InputDecoration(
+                labelText: 'بحث باسم الموظف',
+                prefixIcon: Icon(Icons.search),
+                border: OutlineInputBorder(),
               ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      employeeName,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: theme.textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                    if (metadata.isNotEmpty)
-                      Text(
-                        metadata,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: scheme.onSurfaceVariant,
+              onChanged: (val) => setState(() => _searchQuery = val),
+            ),
+          ),
+          Expanded(
+            child: _isLoading
+                ? const AppLoadingState(label: 'جاري تحميل السجلات...')
+                : _filteredRecords.isEmpty
+                    ? const AppEmptyState(message: 'لا توجد سجلات')
+                    : RefreshIndicator(
+                        onRefresh: _loadData,
+                        child: ListView.builder(
+                          padding: const EdgeInsets.all(16.0),
+                          itemCount: _filteredRecords.length,
+                          itemBuilder: (context, index) {
+                            final record = _filteredRecords[index];
+                            final employee = _employees[record.employeeId];
+                            final isProcessing = _processingId == record.id;
+                            return _buildRecordCard(record, employee, isProcessing);
+                          },
                         ),
                       ),
-                  ],
-                ),
-              ),
-              _approvalStatus(record.approvalStatus),
-            ],
           ),
-          const Divider(height: 22),
-          _InfoRow('تاريخ العمل', Formatters.date(record.workDate)),
-          _InfoRow('نهاية الوردية', Formatters.time(record.shiftEnd)),
-          _InfoRow('الخروج الفعلي', Formatters.time(record.actualCheckOut)),
-          _InfoRow(
-            'الوقت الإضافي',
-            Formatters.minutesToHours(record.overtimeMinutes),
-          ),
-          if (record.overtimeAmount != null)
-            _InfoRow('المبلغ', Formatters.money(record.overtimeAmount!)),
-          const SizedBox(height: 8),
-          Row(
-            children: [
-              Text(
-                'حالة الدفع: ',
-                style: theme.textTheme.bodyMedium?.copyWith(
-                  color: scheme.onSurfaceVariant,
-                ),
-              ),
-              _paymentStatus(record.paymentStatus),
-            ],
-          ),
-          const SizedBox(height: 14),
-          if (record.approvalStatus == 'pending')
-            Row(
-              children: [
-                Expanded(
-                  child: FilledButton.icon(
-                    onPressed: processing ? null : onApprove,
-                    icon: processing
-                        ? SizedBox(
-                            width: 16,
-                            height: 16,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              color: scheme.onPrimary,
-                            ),
-                          )
-                        : const Icon(Icons.check_circle_outline),
-                    label: const Text('اعتماد'),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: OutlinedButton.icon(
-                    onPressed: processing ? null : onReject,
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: scheme.error,
-                      side: BorderSide(
-                        color: scheme.error.withValues(alpha: .55),
-                      ),
-                    ),
-                    icon: const Icon(Icons.close),
-                    label: const Text('رفض'),
-                  ),
-                ),
-              ],
-            ),
-          if (onPay != null) ...[
-            const SizedBox(height: 8),
-            SizedBox(
-              width: double.infinity,
-              child: FilledButton.tonalIcon(
-                onPressed: onPay,
-                icon: const Icon(Icons.payments_outlined),
-                label: const Text('تسجيل دفع الوقت الإضافي'),
-              ),
-            ),
-          ],
         ],
       ),
     );
   }
 
-  Widget _approvalStatus(String status) {
-    return switch (status) {
-      'approved' => AppStatusPill.success('معتمد'),
-      'rejected' => AppStatusPill.danger('مرفوض'),
-      _ => AppStatusPill.warning('بانتظار الاعتماد'),
-    };
-  }
+  Widget _buildRecordCard(OvertimeRecordModel record, ProfileModel? employee, bool isProcessing) {
+    final statusColor = record.approvalStatus == 'approved'
+        ? Colors.green
+        : record.approvalStatus == 'rejected'
+            ? Colors.red
+            : Colors.orange;
 
-  Widget _paymentStatus(String status) {
-    return status == 'paid'
-        ? AppStatusPill.success('مدفوع')
-        : AppStatusPill.neutral('غير مدفوع');
-  }
-}
-
-class _InfoRow extends StatelessWidget {
-  final String label;
-  final String value;
-
-  const _InfoRow(this.label, this.value);
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          SizedBox(
-            width: 118,
-            child: Text(
-              label,
-              style: theme.textTheme.bodyMedium?.copyWith(
-                color: theme.colorScheme.onSurfaceVariant,
-              ),
+    return AppCard(
+      margin: const EdgeInsets.only(bottom: 16.0),
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Expanded(
+                  child: Text(
+                    employee?.fullName ?? 'موظف غير معروف',
+                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                  ),
+                ),
+                AppStatusPill(
+                  label: record.paymentStatus == 'paid' ? 'مدفوع' : (record.approvalStatus == 'pending' ? 'قيد الانتظار' : (record.approvalStatus == 'approved' ? 'معتمد' : 'مرفوض')),
+                  color: record.paymentStatus == 'paid' ? Colors.blue : statusColor,
+                ),
+              ],
             ),
-          ),
-          Expanded(child: Text(value)),
-        ],
+            const SizedBox(height: 8),
+            Text('التاريخ: ${Formatters.date(record.workDate)}'),
+            Text('نهاية الوردية المجدولة: ${Formatters.time(record.shiftEnd)}'),
+            Text('وقت الانصراف الفعلي: ${Formatters.time(record.actualCheckOut)}'),
+            Text('دقائق العمل الإضافي: ${record.overtimeMinutes} دقيقة (${(record.overtimeMinutes / 60).toStringAsFixed(1)} ساعة)', style: const TextStyle(fontWeight: FontWeight.bold)),
+            if (record.approvalNote != null) ...[
+              const SizedBox(height: 8),
+              Text('Note: ' + record.approvalNote.toString()),
+            ],
+            if (record.rejectionReason != null) ...[
+              const SizedBox(height: 8),
+              Text('Reason: ' + record.rejectionReason.toString(), style: const TextStyle(color: Colors.red)),
+            ],
+            
+            if (record.approvalStatus == 'pending' && _tabController.index == 0) ...[
+              const SizedBox(height: 16),
+              if (isProcessing)
+                const Center(child: CircularProgressIndicator())
+              else
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    TextButton(
+                      onPressed: () => _changeStatus(record, 'rejected'),
+                      style: TextButton.styleFrom(foregroundColor: Colors.red),
+                      child: const Text('رفض'),
+                    ),
+                    const SizedBox(width: 8),
+                    ElevatedButton(
+                      onPressed: () => _changeStatus(record, 'approved'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.green,
+                        foregroundColor: Colors.white,
+                      ),
+                      child: const Text('اعتماد'),
+                    ),
+                  ],
+                ),
+            ],
+            
+            if (record.approvalStatus == 'approved' && record.paymentStatus == 'unpaid' && _tabController.index == 1) ...[
+              const SizedBox(height: 16),
+              if (isProcessing)
+                const Center(child: CircularProgressIndicator())
+              else
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    ElevatedButton(
+                      onPressed: () => _payRecord(record),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.blue,
+                        foregroundColor: Colors.white,
+                      ),
+                      child: const Text('تأشير كمدفوع'),
+                    ),
+                  ],
+                ),
+            ],
+          ],
+        ),
       ),
     );
   }
