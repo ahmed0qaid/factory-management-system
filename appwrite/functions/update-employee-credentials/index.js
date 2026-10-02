@@ -3,12 +3,29 @@ import { Client, Users, Databases, Query } from 'node-appwrite';
 const technicalEmailDomain = 'hr.local';
 const profilesTable = 'profiles';
 const managementRoles = ['hr_admin'];
+const allowedProfileFields = new Set([
+  'fullName',
+  'departmentName',
+  'jobTitleId',
+  'jobTitleName',
+  'biometricEmployeeId',
+  'phone',
+  'baseSalary',
+  'monthlyBonus',
+  'dailyWorkHours',
+  'active',
+]);
+
+const normalizeNullableText = (value) => {
+  if (value === null || value === undefined) return '';
+  return String(value).trim();
+};
 
 export default async ({ req, res, log, error }) => {
   try {
     const endpoint = process.env.APPWRITE_FUNCTION_ENDPOINT || process.env.APPWRITE_ENDPOINT || 'https://fra.cloud.appwrite.io/v1';
     const projectId = process.env.APPWRITE_FUNCTION_PROJECT_ID || process.env.APPWRITE_PROJECT_ID;
-    
+
     const client = new Client()
       .setEndpoint(endpoint)
       .setProject(projectId)
@@ -18,7 +35,6 @@ export default async ({ req, res, log, error }) => {
     const databases = new Databases(client);
     const databaseId = process.env.APPWRITE_DATABASE_ID || 'hr';
 
-    // Verify actor
     const actorId = req.headers['x-appwrite-user-id'] || process.env.APPWRITE_FUNCTION_USER_ID;
     if (!actorId) return res.json({ success: false, error: 'Unauthorized' }, 401);
 
@@ -26,9 +42,20 @@ export default async ({ req, res, log, error }) => {
     if (!managementRoles.includes(actorProfile.role)) {
       return res.json({ success: false, error: 'Forbidden. HR Admin access required.' }, 403);
     }
+    if (actorProfile.active === false) {
+      return res.json({ success: false, error: 'Disabled account' }, 403);
+    }
+    if (!actorProfile.company_id) {
+      return res.json({ success: false, error: 'Actor company is missing' }, 400);
+    }
 
     const body = typeof req.body === 'string' ? JSON.parse(req.body || '{}') : (req.body || {});
-    const { profileId, newEmployeeNumber, mustChangePassword } = body;
+    const {
+      profileId,
+      newEmployeeNumber,
+      mustChangePassword,
+      profileUpdates = {},
+    } = body;
     const newPassword =
       body.newPassword && String(body.newPassword).trim()
         ? String(body.newPassword).trim()
@@ -38,10 +65,8 @@ export default async ({ req, res, log, error }) => {
       return res.json({ success: false, error: 'Missing profileId' }, 400);
     }
 
-    // Since profile ID is exactly the Auth user ID:
     const userId = profileId;
 
-    // Fetch current profile to check existing data
     let targetProfile;
     try {
       targetProfile = await databases.getDocument(databaseId, profilesTable, profileId);
@@ -49,20 +74,46 @@ export default async ({ req, res, log, error }) => {
       return res.json({ success: false, error: 'Employee profile not found' }, 404);
     }
 
+    if (!targetProfile.company_id || targetProfile.company_id !== actorProfile.company_id) {
+      return res.json({ success: false, error: 'Forbidden. Employee belongs to another company.' }, 403);
+    }
+
+    if (
+      profileUpdates === null ||
+      typeof profileUpdates !== 'object' ||
+      Array.isArray(profileUpdates)
+    ) {
+      return res.json({ success: false, error: 'Invalid profileUpdates payload' }, 400);
+    }
+
+    const unknownFields = Object.keys(profileUpdates).filter(
+      (key) => !allowedProfileFields.has(key),
+    );
+    if (unknownFields.length > 0) {
+      return res.json(
+        {
+          success: false,
+          error: `Unsupported profile fields: ${unknownFields.join(', ')}`,
+        },
+        400,
+      );
+    }
+
     const currentEmployeeNumber = targetProfile.employee_number;
-    let oldEmail = `${String(currentEmployeeNumber).trim().toLowerCase()}@${technicalEmailDomain}`;
+    const oldEmail = `${String(currentEmployeeNumber).trim().toLowerCase()}@${technicalEmailDomain}`;
 
     const updateProfileData = {};
     let emailUpdated = false;
 
-    // Handle Employee Number Change
     if (newEmployeeNumber && newEmployeeNumber !== currentEmployeeNumber) {
       const trimmedNewNumber = String(newEmployeeNumber).trim();
-      
-      // Check if new number already used
+      if (!trimmedNewNumber) {
+        return res.json({ success: false, error: 'رقم الموظف لا يمكن أن يكون فارغاً' }, 400);
+      }
+
       const existing = await databases.listDocuments(databaseId, profilesTable, [
         Query.equal('employee_number', trimmedNewNumber),
-        Query.limit(1)
+        Query.limit(1),
       ]);
 
       if (existing.total > 0 && existing.documents[0].$id !== profileId) {
@@ -72,7 +123,6 @@ export default async ({ req, res, log, error }) => {
       updateProfileData.employee_number = trimmedNewNumber;
       const newEmail = `${trimmedNewNumber.toLowerCase()}@${technicalEmailDomain}`;
 
-      // Transaction-like approach for email change
       try {
         await users.updateEmail(userId, newEmail);
         emailUpdated = true;
@@ -86,13 +136,93 @@ export default async ({ req, res, log, error }) => {
       updateProfileData.must_change_password = mustChangePassword;
     }
 
-    // Apply Profile Database Updates if needed
+    if (Object.prototype.hasOwnProperty.call(profileUpdates, 'fullName')) {
+      const fullName = normalizeNullableText(profileUpdates.fullName);
+      if (!fullName) {
+        return res.json({ success: false, error: 'اسم الموظف لا يمكن أن يكون فارغاً' }, 400);
+      }
+      updateProfileData.full_name = fullName;
+    }
+
+    if (Object.prototype.hasOwnProperty.call(profileUpdates, 'departmentName')) {
+      updateProfileData.department_name = normalizeNullableText(profileUpdates.departmentName);
+    }
+    if (Object.prototype.hasOwnProperty.call(profileUpdates, 'jobTitleId')) {
+      updateProfileData.job_title_id = normalizeNullableText(profileUpdates.jobTitleId);
+    }
+    if (Object.prototype.hasOwnProperty.call(profileUpdates, 'jobTitleName')) {
+      updateProfileData.job_title_name = normalizeNullableText(profileUpdates.jobTitleName);
+    }
+
+    if (Object.prototype.hasOwnProperty.call(profileUpdates, 'biometricEmployeeId')) {
+      const biometricId = normalizeNullableText(profileUpdates.biometricEmployeeId);
+      if (biometricId) {
+        const existingBiometric = await databases.listDocuments(databaseId, profilesTable, [
+          Query.equal('company_id', actorProfile.company_id),
+          Query.equal('biometric_employee_id', biometricId),
+          Query.limit(5),
+        ]);
+        if (existingBiometric.documents.some((doc) => doc.$id !== profileId)) {
+          return res.json({ success: false, error: 'رقم البصمة مستخدم بالفعل لموظف آخر.' }, 400);
+        }
+      }
+      updateProfileData.biometric_employee_id = biometricId;
+    }
+
+    if (Object.prototype.hasOwnProperty.call(profileUpdates, 'phone')) {
+      const phone = normalizeNullableText(profileUpdates.phone);
+      if (phone && !/^\+[0-9]{8,15}$/.test(phone)) {
+        return res.json(
+          { success: false, error: 'أدخل رقم الهاتف بصيغة دولية مثل +967770000000' },
+          400,
+        );
+      }
+      updateProfileData.phone = phone;
+    }
+
+    if (Object.prototype.hasOwnProperty.call(profileUpdates, 'baseSalary')) {
+      const baseSalary = Number(profileUpdates.baseSalary);
+      if (!Number.isFinite(baseSalary) || baseSalary < 0) {
+        return res.json({ success: false, error: 'الراتب الأساسي غير صالح' }, 400);
+      }
+      updateProfileData.base_salary = baseSalary;
+    }
+
+    if (Object.prototype.hasOwnProperty.call(profileUpdates, 'monthlyBonus')) {
+      const monthlyBonus = Number(profileUpdates.monthlyBonus);
+      if (!Number.isFinite(monthlyBonus) || monthlyBonus < 0) {
+        return res.json({ success: false, error: 'المكافأة الشهرية غير صالحة' }, 400);
+      }
+      updateProfileData.monthly_bonus = monthlyBonus;
+    }
+
+    if (Object.prototype.hasOwnProperty.call(profileUpdates, 'dailyWorkHours')) {
+      const dailyWorkHours = Number(profileUpdates.dailyWorkHours);
+      if (!Number.isFinite(dailyWorkHours) || dailyWorkHours <= 0 || dailyWorkHours > 24) {
+        return res.json({ success: false, error: 'ساعات العمل اليومية يجب أن تكون بين 0 و24' }, 400);
+      }
+      updateProfileData.daily_work_hours = dailyWorkHours;
+    }
+
+    if (Object.prototype.hasOwnProperty.call(profileUpdates, 'active')) {
+      if (typeof profileUpdates.active !== 'boolean') {
+        return res.json({ success: false, error: 'Invalid active value' }, 400);
+      }
+      if (profileUpdates.active === false && targetProfile.role === 'hr_admin') {
+        return res.json({ success: false, error: 'لا يمكن تعطيل حساب الموارد البشرية' }, 400);
+      }
+      updateProfileData.active = profileUpdates.active;
+    }
+
+    if (newPassword && newPassword.length < 8) {
+      return res.json({ success: false, error: 'كلمة المرور يجب ألا تقل عن 8 أحرف' }, 400);
+    }
+
     if (Object.keys(updateProfileData).length > 0) {
       try {
         await databases.updateDocument(databaseId, profilesTable, profileId, updateProfileData);
       } catch (e) {
         error(`Failed to update profile database: ${e.message}`);
-        // Rollback Auth email if we updated it and profile update failed
         if (emailUpdated) {
           try {
             await users.updateEmail(userId, oldEmail);
@@ -105,11 +235,7 @@ export default async ({ req, res, log, error }) => {
       }
     }
 
-    // Handle Password Change (independent from profile fields, done at the end)
     if (newPassword) {
-      if (newPassword.length < 8) {
-        return res.json({ success: false, error: 'كلمة المرور يجب ألا تقل عن 8 أحرف' }, 400);
-      }
       try {
         await users.updatePassword(userId, newPassword);
       } catch (e) {
