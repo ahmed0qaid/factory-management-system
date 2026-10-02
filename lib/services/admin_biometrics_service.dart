@@ -51,7 +51,9 @@ class AdminBiometricsService {
   }
 
   Future<List<ShiftModel>> getShifts(String companyId) async {
-    final scopedCompanyId = await CompanyContextService.requireCompany(companyId);
+    final scopedCompanyId = await CompanyContextService.requireCompany(
+      companyId,
+    );
     final docs = await AppwriteService.tablesDB.listRows(
       databaseId: AppConstants.databaseId,
       tableId: AppConstants.shiftsTable,
@@ -177,7 +179,9 @@ class AdminBiometricsService {
     required PreprocessSummary summary,
     required List<Map<String, dynamic>> rawLogs,
   }) async {
-    final scopedCompanyId = await CompanyContextService.requireCompany(companyId);
+    final scopedCompanyId = await CompanyContextService.requireCompany(
+      companyId,
+    );
 
     // Re-resolve immediately before persistence so a stale preview, changed
     // monthly schedule, or manipulated Excel expected time cannot become the
@@ -422,10 +426,19 @@ class AdminBiometricsService {
 
       final dateStr = _dateKey(group.workDate);
       final attendanceKey = '$employeeId|$dateStr';
-      final existingAttendanceId = existingAttendance[attendanceKey];
-      if (existingAttendanceId != null) {
-        attendanceSkipped++;
-        continue;
+      final existingRow = existingAttendance[attendanceKey];
+      bool isUpgrade = false;
+      String? existingAttendanceId;
+
+      if (existingRow != null) {
+        existingAttendanceId = existingRow['\$id'] as String?;
+        final source = existingRow['source']?.toString();
+        if (source == 'calendar_exception') {
+          isUpgrade = true;
+        } else {
+          attendanceSkipped++;
+          continue;
+        }
       }
 
       var status = 'present';
@@ -446,7 +459,9 @@ class AdminBiometricsService {
       var workedMinutes = 0;
 
       if (completePunches && group.shiftStart != null) {
-        lateMinutes = group.actualCheckIn!.difference(group.shiftStart!).inMinutes;
+        lateMinutes = group.actualCheckIn!
+            .difference(group.shiftStart!)
+            .inMinutes;
         if (lateMinutes < 0) lateMinutes = 0;
       }
       if (completePunches && group.shiftEnd != null) {
@@ -461,45 +476,56 @@ class AdminBiometricsService {
             .inMinutes;
         if (workedMinutes < 0) workedMinutes = 0;
       }
-      if (status == 'present' &&
-          (lateMinutes > 0 || earlyLeaveMinutes > 0)) {
+      if (status == 'present' && (lateMinutes > 0 || earlyLeaveMinutes > 0)) {
         status = 'late';
       }
 
-      final attendanceId = _safeRowId('att_${employeeId}_$dateStr');
+      final attendanceId =
+          existingAttendanceId ?? _safeRowId('att_${employeeId}_$dateStr');
       try {
         await _retryOnRateLimit(() async {
-          await AppwriteService.tablesDB.createRow(
-            databaseId: AppConstants.databaseId,
-            tableId: AppConstants.attendanceTable,
-            rowId: attendanceId,
-            data: _removeNulls({
-              'company_id': scopedCompanyId,
-              'employee_id': employeeId,
-              'work_date': dateStr,
-              'scheduled_start': group.shiftStart?.toIso8601String(),
-              'scheduled_end': group.shiftEnd?.toIso8601String(),
-              'check_in': group.actualCheckIn?.toIso8601String(),
-              'check_out': group.actualCheckOut?.toIso8601String(),
-              'late_minutes': lateMinutes,
-              'early_leave_minutes': earlyLeaveMinutes,
-              'worked_minutes': workedMinutes,
-              'credited_minutes': workedMinutes,
-              'overtime_minutes': group.expectedOvertimeMinutes,
-              'status': status,
-              'attendance_issue_type': issueType ?? '',
-              'review_status': reviewStatus ?? '',
-              'review_note': group.reviewReason,
-              'source': 'biometric_import',
-            }),
-          );
+          final data = _removeNulls({
+            'company_id': scopedCompanyId,
+            'employee_id': employeeId,
+            'work_date': dateStr,
+            'scheduled_start': group.shiftStart?.toIso8601String(),
+            'scheduled_end': group.shiftEnd?.toIso8601String(),
+            'check_in': group.actualCheckIn?.toIso8601String(),
+            'check_out': group.actualCheckOut?.toIso8601String(),
+            'late_minutes': lateMinutes,
+            'early_leave_minutes': earlyLeaveMinutes,
+            'worked_minutes': workedMinutes,
+            'credited_minutes': workedMinutes,
+            'overtime_minutes': group.expectedOvertimeMinutes,
+            'status': status,
+            'attendance_issue_type': issueType ?? '',
+            'review_status': reviewStatus ?? '',
+            'review_note': group.reviewReason,
+            'source': 'biometric_import',
+          });
+
+          if (isUpgrade) {
+            await AppwriteService.tablesDB.updateRow(
+              databaseId: AppConstants.databaseId,
+              tableId: AppConstants.attendanceTable,
+              rowId: attendanceId,
+              data: data,
+            );
+          } else {
+            await AppwriteService.tablesDB.createRow(
+              databaseId: AppConstants.databaseId,
+              tableId: AppConstants.attendanceTable,
+              rowId: attendanceId,
+              data: data,
+            );
+          }
         });
         attendanceCreated++;
-        existingAttendance[attendanceKey] = attendanceId;
+        existingAttendance[attendanceKey] = {'\$id': attendanceId};
       } on AppwriteException catch (e) {
         if (e.code == 409 || e.type == 'document_already_exists') {
           attendanceSkipped++;
-          existingAttendance[attendanceKey] = attendanceId;
+          existingAttendance[attendanceKey] = {'\$id': attendanceId};
           continue;
         }
         attendanceFailed++;
@@ -554,9 +580,7 @@ class AdminBiometricsService {
             if (e.code == 409 || e.type == 'document_already_exists') {
               skippedOvertime++;
               existingOvertimeAttendanceIds.add(attendanceId);
-            } else if (!errors.any(
-              (item) => item.startsWith('Overtime:'),
-            )) {
+            } else if (!errors.any((item) => item.startsWith('Overtime:'))) {
               errors.add('Overtime: ${e.message ?? e.toString()}');
             }
           } catch (e) {
@@ -574,7 +598,8 @@ class AdminBiometricsService {
         summary.needsReviewGroups > 0 ||
         attendanceSkipped > 0) {
       try {
-        final notificationBody = '''
+        final notificationBody =
+            '''
 تم استيراد ملف البصمة بالاعتماد على جدول الدوام الداخلي.
 سجلات حضور جديدة: $attendanceCreated
 سجلات حضور موجودة مسبقًا / متخطاة: $attendanceSkipped
@@ -583,7 +608,8 @@ class AdminBiometricsService {
 حالات غياب: ${summary.absentCases}
 موظفون مؤقتون جدد: $temporaryCreated
 موظفون مؤقتون محدثون: $temporaryUpdated
-'''.trim();
+'''
+                .trim();
         await _retryOnRateLimit(() async {
           await AppwriteService.tablesDB.createRow(
             databaseId: AppConstants.databaseId,
@@ -674,7 +700,9 @@ class AdminBiometricsService {
         ],
       );
       for (final row in response.rows) {
-        final biometricId = row.data['biometric_employee_id']?.toString().trim();
+        final biometricId = row.data['biometric_employee_id']
+            ?.toString()
+            .trim();
         if (biometricId != null && biometricId.isNotEmpty) {
           result[biometricId] = row.$id;
         }
@@ -748,12 +776,12 @@ class AdminBiometricsService {
     return result;
   }
 
-  Future<Map<String, String>> _fetchAttendanceByEmployeeDate({
+  Future<Map<String, Map<String, dynamic>>> _fetchAttendanceByEmployeeDate({
     required String companyId,
     required DateTime? minDate,
     required DateTime? maxDate,
   }) async {
-    final result = <String, String>{};
+    final result = <String, Map<String, dynamic>>{};
     if (minDate == null || maxDate == null) return result;
     String? cursor;
     final start = DateTime(
@@ -785,7 +813,10 @@ class AdminBiometricsService {
         if (employeeId == null || workDateRaw == null) continue;
         final parsed = DateTime.tryParse(workDateRaw);
         if (parsed == null) continue;
-        result['$employeeId|${_dateKey(parsed)}'] = row.$id;
+        result['$employeeId|${_dateKey(parsed)}'] = {
+          '\$id': row.$id,
+          ...row.data,
+        };
       }
       if (response.rows.length < 1000) break;
       cursor = response.rows.last.$id;
@@ -855,7 +886,9 @@ class AdminBiometricsService {
     String companyId, {
     String status = 'pending',
   }) async {
-    final scopedCompanyId = await CompanyContextService.requireCompany(companyId);
+    final scopedCompanyId = await CompanyContextService.requireCompany(
+      companyId,
+    );
     final docs = await AppwriteService.tablesDB.listRows(
       databaseId: AppConstants.databaseId,
       tableId: AppConstants.temporaryBiometricEmployeesTable,

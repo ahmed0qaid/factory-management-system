@@ -10,7 +10,7 @@ class AttendanceRecordModel {
   final int workedMinutes;
   final int creditedMinutes;
   final int overtimeMinutes;
-  final String status;
+  final String rawStatus;
   final String? notes;
   final String? attendanceIssueType;
   final String? reviewNote;
@@ -18,11 +18,15 @@ class AttendanceRecordModel {
   final String? reviewResolution;
   final String? reviewedBy;
   final DateTime? reviewedAt;
+  final String? calendarExceptionType;
+  final String? calendarExceptionRefId;
+  final String? calendarExceptionAppliedBy;
+  final DateTime? calendarExceptionAppliedAt;
 
   AttendanceRecordModel({
     required this.id,
     required this.workDate,
-    required this.status,
+    required String status,
     required this.lateMinutes,
     required this.earlyLeaveMinutes,
     required this.workedMinutes,
@@ -39,12 +43,37 @@ class AttendanceRecordModel {
     this.reviewResolution,
     this.reviewedBy,
     this.reviewedAt,
-  });
+    this.calendarExceptionType,
+    this.calendarExceptionRefId,
+    this.calendarExceptionAppliedBy,
+    this.calendarExceptionAppliedAt,
+  }) : rawStatus = status;
 
   bool get hasUnresolvedReview {
     if (reviewStatus == 'resolved') return false;
     final issue = attendanceIssueType?.trim() ?? '';
-    return status == 'needs_review' || reviewStatus == 'pending' || issue.isNotEmpty;
+    return rawStatus == 'needs_review' ||
+        reviewStatus == 'pending' ||
+        issue.isNotEmpty;
+  }
+
+  bool get hasCalendarException =>
+      calendarExceptionType != null && calendarExceptionType!.trim().isNotEmpty;
+
+  bool get hasActualPresence =>
+      !hasUnresolvedReview && (rawStatus == 'present' || rawStatus == 'late');
+
+  /// Effective status for attendance-facing UI and summaries.
+  /// Persisted/raw attendance remains unchanged for audit purposes.
+  /// Actual attendance wins over calendar exceptions; unresolved reviews stay
+  /// visible as reviews; otherwise an approved leave/stoppage becomes the
+  /// displayed status instead of an older `absent` value.
+  String get status {
+    if (hasUnresolvedReview) return rawStatus;
+    if (hasActualPresence) return rawStatus;
+    final exception = calendarExceptionType?.trim() ?? '';
+    if (exception.isNotEmpty) return exception;
+    return rawStatus;
   }
 
   factory AttendanceRecordModel.fromMap(Map<String, dynamic> map) {
@@ -55,8 +84,8 @@ class AttendanceRecordModel {
     }
 
     return AttendanceRecordModel(
-      id: map['id'] as String,
-      workDate: DateTime.parse(map['work_date'] as String),
+      id: (map['id'] ?? map[r'$id'] ?? '').toString(),
+      workDate: DateTime.parse(map['work_date'].toString()),
       scheduledStart: parse(map['scheduled_start']),
       scheduledEnd: parse(map['scheduled_end']),
       checkIn: parse(map['check_in']),
@@ -74,6 +103,11 @@ class AttendanceRecordModel {
       reviewResolution: map['review_resolution'] as String?,
       reviewedBy: map['reviewed_by'] as String?,
       reviewedAt: parse(map['reviewed_at']),
+      calendarExceptionType: map['calendar_exception_type'] as String?,
+      calendarExceptionRefId: map['calendar_exception_ref_id'] as String?,
+      calendarExceptionAppliedBy:
+          map['calendar_exception_applied_by'] as String?,
+      calendarExceptionAppliedAt: parse(map['calendar_exception_applied_at']),
     );
   }
 }

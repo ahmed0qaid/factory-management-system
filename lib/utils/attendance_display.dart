@@ -24,7 +24,16 @@ String statusLabel(String status) {
     case 'paid':
       return 'مدفوع';
     case 'leave':
-      return 'إجازة';
+    case 'paid_leave':
+      return 'إجازة مدفوعة';
+    case 'unpaid_leave':
+      return 'إجازة بدون راتب';
+    case 'factory_stoppage_paid':
+      return 'توقف مصنع مدفوع';
+    case 'factory_stoppage_unpaid':
+      return 'توقف مصنع غير مدفوع';
+    case 'rest_day':
+      return 'يوم راحة';
     case 'incomplete':
       return 'غير مكتمل';
     default:
@@ -38,11 +47,17 @@ Color statusColor(String status) {
     case 'approved':
     case 'paid':
     case 'completed':
+    case 'leave':
+    case 'paid_leave':
+    case 'factory_stoppage_paid':
+    case 'rest_day':
       return AppColors.success;
     case 'late':
     case 'pending':
     case 'incomplete':
     case 'needs_review':
+    case 'unpaid_leave':
+    case 'factory_stoppage_unpaid':
       return AppColors.warning;
     case 'absent':
     case 'rejected':

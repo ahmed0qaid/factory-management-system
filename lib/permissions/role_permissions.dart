@@ -188,8 +188,8 @@ class AppRoles {
         const AdminModule(
           type: AdminModuleType.leaves,
           category: AdminModuleCategory.approvals,
-          title: 'الإجازات والاستئذان',
-          description: 'مراجعة طلبات الإجازات واعتمادها أو رفضها',
+          title: 'الإجازات وتوقفات المصنع',
+          description: 'اعتماد الإجازات وتحديد أثرها المالي وإدارة توقفات المصنع',
           iconName: 'event_available',
           manageMode: true,
         ),
