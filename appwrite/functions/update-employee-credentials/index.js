@@ -3,8 +3,10 @@ import { Client, Users, Databases, Query } from 'node-appwrite';
 const technicalEmailDomain = 'hr.local';
 const profilesTable = 'profiles';
 const managementRoles = ['hr_admin'];
+const employmentStatuses = new Set(['active', 'suspended', 'terminated']);
 const allowedProfileFields = new Set([
   'fullName',
+  'departmentId',
   'departmentName',
   'jobTitleId',
   'jobTitleName',
@@ -13,7 +15,11 @@ const allowedProfileFields = new Set([
   'baseSalary',
   'monthlyBonus',
   'dailyWorkHours',
+  'hireDate',
   'active',
+  'employmentStatus',
+  'statusReason',
+  'terminationDate',
 ]);
 
 const normalizeNullableText = (value) => {
@@ -21,10 +27,21 @@ const normalizeNullableText = (value) => {
   return String(value).trim();
 };
 
+const parseDate = (value) => {
+  const clean = normalizeNullableText(value);
+  if (!clean) return null;
+  const parsed = new Date(clean);
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+};
+
 export default async ({ req, res, log, error }) => {
   try {
-    const endpoint = process.env.APPWRITE_FUNCTION_ENDPOINT || process.env.APPWRITE_ENDPOINT || 'https://fra.cloud.appwrite.io/v1';
-    const projectId = process.env.APPWRITE_FUNCTION_PROJECT_ID || process.env.APPWRITE_PROJECT_ID;
+    const endpoint =
+      process.env.APPWRITE_FUNCTION_ENDPOINT ||
+      process.env.APPWRITE_ENDPOINT ||
+      'https://fra.cloud.appwrite.io/v1';
+    const projectId =
+      process.env.APPWRITE_FUNCTION_PROJECT_ID || process.env.APPWRITE_PROJECT_ID;
 
     const client = new Client()
       .setEndpoint(endpoint)
@@ -35,10 +52,12 @@ export default async ({ req, res, log, error }) => {
     const databases = new Databases(client);
     const databaseId = process.env.APPWRITE_DATABASE_ID || 'hr';
 
-    const actorId = req.headers['x-appwrite-user-id'] || process.env.APPWRITE_FUNCTION_USER_ID;
+    const actorId =
+      req.headers['x-appwrite-user-id'] || process.env.APPWRITE_FUNCTION_USER_ID;
     if (!actorId) return res.json({ success: false, error: 'Unauthorized' }, 401);
 
-    const body = typeof req.body === 'string' ? JSON.parse(req.body || '{}') : (req.body || {});
+    const body =
+      typeof req.body === 'string' ? JSON.parse(req.body || '{}') : req.body || {};
     const {
       profileId,
       newEmployeeNumber,
@@ -55,13 +74,15 @@ export default async ({ req, res, log, error }) => {
       return res.json({ success: false, error: 'Missing profileId' }, 400);
     }
 
-    const actorProfile = await databases.getDocument(databaseId, profilesTable, actorId);
+    const actorProfile = await databases.getDocument(
+      databaseId,
+      profilesTable,
+      actorId,
+    );
     if (actorProfile.active === false) {
       return res.json({ success: false, error: 'Disabled account' }, 403);
     }
 
-    // The only self-service profile mutation allowed to a normal employee is
-    // clearing the first-login password flag after Account.updatePassword succeeds.
     if (action === 'completeOwnPasswordChange') {
       if (profileId !== actorId) {
         return res.json({ success: false, error: 'Forbidden' }, 403);
@@ -72,7 +93,10 @@ export default async ({ req, res, log, error }) => {
         mustChangePassword !== undefined ||
         Object.keys(profileUpdates).length > 0
       ) {
-        return res.json({ success: false, error: 'Invalid self-service payload' }, 400);
+        return res.json(
+          { success: false, error: 'Invalid self-service payload' },
+          400,
+        );
       }
 
       await databases.updateDocument(databaseId, profilesTable, actorId, {
@@ -82,7 +106,10 @@ export default async ({ req, res, log, error }) => {
     }
 
     if (!managementRoles.includes(actorProfile.role)) {
-      return res.json({ success: false, error: 'Forbidden. HR Admin access required.' }, 403);
+      return res.json(
+        { success: false, error: 'Forbidden. HR Admin access required.' },
+        403,
+      );
     }
     if (!actorProfile.company_id) {
       return res.json({ success: false, error: 'Actor company is missing' }, 400);
@@ -92,13 +119,26 @@ export default async ({ req, res, log, error }) => {
 
     let targetProfile;
     try {
-      targetProfile = await databases.getDocument(databaseId, profilesTable, profileId);
+      targetProfile = await databases.getDocument(
+        databaseId,
+        profilesTable,
+        profileId,
+      );
     } catch (e) {
       return res.json({ success: false, error: 'Employee profile not found' }, 404);
     }
 
-    if (!targetProfile.company_id || targetProfile.company_id !== actorProfile.company_id) {
-      return res.json({ success: false, error: 'Forbidden. Employee belongs to another company.' }, 403);
+    if (
+      !targetProfile.company_id ||
+      targetProfile.company_id !== actorProfile.company_id
+    ) {
+      return res.json(
+        {
+          success: false,
+          error: 'Forbidden. Employee belongs to another company.',
+        },
+        403,
+      );
     }
 
     if (
@@ -106,7 +146,10 @@ export default async ({ req, res, log, error }) => {
       typeof profileUpdates !== 'object' ||
       Array.isArray(profileUpdates)
     ) {
-      return res.json({ success: false, error: 'Invalid profileUpdates payload' }, 400);
+      return res.json(
+        { success: false, error: 'Invalid profileUpdates payload' },
+        400,
+      );
     }
 
     const unknownFields = Object.keys(profileUpdates).filter(
@@ -123,18 +166,26 @@ export default async ({ req, res, log, error }) => {
     }
 
     if (newPassword && newPassword.length < 8) {
-      return res.json({ success: false, error: 'كلمة المرور يجب ألا تقل عن 8 أحرف' }, 400);
+      return res.json(
+        { success: false, error: 'كلمة المرور يجب ألا تقل عن 8 أحرف' },
+        400,
+      );
     }
 
     const currentEmployeeNumber = targetProfile.employee_number;
-    const oldEmail = `${String(currentEmployeeNumber).trim().toLowerCase()}@${technicalEmailDomain}`;
+    const oldEmail = `${String(currentEmployeeNumber)
+      .trim()
+      .toLowerCase()}@${technicalEmailDomain}`;
     const updateProfileData = {};
     let pendingNewEmail = null;
 
     if (newEmployeeNumber && newEmployeeNumber !== currentEmployeeNumber) {
       const trimmedNewNumber = String(newEmployeeNumber).trim();
       if (!trimmedNewNumber) {
-        return res.json({ success: false, error: 'رقم الموظف لا يمكن أن يكون فارغاً' }, 400);
+        return res.json(
+          { success: false, error: 'رقم الموظف لا يمكن أن يكون فارغاً' },
+          400,
+        );
       }
 
       const existing = await databases.listDocuments(databaseId, profilesTable, [
@@ -143,7 +194,10 @@ export default async ({ req, res, log, error }) => {
       ]);
 
       if (existing.total > 0 && existing.documents[0].$id !== profileId) {
-        return res.json({ success: false, error: 'رقم الموظف مستخدم بالفعل' }, 400);
+        return res.json(
+          { success: false, error: 'رقم الموظف مستخدم بالفعل' },
+          400,
+        );
       }
 
       updateProfileData.employee_number = trimmedNewNumber;
@@ -157,31 +211,59 @@ export default async ({ req, res, log, error }) => {
     if (Object.prototype.hasOwnProperty.call(profileUpdates, 'fullName')) {
       const fullName = normalizeNullableText(profileUpdates.fullName);
       if (!fullName) {
-        return res.json({ success: false, error: 'اسم الموظف لا يمكن أن يكون فارغاً' }, 400);
+        return res.json(
+          { success: false, error: 'اسم الموظف لا يمكن أن يكون فارغاً' },
+          400,
+        );
       }
       updateProfileData.full_name = fullName;
     }
 
-    if (Object.prototype.hasOwnProperty.call(profileUpdates, 'departmentName')) {
-      updateProfileData.department_name = normalizeNullableText(profileUpdates.departmentName);
+    if (Object.prototype.hasOwnProperty.call(profileUpdates, 'departmentId')) {
+      updateProfileData.department_id = normalizeNullableText(
+        profileUpdates.departmentId,
+      );
     }
+
+    if (Object.prototype.hasOwnProperty.call(profileUpdates, 'departmentName')) {
+      const departmentName = normalizeNullableText(profileUpdates.departmentName);
+      if (!departmentName) {
+        return res.json({ success: false, error: 'القسم لا يمكن أن يكون فارغًا' }, 400);
+      }
+      updateProfileData.department_name = departmentName;
+    }
+
     if (Object.prototype.hasOwnProperty.call(profileUpdates, 'jobTitleId')) {
       updateProfileData.job_title_id = normalizeNullableText(profileUpdates.jobTitleId);
     }
     if (Object.prototype.hasOwnProperty.call(profileUpdates, 'jobTitleName')) {
-      updateProfileData.job_title_name = normalizeNullableText(profileUpdates.jobTitleName);
+      updateProfileData.job_title_name = normalizeNullableText(
+        profileUpdates.jobTitleName,
+      );
     }
 
-    if (Object.prototype.hasOwnProperty.call(profileUpdates, 'biometricEmployeeId')) {
+    if (
+      Object.prototype.hasOwnProperty.call(profileUpdates, 'biometricEmployeeId')
+    ) {
       const biometricId = normalizeNullableText(profileUpdates.biometricEmployeeId);
       if (biometricId) {
-        const existingBiometric = await databases.listDocuments(databaseId, profilesTable, [
-          Query.equal('company_id', actorProfile.company_id),
-          Query.equal('biometric_employee_id', biometricId),
-          Query.limit(5),
-        ]);
+        const existingBiometric = await databases.listDocuments(
+          databaseId,
+          profilesTable,
+          [
+            Query.equal('company_id', actorProfile.company_id),
+            Query.equal('biometric_employee_id', biometricId),
+            Query.limit(5),
+          ],
+        );
         if (existingBiometric.documents.some((doc) => doc.$id !== profileId)) {
-          return res.json({ success: false, error: 'رقم البصمة مستخدم بالفعل لموظف آخر.' }, 400);
+          return res.json(
+            {
+              success: false,
+              error: 'رقم البصمة مستخدم بالفعل لموظف آخر.',
+            },
+            400,
+          );
         }
       }
       updateProfileData.biometric_employee_id = biometricId;
@@ -191,7 +273,10 @@ export default async ({ req, res, log, error }) => {
       const phone = normalizeNullableText(profileUpdates.phone);
       if (phone && !/^\+[0-9]{8,15}$/.test(phone)) {
         return res.json(
-          { success: false, error: 'أدخل رقم الهاتف بصيغة دولية مثل +967770000000' },
+          {
+            success: false,
+            error: 'أدخل رقم الهاتف بصيغة دولية مثل +967770000000',
+          },
           400,
         );
       }
@@ -201,7 +286,10 @@ export default async ({ req, res, log, error }) => {
     if (Object.prototype.hasOwnProperty.call(profileUpdates, 'baseSalary')) {
       const baseSalary = Number(profileUpdates.baseSalary);
       if (!Number.isFinite(baseSalary) || baseSalary < 0) {
-        return res.json({ success: false, error: 'الراتب الأساسي غير صالح' }, 400);
+        return res.json(
+          { success: false, error: 'الراتب الأساسي غير صالح' },
+          400,
+        );
       }
       updateProfileData.base_salary = baseSalary;
     }
@@ -209,30 +297,181 @@ export default async ({ req, res, log, error }) => {
     if (Object.prototype.hasOwnProperty.call(profileUpdates, 'monthlyBonus')) {
       const monthlyBonus = Number(profileUpdates.monthlyBonus);
       if (!Number.isFinite(monthlyBonus) || monthlyBonus < 0) {
-        return res.json({ success: false, error: 'المكافأة الشهرية غير صالحة' }, 400);
+        return res.json(
+          { success: false, error: 'المكافأة الشهرية غير صالحة' },
+          400,
+        );
       }
       updateProfileData.monthly_bonus = monthlyBonus;
     }
 
     if (Object.prototype.hasOwnProperty.call(profileUpdates, 'dailyWorkHours')) {
       const dailyWorkHours = Number(profileUpdates.dailyWorkHours);
-      if (!Number.isFinite(dailyWorkHours) || dailyWorkHours <= 0 || dailyWorkHours > 24) {
-        return res.json({ success: false, error: 'ساعات العمل اليومية يجب أن تكون أكبر من 0 ولا تتجاوز 24' }, 400);
+      if (
+        !Number.isFinite(dailyWorkHours) ||
+        dailyWorkHours <= 0 ||
+        dailyWorkHours > 24
+      ) {
+        return res.json(
+          {
+            success: false,
+            error: 'ساعات العمل اليومية يجب أن تكون أكبر من 0 ولا تتجاوز 24',
+          },
+          400,
+        );
       }
       updateProfileData.daily_work_hours = dailyWorkHours;
     }
 
-    if (Object.prototype.hasOwnProperty.call(profileUpdates, 'active')) {
+    if (Object.prototype.hasOwnProperty.call(profileUpdates, 'hireDate')) {
+      const hireDate = parseDate(profileUpdates.hireDate);
+      if (!hireDate) {
+        return res.json({ success: false, error: 'تاريخ التعيين غير صالح' }, 400);
+      }
+      const endOfToday = new Date();
+      endOfToday.setHours(23, 59, 59, 999);
+      if (hireDate > endOfToday) {
+        return res.json(
+          { success: false, error: 'تاريخ التعيين لا يمكن أن يكون في المستقبل' },
+          400,
+        );
+      }
+      updateProfileData.hire_date = hireDate.toISOString();
+    }
+
+    const hasStatus = Object.prototype.hasOwnProperty.call(
+      profileUpdates,
+      'employmentStatus',
+    );
+    const hasLegacyActive = Object.prototype.hasOwnProperty.call(
+      profileUpdates,
+      'active',
+    );
+
+    let requestedStatus = null;
+    if (hasStatus) {
+      requestedStatus = normalizeNullableText(profileUpdates.employmentStatus);
+      if (!employmentStatuses.has(requestedStatus)) {
+        return res.json(
+          { success: false, error: 'الحالة الوظيفية غير صالحة' },
+          400,
+        );
+      }
+    }
+
+    if (hasLegacyActive) {
       if (typeof profileUpdates.active !== 'boolean') {
         return res.json({ success: false, error: 'Invalid active value' }, 400);
       }
-      if (profileUpdates.active === false && targetProfile.role === 'hr_admin') {
-        return res.json({ success: false, error: 'لا يمكن تعطيل حساب الموارد البشرية' }, 400);
+      const legacyStatus = profileUpdates.active ? 'active' : 'suspended';
+      if (requestedStatus && requestedStatus !== legacyStatus) {
+        return res.json(
+          { success: false, error: 'Conflicting active and employment status values' },
+          400,
+        );
       }
-      updateProfileData.active = profileUpdates.active;
+      requestedStatus ??= legacyStatus;
     }
 
-    // All request validation is complete before any Auth or database mutation.
+    if (requestedStatus) {
+      const currentStatus = employmentStatuses.has(targetProfile.employment_status)
+        ? targetProfile.employment_status
+        : targetProfile.active === false
+          ? 'suspended'
+          : 'active';
+
+      if (targetProfile.role === 'hr_admin' && requestedStatus !== 'active') {
+        return res.json(
+          {
+            success: false,
+            error: 'لا يمكن تعليق أو إنهاء حساب الموارد البشرية',
+          },
+          400,
+        );
+      }
+
+      if (currentStatus === 'terminated' && requestedStatus !== 'terminated') {
+        return res.json(
+          {
+            success: false,
+            error:
+              'الموظف منتهي الخدمة ولا يمكن إعادة تفعيله من هذه الدورة. أنشئ إجراء إعادة توظيف مستقل عند الحاجة.',
+          },
+          400,
+        );
+      }
+
+      let statusReason = Object.prototype.hasOwnProperty.call(
+        profileUpdates,
+        'statusReason',
+      )
+        ? normalizeNullableText(profileUpdates.statusReason)
+        : '';
+
+      if (requestedStatus === 'suspended' && !statusReason) {
+        statusReason = 'إيقاف مؤقت بواسطة الموارد البشرية';
+      }
+
+      let terminationDate = null;
+      if (requestedStatus === 'terminated') {
+        if (!statusReason) {
+          return res.json(
+            { success: false, error: 'سبب إنهاء الخدمة مطلوب' },
+            400,
+          );
+        }
+        terminationDate = parseDate(profileUpdates.terminationDate);
+        if (!terminationDate) {
+          return res.json(
+            { success: false, error: 'تاريخ انتهاء الخدمة مطلوب وصالح' },
+            400,
+          );
+        }
+        const endOfToday = new Date();
+        endOfToday.setHours(23, 59, 59, 999);
+        if (terminationDate > endOfToday) {
+          return res.json(
+            {
+              success: false,
+              error: 'تاريخ انتهاء الخدمة لا يمكن أن يكون في المستقبل',
+            },
+            400,
+          );
+        }
+        const hireDate = parseDate(targetProfile.hire_date);
+        if (hireDate && terminationDate < hireDate) {
+          return res.json(
+            {
+              success: false,
+              error: 'تاريخ انتهاء الخدمة لا يمكن أن يسبق تاريخ التعيين',
+            },
+            400,
+          );
+        }
+      }
+
+      updateProfileData.employment_status = requestedStatus;
+      updateProfileData.active = requestedStatus === 'active';
+      updateProfileData.status_reason =
+        requestedStatus === 'active' ? '' : statusReason;
+      updateProfileData.termination_date =
+        requestedStatus === 'terminated' ? terminationDate.toISOString() : null;
+      updateProfileData.status_changed_at = new Date().toISOString();
+      updateProfileData.status_changed_by = actorId;
+    } else if (
+      Object.prototype.hasOwnProperty.call(profileUpdates, 'statusReason') ||
+      Object.prototype.hasOwnProperty.call(profileUpdates, 'terminationDate')
+    ) {
+      return res.json(
+        {
+          success: false,
+          error: 'employmentStatus is required when updating lifecycle fields',
+        },
+        400,
+      );
+    }
+
+    // All validation is complete before any Auth or database mutation.
     let emailUpdated = false;
     if (pendingNewEmail) {
       try {
@@ -240,13 +479,21 @@ export default async ({ req, res, log, error }) => {
         emailUpdated = true;
       } catch (e) {
         error(`Failed to update Auth email: ${e.message}`);
-        return res.json({ success: false, error: 'فشل تحديث البريد الإلكتروني للمستخدم' }, 500);
+        return res.json(
+          { success: false, error: 'فشل تحديث البريد الإلكتروني للمستخدم' },
+          500,
+        );
       }
     }
 
     if (Object.keys(updateProfileData).length > 0) {
       try {
-        await databases.updateDocument(databaseId, profilesTable, profileId, updateProfileData);
+        await databases.updateDocument(
+          databaseId,
+          profilesTable,
+          profileId,
+          updateProfileData,
+        );
       } catch (e) {
         error(`Failed to update profile database: ${e.message}`);
         if (emailUpdated) {
@@ -254,10 +501,15 @@ export default async ({ req, res, log, error }) => {
             await users.updateEmail(userId, oldEmail);
             log('Rolled back Auth email to ' + oldEmail);
           } catch (rbError) {
-            error(`CRITICAL: Failed to rollback email for user ${userId}. Data is out of sync.`);
+            error(
+              `CRITICAL: Failed to rollback email for user ${userId}. Data is out of sync.`,
+            );
           }
         }
-        return res.json({ success: false, error: 'فشل تحديث بيانات الموظف' }, 500);
+        return res.json(
+          { success: false, error: 'فشل تحديث بيانات الموظف' },
+          500,
+        );
       }
     }
 
@@ -266,13 +518,24 @@ export default async ({ req, res, log, error }) => {
         await users.updatePassword(userId, newPassword);
       } catch (e) {
         error(`Failed to update Auth password: ${e.message}`);
-        return res.json({ success: false, error: 'فشل تحديث كلمة المرور' }, 500);
+        return res.json(
+          { success: false, error: 'فشل تحديث كلمة المرور' },
+          500,
+        );
       }
     }
 
-    return res.json({ success: true, message: 'تم التحديث بنجاح' });
+    return res.json({
+      success: true,
+      message: 'تم التحديث بنجاح',
+      employmentStatus:
+        updateProfileData.employment_status ?? targetProfile.employment_status ?? null,
+    });
   } catch (e) {
     error(String(e?.message || e));
-    return res.json({ success: false, error: String(e?.message || e) }, 500);
+    return res.json(
+      { success: false, error: String(e?.message || e) },
+      500,
+    );
   }
 };
