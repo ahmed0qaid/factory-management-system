@@ -18,6 +18,10 @@ class AttendanceRecordModel {
   final String? reviewResolution;
   final String? reviewedBy;
   final DateTime? reviewedAt;
+  final String? calendarExceptionType;
+  final String? calendarExceptionRefId;
+  final String? calendarExceptionAppliedBy;
+  final DateTime? calendarExceptionAppliedAt;
 
   AttendanceRecordModel({
     required this.id,
@@ -39,6 +43,10 @@ class AttendanceRecordModel {
     this.reviewResolution,
     this.reviewedBy,
     this.reviewedAt,
+    this.calendarExceptionType,
+    this.calendarExceptionRefId,
+    this.calendarExceptionAppliedBy,
+    this.calendarExceptionAppliedAt,
   });
 
   bool get hasUnresolvedReview {
@@ -46,6 +54,12 @@ class AttendanceRecordModel {
     final issue = attendanceIssueType?.trim() ?? '';
     return status == 'needs_review' || reviewStatus == 'pending' || issue.isNotEmpty;
   }
+
+  bool get hasCalendarException =>
+      calendarExceptionType != null && calendarExceptionType!.trim().isNotEmpty;
+
+  bool get hasActualPresence =>
+      !hasUnresolvedReview && (status == 'present' || status == 'late');
 
   factory AttendanceRecordModel.fromMap(Map<String, dynamic> map) {
     DateTime? parse(dynamic value) {
@@ -55,8 +69,8 @@ class AttendanceRecordModel {
     }
 
     return AttendanceRecordModel(
-      id: map['id'] as String,
-      workDate: DateTime.parse(map['work_date'] as String),
+      id: (map['id'] ?? map[r'$id'] ?? '').toString(),
+      workDate: DateTime.parse(map['work_date'].toString()),
       scheduledStart: parse(map['scheduled_start']),
       scheduledEnd: parse(map['scheduled_end']),
       checkIn: parse(map['check_in']),
@@ -74,6 +88,11 @@ class AttendanceRecordModel {
       reviewResolution: map['review_resolution'] as String?,
       reviewedBy: map['reviewed_by'] as String?,
       reviewedAt: parse(map['reviewed_at']),
+      calendarExceptionType: map['calendar_exception_type'] as String?,
+      calendarExceptionRefId: map['calendar_exception_ref_id'] as String?,
+      calendarExceptionAppliedBy:
+          map['calendar_exception_applied_by'] as String?,
+      calendarExceptionAppliedAt: parse(map['calendar_exception_applied_at']),
     );
   }
 }
