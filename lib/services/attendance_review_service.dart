@@ -5,6 +5,7 @@ import '../permissions/role_permissions.dart';
 import 'appwrite_service.dart';
 import 'auth_service.dart';
 import 'company_context_service.dart';
+import 'overtime_admin_service.dart';
 
 class AttendanceReviewCase {
   final String id;
@@ -189,7 +190,7 @@ class AttendanceReviewService {
     if (cleanNote.isEmpty) {
       throw ArgumentError('يجب كتابة ملاحظة توضح قرار المراجعة.');
     }
-    if (!const {'present', 'absent', 'rest_day'}.contains(resolution)) {
+    final actualOutForValidation = resolution == 'present' ? (checkOut ?? _parseDate(data['check_out'])) : null; await OvertimeAdminService().validateNoApprovedOvertimeConflict(attendanceId, actualOutForValidation); if (!const {'present', 'absent', 'rest_day'}.contains(resolution)) {
       throw ArgumentError('قرار مراجعة الحضور غير صالح.');
     }
 
@@ -254,6 +255,7 @@ class AttendanceReviewService {
       rowId: attendanceId,
       data: update,
     );
+    await OvertimeAdminService().syncOvertimeForAttendance(attendanceId);
   }
 
   Future<int> countUnresolvedForEmployeeMonth({

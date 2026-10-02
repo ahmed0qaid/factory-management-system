@@ -15,6 +15,8 @@ class OvertimeRecordModel {
   final String? paidBy;
   final DateTime? paidAt;
   final num? paidAmount;
+  final String? approvalNote;
+  final String? rejectionReason;
   final DateTime createdAt;
 
   OvertimeRecordModel({
@@ -34,6 +36,8 @@ class OvertimeRecordModel {
     this.paidBy,
     this.paidAt,
     this.paidAmount,
+    this.approvalNote,
+    this.rejectionReason,
     required this.createdAt,
   });
 
@@ -57,6 +61,8 @@ class OvertimeRecordModel {
       paidBy: map['paid_by'],
       paidAt: map['paid_at'] != null ? DateTime.parse(map['paid_at']) : null,
       paidAmount: map['paid_amount'],
+      approvalNote: map['approval_note']?.toString(),
+      rejectionReason: map['rejection_reason']?.toString(),
       createdAt: DateTime.parse(map['created_at']),
     );
   }
