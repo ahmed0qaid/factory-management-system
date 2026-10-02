@@ -1,3 +1,4 @@
+import 'payroll_period_service.dart';
 import 'dart:convert';
 
 import 'package:appwrite/appwrite.dart';
@@ -323,7 +324,25 @@ class AdminService {
         advanceInstallments -
         otherDeductions;
 
+    
+    final payrollPeriod = await PayrollPeriodService().getOrCreatePeriod(scopedCompanyId, year, month);
+    if (payrollPeriod.status == 'closed') throw Exception('لا يمكن إصدار راتب في فترة مغلقة.');
+    
+    final existingPayroll = await AppwriteService.tablesDB.listRows(
+      databaseId: AppConstants.databaseId,
+      tableId: AppConstants.payrollTable,
+      queries: [
+        Query.equal('company_id', scopedCompanyId),
+        Query.equal('employee_id', employeeId),
+        Query.equal('payroll_period_id', payrollPeriod.id),
+      ],
+    );
+    if (existingPayroll.rows.isNotEmpty) return;
+
+    if (netSalary < 0) throw Exception('لا يمكن اعتماد الراتب لأن الصافي بالسالب. الرجاء مراجعة الخصومات أو الأقساط.');
+    
     final payrollId = ID.unique();
+
     await AppwriteService.tablesDB.createRow(
       databaseId: AppConstants.databaseId,
       tableId: AppConstants.payrollTable,
@@ -331,6 +350,8 @@ class AdminService {
       data: {
         'company_id': scopedCompanyId,
         'employee_id': employeeId,
+        'payroll_period_id': payrollPeriod.id,
+        'period_key': payrollPeriod.periodKey,
         'base_salary': baseSalary,
         'monthly_bonus': monthlyBonus,
         'monthly_entitlement': monthlyEntitlement,
@@ -357,6 +378,49 @@ class AdminService {
       ],
     );
 
+    final dueMonth = '${year}-${month.toString().padLeft(2, '0')}';
+    final installmentsData = await AppwriteService.tablesDB.listRows(
+      databaseId: AppConstants.databaseId,
+      tableId: AppConstants.advanceInstallmentsTable,
+      queries: [
+        Query.equal('company_id', scopedCompanyId),
+        Query.equal('employee_id', employeeId),
+        Query.equal('due_month', dueMonth),
+        Query.equal('status', 'pending'),
+      ],
+    );
+    for (final inst in installmentsData.rows) {
+      final amount = inst.data['amount'] as num? ?? 0;
+      final advId = inst.data['advance_id']?.toString() ?? '';
+      await AppwriteService.tablesDB.updateRow(
+        databaseId: AppConstants.databaseId,
+        tableId: AppConstants.advanceInstallmentsTable,
+        rowId: inst.$id,
+        data: {
+          'status': 'deducted',
+          'payroll_record_id': payrollId,
+          'deducted_at': DateTime.now().toIso8601String(),
+        },
+      );
+      final advRow = await AppwriteService.tablesDB.getRow(
+        databaseId: AppConstants.databaseId,
+        tableId: AppConstants.advancesTable,
+        rowId: advId,
+      );
+      num remaining = (advRow.data['remaining_amount'] as num? ?? 0) - amount;
+      if (remaining < 0) remaining = 0;
+      final advUpdate = <String, dynamic>{'remaining_amount': remaining};
+      if (remaining <= 0) {
+        advUpdate['repayment_status'] = 'fully_paid';
+      }
+      await AppwriteService.tablesDB.updateRow(
+        databaseId: AppConstants.databaseId,
+        tableId: AppConstants.advancesTable,
+        rowId: advId,
+        data: advUpdate,
+      );
+    }
+
     await AppwriteService.tablesDB.createRow(
       databaseId: AppConstants.databaseId,
       tableId: AppConstants.notificationsTable,
@@ -367,6 +431,8 @@ class AdminService {
         'title': 'تم اعتماد الراتب',
         'body':
             'تم اعتماد راتبك لهذا الشهر، يمكنك مراجعة كشف الراتب من واجهة الراتب.',
+        'payroll_period_id': payrollPeriod.id,
+        'period_key': payrollPeriod.periodKey,
         'type': 'payroll',
         'reference_table': AppConstants.payrollTable,
         'reference_id': payrollId,

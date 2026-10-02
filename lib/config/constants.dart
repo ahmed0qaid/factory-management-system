@@ -14,6 +14,7 @@ class AppConstants {
   static const payrollTable = 'payroll_records';
   static const advancesTable = 'advances';
   static const advanceInstallmentsTable = 'advance_installments';
+  static const payrollPeriodsTable = 'payroll_periods';
   static const announcementsTable = 'announcements';
   static const notificationsTable = 'notifications';
   static const String leaveRequestsTable = 'leave_requests';

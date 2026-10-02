@@ -1,5 +1,7 @@
 class PayrollRecordModel {
   final String id;
+  final String? payrollPeriodId;
+  final String? periodKey;
   final num baseSalary;
   final num monthlyBonus;
   final num monthlyEntitlement;
@@ -18,6 +20,8 @@ class PayrollRecordModel {
 
   PayrollRecordModel({
     required this.id,
+    this.payrollPeriodId,
+    this.periodKey,
     required this.baseSalary,
     required this.monthlyBonus,
     required this.monthlyEntitlement,
@@ -38,6 +42,8 @@ class PayrollRecordModel {
   factory PayrollRecordModel.fromMap(Map<String, dynamic> map) {
     return PayrollRecordModel(
       id: map['id'] as String,
+      payrollPeriodId: map['payroll_period_id'] as String?,
+      periodKey: map['period_key'] as String?,
       baseSalary: map['base_salary'] as num? ?? 0,
       monthlyBonus: map['monthly_bonus'] as num? ?? 0,
       monthlyEntitlement:
