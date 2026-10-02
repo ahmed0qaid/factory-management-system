@@ -29,6 +29,7 @@ class MonthlySalaryReport {
   final num hourlyWage;
   final int presentDays;
   final int absentDays;
+  final int unresolvedAttendanceCount;
   final num attendanceSalary;
   final num absenceDeduction;
   final num penaltiesDeduction;
@@ -51,6 +52,7 @@ class MonthlySalaryReport {
     required this.hourlyWage,
     required this.presentDays,
     required this.absentDays,
+    required this.unresolvedAttendanceCount,
     required this.attendanceSalary,
     required this.absenceDeduction,
     required this.penaltiesDeduction,
@@ -59,6 +61,7 @@ class MonthlySalaryReport {
   });
 
   String get monthKey => '$year-${month.toString().padLeft(2, '0')}';
+  bool get isAttendanceFinalized => unresolvedAttendanceCount == 0;
 }
 
 class SalaryCalculationService {
@@ -74,9 +77,7 @@ class SalaryCalculationService {
     final days = getDaysInMonth(year, month);
     var count = 0;
     for (var day = 1; day <= days; day++) {
-      if (DateTime(year, month, day).weekday == DateTime.friday) {
-        count++;
-      }
+      if (DateTime(year, month, day).weekday == DateTime.friday) count++;
     }
     return count;
   }
@@ -87,8 +88,7 @@ class SalaryCalculationService {
     required bool includeFridays,
   }) {
     final days = getDaysInMonth(year, month);
-    if (includeFridays) return days;
-    return days - countFridays(year, month);
+    return includeFridays ? days : days - countFridays(year, month);
   }
 
   static num calculateDailyWage(num grossSalary, int salaryDays) {
@@ -128,8 +128,14 @@ class SalaryCalculationService {
     final dailyWorkHours = employee.dailyWorkHours;
     final hourlyWage = calculateHourlyWage(dailyWage, dailyWorkHours);
 
-    final presentDays = attendanceRecords.where(_isPresent).length;
-    final absentDays = attendanceRecords.where(_isAbsent).length;
+    final unresolvedAttendanceCount = attendanceRecords
+        .where((record) => record.hasUnresolvedReview)
+        .length;
+    final finalizedAttendance = attendanceRecords
+        .where((record) => !record.hasUnresolvedReview)
+        .toList();
+    final presentDays = finalizedAttendance.where(_isPresent).length;
+    final absentDays = finalizedAttendance.where(_isAbsent).length;
     final attendanceSalary = presentDays * dailyWage;
     final absenceDeduction = absentDays * dailyWage;
     final penaltiesDeduction = penalties.fold<num>(
@@ -156,6 +162,7 @@ class SalaryCalculationService {
       hourlyWage: hourlyWage,
       presentDays: presentDays,
       absentDays: absentDays,
+      unresolvedAttendanceCount: unresolvedAttendanceCount,
       attendanceSalary: attendanceSalary,
       absenceDeduction: absenceDeduction,
       penaltiesDeduction: penaltiesDeduction,
@@ -165,12 +172,12 @@ class SalaryCalculationService {
   }
 
   static bool _isPresent(AttendanceRecordModel record) {
-    return record.status == 'present' ||
-        record.status == 'late' ||
-        record.checkIn != null;
+    if (record.hasUnresolvedReview) return false;
+    return record.status == 'present' || record.status == 'late';
   }
 
   static bool _isAbsent(AttendanceRecordModel record) {
+    if (record.hasUnresolvedReview) return false;
     return record.status == 'absent';
   }
 }
