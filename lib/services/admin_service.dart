@@ -295,6 +295,8 @@ class AdminService {
 
   Future<void> addPayroll({
     required String companyId,
+    required int year,
+    required int month,
     required String employeeId,
     required num baseSalary,
     required num monthlyBonus,

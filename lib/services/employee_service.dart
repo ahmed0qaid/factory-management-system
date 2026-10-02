@@ -153,32 +153,20 @@ class EmployeeService {
         .where((p) => p.status == 'pending' || p.status == 'approved')
         .toList();
 
-    final advancesStart = DateTime(year, month, 1).toIso8601String();
-    final advancesEnd = DateTime(
-      year,
-      month + 1,
-      0,
-      23,
-      59,
-      59,
-    ).toIso8601String();
-    final advancesData = await AppwriteService.tablesDB.listRows(
+    final dueMonth = '${year}-${month.toString().padLeft(2, '0')}';
+    final installmentsData = await AppwriteService.tablesDB.listRows(
       databaseId: AppConstants.databaseId,
-      tableId: AppConstants.advancesTable,
+      tableId: AppConstants.advanceInstallmentsTable,
       queries: [
         Query.equal('company_id', profile.companyId),
         Query.equal('employee_id', profile.id),
-        Query.greaterThanEqual('created_at', advancesStart),
-        Query.lessThanEqual('created_at', advancesEnd),
-        Query.limit(500),
+        Query.equal('due_month', dueMonth),
+        Query.equal('status', 'pending'),
       ],
     );
     num advancesTotal = 0;
-    for (final doc in advancesData.rows) {
-      final status = doc.data['status']?.toString() ?? '';
-      if (status == 'approved' || status == 'paid') {
-        advancesTotal += (doc.data['principal_amount'] as num? ?? 0);
-      }
+    for (final doc in installmentsData.rows) {
+      advancesTotal += (doc.data['amount'] as num? ?? 0);
     }
 
     return SalaryCalculationService.calculateMonthlySalaryReport(
