@@ -38,23 +38,13 @@ export default async ({ req, res, log, error }) => {
     const actorId = req.headers['x-appwrite-user-id'] || process.env.APPWRITE_FUNCTION_USER_ID;
     if (!actorId) return res.json({ success: false, error: 'Unauthorized' }, 401);
 
-    const actorProfile = await databases.getDocument(databaseId, profilesTable, actorId);
-    if (!managementRoles.includes(actorProfile.role)) {
-      return res.json({ success: false, error: 'Forbidden. HR Admin access required.' }, 403);
-    }
-    if (actorProfile.active === false) {
-      return res.json({ success: false, error: 'Disabled account' }, 403);
-    }
-    if (!actorProfile.company_id) {
-      return res.json({ success: false, error: 'Actor company is missing' }, 400);
-    }
-
     const body = typeof req.body === 'string' ? JSON.parse(req.body || '{}') : (req.body || {});
     const {
       profileId,
       newEmployeeNumber,
       mustChangePassword,
       profileUpdates = {},
+      action,
     } = body;
     const newPassword =
       body.newPassword && String(body.newPassword).trim()
@@ -63,6 +53,39 @@ export default async ({ req, res, log, error }) => {
 
     if (!profileId) {
       return res.json({ success: false, error: 'Missing profileId' }, 400);
+    }
+
+    const actorProfile = await databases.getDocument(databaseId, profilesTable, actorId);
+    if (actorProfile.active === false) {
+      return res.json({ success: false, error: 'Disabled account' }, 403);
+    }
+
+    // The only self-service profile mutation allowed to a normal employee is
+    // clearing the first-login password flag after Account.updatePassword succeeds.
+    if (action === 'completeOwnPasswordChange') {
+      if (profileId !== actorId) {
+        return res.json({ success: false, error: 'Forbidden' }, 403);
+      }
+      if (
+        newEmployeeNumber !== undefined ||
+        newPassword !== null ||
+        mustChangePassword !== undefined ||
+        Object.keys(profileUpdates).length > 0
+      ) {
+        return res.json({ success: false, error: 'Invalid self-service payload' }, 400);
+      }
+
+      await databases.updateDocument(databaseId, profilesTable, actorId, {
+        must_change_password: false,
+      });
+      return res.json({ success: true, message: 'Password change completed' });
+    }
+
+    if (!managementRoles.includes(actorProfile.role)) {
+      return res.json({ success: false, error: 'Forbidden. HR Admin access required.' }, 403);
+    }
+    if (!actorProfile.company_id) {
+      return res.json({ success: false, error: 'Actor company is missing' }, 400);
     }
 
     const userId = profileId;
