@@ -35,7 +35,11 @@ class MonthlySalaryReport {
   final int unpaidStoppageDays;
   final int unresolvedAttendanceCount;
   final num attendanceSalary;
+
+  /// Total calendar-based salary deduction currently passed to payroll_records.
+  /// It consists of unauthorized absence + unpaid leave + unpaid stoppage.
   final num absenceDeduction;
+  final num unauthorizedAbsenceDeduction;
   final num unpaidLeaveDeduction;
   final num unpaidStoppageDeduction;
   final num penaltiesDeduction;
@@ -65,6 +69,7 @@ class MonthlySalaryReport {
     required this.unresolvedAttendanceCount,
     required this.attendanceSalary,
     required this.absenceDeduction,
+    required this.unauthorizedAbsenceDeduction,
     required this.unpaidLeaveDeduction,
     required this.unpaidStoppageDeduction,
     required this.penaltiesDeduction,
@@ -173,21 +178,20 @@ class SalaryCalculationService {
 
     final attendanceSalary =
         (presentDays + paidLeaveDays + paidStoppageDays) * dailyWage;
-    final absenceDeduction = absentDays * dailyWage;
+    final unauthorizedAbsenceDeduction = absentDays * dailyWage;
     final unpaidLeaveDeduction = unpaidLeaveDays * dailyWage;
     final unpaidStoppageDeduction = unpaidStoppageDays * dailyWage;
+    final absenceDeduction =
+        unauthorizedAbsenceDeduction +
+        unpaidLeaveDeduction +
+        unpaidStoppageDeduction;
     final penaltiesDeduction = penalties.fold<num>(
       0,
       (total, penalty) => total + penalty.amount,
     );
     final advanceDeduction = advancesTotal;
     final netSalary =
-        grossSalary -
-        absenceDeduction -
-        unpaidLeaveDeduction -
-        unpaidStoppageDeduction -
-        penaltiesDeduction -
-        advanceDeduction;
+        grossSalary - absenceDeduction - penaltiesDeduction - advanceDeduction;
 
     return MonthlySalaryReport(
       employee: employee,
@@ -212,6 +216,7 @@ class SalaryCalculationService {
       unresolvedAttendanceCount: 0,
       attendanceSalary: attendanceSalary,
       absenceDeduction: absenceDeduction,
+      unauthorizedAbsenceDeduction: unauthorizedAbsenceDeduction,
       unpaidLeaveDeduction: unpaidLeaveDeduction,
       unpaidStoppageDeduction: unpaidStoppageDeduction,
       penaltiesDeduction: penaltiesDeduction,
