@@ -5,6 +5,8 @@ const profilesTable = 'profiles';
 const managementRoles = ['hr_admin'];
 const assignableRoles = ['employee', 'general_manager', 'financial_manager', 'hr_admin'];
 
+const text = (value) => (value === null || value === undefined ? '' : String(value).trim());
+
 export default async ({ req, res, log, error }) => {
   try {
     const client = new Client()
@@ -53,11 +55,17 @@ export default async ({ req, res, log, error }) => {
       hireDate,
       biometricEmployeeId,
     } = body;
-    const phone =
-      body.phone && String(body.phone).trim() ? String(body.phone).trim() : null;
+    const phone = text(body.phone) || null;
+    const cleanEmployeeNumber = text(employeeNumber);
+    const cleanFullName = text(fullName);
+    const cleanDepartmentName = text(departmentName);
 
-    if (!employeeNumber || !fullName || !temporaryPassword) {
+    if (!cleanEmployeeNumber || !cleanFullName || !temporaryPassword) {
       return res.json({ success: false, error: 'Missing required fields' }, 400);
+    }
+
+    if (!cleanDepartmentName) {
+      return res.json({ success: false, error: 'القسم مطلوب عند إنشاء الموظف' }, 400);
     }
 
     if (!assignableRoles.includes(role)) {
@@ -84,36 +92,61 @@ export default async ({ req, res, log, error }) => {
       );
     }
 
+    const salary = Number(baseSalary);
+    const bonus = Number(monthlyBonus);
+    if (!Number.isFinite(salary) || salary < 0) {
+      return res.json({ success: false, error: 'الراتب الأساسي غير صالح' }, 400);
+    }
+    if (!Number.isFinite(bonus) || bonus < 0) {
+      return res.json({ success: false, error: 'المكافأة الشهرية غير صالحة' }, 400);
+    }
+
+    const parsedHireDate = hireDate ? new Date(hireDate) : new Date();
+    if (Number.isNaN(parsedHireDate.getTime())) {
+      return res.json({ success: false, error: 'تاريخ التعيين غير صالح' }, 400);
+    }
+    const tomorrow = new Date();
+    tomorrow.setHours(23, 59, 59, 999);
+    if (parsedHireDate > tomorrow) {
+      return res.json({ success: false, error: 'تاريخ التعيين لا يمكن أن يكون في المستقبل' }, 400);
+    }
+
     const companyId = actorProfile.company_id;
     if (!companyId) {
       return res.json({ success: false, error: 'Actor company is missing' }, 400);
     }
 
-    const email = `${String(employeeNumber).trim().toLowerCase()}@${technicalEmailDomain}`;
+    const email = `${cleanEmployeeNumber.toLowerCase()}@${technicalEmailDomain}`;
 
     const user = await users.create(
       ID.unique(),
       email,
       phone || undefined,
       temporaryPassword,
-      fullName,
+      cleanFullName,
     );
 
-    const monthlyEntitlement = Number(baseSalary) + Number(monthlyBonus);
+    const monthlyEntitlement = salary + bonus;
+    const now = new Date().toISOString();
     const profileData = {
       company_id: companyId,
-      employee_number: employeeNumber,
-      full_name: fullName,
+      employee_number: cleanEmployeeNumber,
+      full_name: cleanFullName,
       role,
-      department_id: departmentId || null,
-      department_name: departmentName || null,
-      job_title_id: jobTitleId || null,
-      job_title_name: jobTitleName || null,
-      hire_date: hireDate || null,
-      base_salary: Number(baseSalary),
-      monthly_bonus: Number(monthlyBonus),
-      biometric_employee_id: biometricEmployeeId || null,
+      department_id: text(departmentId) || null,
+      department_name: cleanDepartmentName,
+      job_title_id: text(jobTitleId) || null,
+      job_title_name: text(jobTitleName) || null,
+      hire_date: parsedHireDate.toISOString(),
+      base_salary: salary,
+      monthly_bonus: bonus,
+      biometric_employee_id: text(biometricEmployeeId) || null,
       active: true,
+      employment_status: 'active',
+      status_reason: '',
+      termination_date: null,
+      status_changed_at: now,
+      status_changed_by: actorId,
       must_change_password: true,
     };
     if (phone) {
@@ -121,9 +154,6 @@ export default async ({ req, res, log, error }) => {
     }
 
     try {
-      // Server SDK memberships are accepted immediately. Keeping every employee
-      // in the company team makes Role.team(companyId) permissions reliable for
-      // announcements and other company-scoped resources.
       await teams.createMembership(
         companyId,
         [role],
@@ -131,7 +161,7 @@ export default async ({ req, res, log, error }) => {
         user.$id,
         undefined,
         undefined,
-        fullName,
+        cleanFullName,
       );
 
       await databases.createDocument(
@@ -147,8 +177,6 @@ export default async ({ req, res, log, error }) => {
         ],
       );
     } catch (setupError) {
-      // Roll back Auth user to avoid an orphaned account if either company-team
-      // membership or profile creation fails.
       try {
         await users.delete(user.$id);
       } catch (deleteError) {
@@ -157,12 +185,13 @@ export default async ({ req, res, log, error }) => {
       throw setupError;
     }
 
-    log(`Created employee ${employeeNumber} in company team ${companyId}`);
+    log(`Created employee ${cleanEmployeeNumber} in company team ${companyId}`);
     return res.json({
       success: true,
       userId: user.$id,
-      login: employeeNumber,
+      login: cleanEmployeeNumber,
       monthlyEntitlement,
+      employmentStatus: 'active',
     });
   } catch (e) {
     error(String(e?.message || e));
