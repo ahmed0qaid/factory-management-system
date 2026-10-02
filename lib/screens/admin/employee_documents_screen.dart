@@ -6,6 +6,7 @@ import '../../config/constants.dart';
 import '../../models/profile_model.dart';
 import '../../services/admin_service.dart';
 import '../../services/appwrite_service.dart';
+import '../../services/company_context_service.dart';
 import '../../utils/formatters.dart';
 import '../../widgets/common/app_card.dart';
 import '../../widgets/common/app_dropdown_field.dart';
@@ -94,10 +95,16 @@ class _EmployeeDocumentsScreenState extends State<EmployeeDocumentsScreen> {
   Future<void> _loadDocuments(String employeeId) async {
     setState(() => _isLoading = true);
     try {
+      final employee = _employees.firstWhere((item) => item.id == employeeId);
+      final companyId = await CompanyContextService.getCurrentCompanyId();
+      if (employee.companyId != companyId) {
+        throw StateError('الموظف لا يتبع شركة المستخدم الحالية.');
+      }
       final response = await AppwriteService.tablesDB.listRows(
         databaseId: AppConstants.databaseId,
         tableId: AppConstants.employeeDocumentsTable,
         queries: [
+          Query.equal('company_id', companyId),
           Query.equal('employee_id', employeeId),
           Query.orderDesc('created_at'),
         ],
@@ -145,6 +152,11 @@ class _EmployeeDocumentsScreenState extends State<EmployeeDocumentsScreen> {
 
     setState(() => _isLoading = true);
     try {
+      final currentProfile = await CompanyContextService.getCurrentProfile();
+      if (employee.companyId != currentProfile.companyId) {
+        throw StateError('لا يمكن حفظ مستند لموظف تابع لشركة أخرى.');
+      }
+
       String? fileId;
       String? fileName;
 
@@ -158,9 +170,9 @@ class _EmployeeDocumentsScreenState extends State<EmployeeDocumentsScreen> {
           ),
           permissions: [
             Permission.read(Role.user(employee.id)),
-            Permission.read(Role.team('company_main', 'hr_admin')),
-            Permission.update(Role.team('company_main', 'hr_admin')),
-            Permission.delete(Role.team('company_main', 'hr_admin')),
+            Permission.read(Role.team(currentProfile.companyId, 'hr_admin')),
+            Permission.update(Role.team(currentProfile.companyId, 'hr_admin')),
+            Permission.delete(Role.team(currentProfile.companyId, 'hr_admin')),
           ],
         );
         fileId = uploaded.$id;
@@ -172,21 +184,21 @@ class _EmployeeDocumentsScreenState extends State<EmployeeDocumentsScreen> {
         tableId: AppConstants.employeeDocumentsTable,
         rowId: ID.unique(),
         data: {
-          'company_id': employee.companyId,
+          'company_id': currentProfile.companyId,
           'employee_id': employee.id,
           'document_type': _documentType,
           'title': _titleController.text.trim(),
           'notes': _notesController.text.trim(),
           'file_id': fileId,
           'file_name': fileName,
-          'uploaded_by': 'hr_admin',
+          'uploaded_by': currentProfile.id,
           'created_at': DateTime.now().toIso8601String(),
         },
         permissions: [
           Permission.read(Role.user(employee.id)),
-          Permission.read(Role.team('company_main', 'hr_admin')),
-          Permission.update(Role.team('company_main', 'hr_admin')),
-          Permission.delete(Role.team('company_main', 'hr_admin')),
+          Permission.read(Role.team(currentProfile.companyId, 'hr_admin')),
+          Permission.update(Role.team(currentProfile.companyId, 'hr_admin')),
+          Permission.delete(Role.team(currentProfile.companyId, 'hr_admin')),
         ],
       );
 
