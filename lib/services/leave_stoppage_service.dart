@@ -8,8 +8,11 @@ import '../models/profile_model.dart';
 import '../permissions/role_permissions.dart';
 import 'appwrite_service.dart';
 import 'company_context_service.dart';
+import 'notification_service.dart';
 
 class LeaveStoppageService {
+  final NotificationService _notifications = NotificationService();
+
   Map<String, dynamic> _data(models.Row row) => {...row.data, 'id': row.$id};
 
   String _dateKey(DateTime value) =>
@@ -127,6 +130,17 @@ class LeaveStoppageService {
       );
       rethrow;
     }
+
+    await _notifications.createNotification(
+      companyId: actor.companyId,
+      employeeId: leave.employeeId,
+      title: 'تم قبول طلب الإجازة',
+      body:
+          'تم اعتماد طلب الإجازة كإجازة ${effectivePaid ? 'مدفوعة' : 'بدون راتب'}. ملاحظة الإدارة: $note',
+      type: 'leave',
+      referenceTable: AppConstants.leaveRequestsTable,
+      referenceId: leave.id,
+    );
   }
 
   Future<void> rejectLeave({
@@ -158,6 +172,16 @@ class LeaveStoppageService {
         'reviewed_by': actor.id,
         'reviewed_at': DateTime.now().toIso8601String(),
       },
+    );
+
+    await _notifications.createNotification(
+      companyId: actor.companyId,
+      employeeId: leave.employeeId,
+      title: 'تم رفض طلب الإجازة',
+      body: 'تم رفض طلب الإجازة. ملاحظة الإدارة: $note',
+      type: 'leave',
+      referenceTable: AppConstants.leaveRequestsTable,
+      referenceId: leave.id,
     );
   }
 
