@@ -312,10 +312,7 @@ class LeaveStoppageService {
     final response = await AppwriteService.tablesDB.listRows(
       databaseId: AppConstants.databaseId,
       tableId: AppConstants.factoryStoppagesTable,
-      queries: [
-        Query.equal('company_id', companyId),
-        Query.limit(500),
-      ],
+      queries: [Query.equal('company_id', companyId), Query.limit(500)],
     );
     for (final row in response.rows) {
       final stoppage = FactoryStoppageModel.fromMap(_data(row));
@@ -454,7 +451,7 @@ class LeaveStoppageService {
       data: {
         'company_id': companyId,
         'employee_id': employeeId,
-        'work_date': _day(workDate).toIso8601String(),
+        'work_date': _dateKey(workDate),
         'scheduled_start': schedule.data['scheduled_start'],
         'scheduled_end': schedule.data['scheduled_end'],
         'check_in': null,
