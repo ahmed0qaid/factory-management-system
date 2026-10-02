@@ -12,6 +12,7 @@ import 'attendance_policy_screen.dart';
 import 'create_employee_screen.dart';
 import 'employee_directory_screen.dart';
 import 'employee_documents_screen.dart';
+import 'employee_lifecycle_screen.dart';
 import 'employee_shift_assignments_screen.dart';
 import 'import_biometric_screen.dart';
 import 'job_titles_screen.dart';
@@ -72,6 +73,8 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
         } else {
           _open(const EmployeeDirectoryScreen());
         }
+      case AdminModuleType.employeeLifecycle:
+        _open(const EmployeeLifecycleScreen());
       case AdminModuleType.jobTitles:
         _open(JobTitlesScreen(currentProfile: widget.profile));
       case AdminModuleType.attendancePolicy:
@@ -115,6 +118,8 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     switch (name) {
       case 'people':
         return Icons.people_alt_outlined;
+      case 'manage_accounts':
+        return Icons.manage_accounts_outlined;
       case 'work':
         return Icons.work_outline;
       case 'calendar':
@@ -249,13 +254,14 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   }
 
   Widget _buildMetrics(BuildContext context, List<ProfileModel> employees) {
-    final active = employees.where((employee) => employee.active).length;
-    final management = employees
-        .where((employee) => employee.isManagement)
+    final active = employees
+        .where((employee) => employee.isActiveEmployment)
         .length;
+    final suspended = employees.where((employee) => employee.isSuspended).length;
+    final terminated = employees.where((employee) => employee.isTerminated).length;
     return LayoutBuilder(
       builder: (context, constraints) {
-        final compact = constraints.maxWidth < 520;
+        final compact = constraints.maxWidth < 620;
         final cards = [
           _MetricData(
             'الموظفون',
@@ -268,19 +274,28 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
             Icons.verified_user_outlined,
           ),
           _MetricData(
-            'الإداريون',
-            management.toString(),
-            Icons.admin_panel_settings_outlined,
+            'الموقوفون',
+            suspended.toString(),
+            Icons.pause_circle_outline,
+          ),
+          _MetricData(
+            'منتهو الخدمة',
+            terminated.toString(),
+            Icons.person_off_outlined,
           ),
         ];
         if (compact) {
-          return Row(
-            children: [
-              for (var i = 0; i < cards.length; i++) ...[
-                if (i > 0) const SizedBox(width: 8),
-                Expanded(child: _MetricCard(data: cards[i])),
-              ],
-            ],
+          return Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: cards
+                .map(
+                  (item) => SizedBox(
+                    width: (constraints.maxWidth - 8) / 2,
+                    child: _MetricCard(data: item),
+                  ),
+                )
+                .toList(),
           );
         }
         return Wrap(
@@ -324,7 +339,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
       case AdminModuleCategory.people:
         return (
           'الموظفون والهيكل',
-          'بيانات الموظفين والمسميات الوظيفية',
+          'بيانات الموظفين والمسميات والحالة الوظيفية',
           Icons.groups_2_outlined,
         );
       case AdminModuleCategory.attendance:

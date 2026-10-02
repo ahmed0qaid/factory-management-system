@@ -34,6 +34,7 @@ class AppRoles {
 
   static bool canCreateEmployees(String role) => isHr(role);
   static bool canEditEmployees(String role) => isHr(role);
+  static bool canManageEmployeeLifecycle(String role) => isHr(role);
   static bool canViewEmployees(String role) => isManagement(role);
 
   static bool canViewAttendance(String role) => isManagement(role);
@@ -88,10 +89,23 @@ class AppRoles {
           category: AdminModuleCategory.people,
           title: 'الموظفون',
           description: canEditEmployees(role)
-              ? 'إضافة وتعديل وتعطيل حسابات الموظفين'
+              ? 'إضافة وتعديل بيانات وحسابات الموظفين'
               : 'استعراض دليل الموظفين وبياناتهم الأساسية',
           iconName: 'people',
           manageMode: canEditEmployees(role),
+        ),
+      );
+    }
+
+    if (canManageEmployeeLifecycle(role)) {
+      modules.add(
+        const AdminModule(
+          type: AdminModuleType.employeeLifecycle,
+          category: AdminModuleCategory.people,
+          title: 'دورة حياة الموظف',
+          description: 'إيقاف الموظف مؤقتًا أو إنهاء خدمته مع حفظ تاريخه',
+          iconName: 'manage_accounts',
+          manageMode: true,
         ),
       );
     }
@@ -266,6 +280,7 @@ class AppRoles {
 
 enum AdminModuleType {
   employees,
+  employeeLifecycle,
   jobTitles,
   attendancePolicy,
   shifts,
