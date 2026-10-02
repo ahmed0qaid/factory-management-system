@@ -95,8 +95,21 @@ class _EmployeeShellState extends State<EmployeeShell> {
       final user = await _auth.getCurrentUser();
       final profile = await _service.getMyProfile();
       _currentUserId = user.$id;
-      _initializeWorkspace(profile);
       _profileFuture = Future.value(profile);
+
+      // الحساب المعطل لا يجب أن يصل إلى تغيير كلمة المرور أو القفل المحلي
+      // أو أي مساحة إدارية/شخصية داخل التطبيق.
+      if (!profile.active) {
+        if (!mounted) return;
+        setState(() {
+          _isAuthenticated = true;
+          _isAuthenticating = false;
+          _authenticationMessage = null;
+        });
+        return;
+      }
+
+      _initializeWorkspace(profile);
 
       // تغيير كلمة المرور المؤقتة شرط سابق على أي قفل محلي بالبصمة.
       if (profile.mustChangePassword) {
@@ -236,6 +249,12 @@ class _EmployeeShellState extends State<EmployeeShell> {
         }
 
         final profile = snapshot.data!;
+        if (!profile.active) {
+          return AppScaffold(
+            title: 'الحساب معطل',
+            body: _buildDisabledAccountState(context),
+          );
+        }
         if (profile.mustChangePassword) {
           return ForcePasswordChangeScreen(onPasswordChanged: _reloadProfile);
         }
@@ -308,6 +327,65 @@ class _EmployeeShellState extends State<EmployeeShell> {
           ),
         );
       },
+    );
+  }
+
+  Widget _buildDisabledAccountState(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+
+    return Center(
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 420),
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 72,
+                height: 72,
+                decoration: BoxDecoration(
+                  color: scheme.errorContainer,
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  Icons.person_off_outlined,
+                  size: 36,
+                  color: scheme.onErrorContainer,
+                ),
+              ),
+              const SizedBox(height: 18),
+              Text(
+                'تم تعطيل هذا الحساب',
+                textAlign: TextAlign.center,
+                style: theme.textTheme.titleLarge?.copyWith(
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              const SizedBox(height: 10),
+              Text(
+                'لا يمكن استخدام النظام بهذا الحساب حاليًا. تواصل مع إدارة الموارد البشرية إذا كنت تعتقد أن التعطيل تم بالخطأ.',
+                textAlign: TextAlign.center,
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: scheme.onSurfaceVariant,
+                  height: 1.6,
+                ),
+              ),
+              const SizedBox(height: 24),
+              SizedBox(
+                width: double.infinity,
+                child: AppLoadingButton(
+                  onPressed: _isSigningOut ? null : _signOut,
+                  isLoading: _isSigningOut,
+                  icon: Icons.logout,
+                  text: 'تسجيل الخروج',
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 
