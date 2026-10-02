@@ -64,6 +64,15 @@ class ProcessedGroup {
   bool isAbsent = false;
   String reviewReason = '';
 
+  // Phase 6: employee_work_schedules is the canonical attendance schedule.
+  // These fields let the import pipeline distinguish a resolved workday,
+  // a rest day that should not create absence, and a row that needs review.
+  String? canonicalScheduleId;
+  bool canonicalScheduleResolved = false;
+  bool isScheduledWorkingDay = true;
+  bool skipAttendance = false;
+  String? attendanceIssueType;
+
   ProcessedGroup({
     required this.biometricId,
     required this.physicalDate,

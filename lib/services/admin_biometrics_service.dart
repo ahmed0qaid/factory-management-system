@@ -1,17 +1,20 @@
 import 'package:appwrite/appwrite.dart';
-import 'package:appwrite/models.dart' as models;
 import 'package:flutter/foundation.dart';
 
 import '../config/constants.dart';
-import '../models/shift_model.dart';
 import '../models/overtime_record_model.dart';
-import '../models/attendance_policy_model.dart';
+import '../models/shift_model.dart';
 import '../models/temporary_employee_model.dart';
-import '../services/appwrite_service.dart';
-import '../services/auth_service.dart';
-import '../services/biometric_preprocessor.dart';
+import 'appwrite_service.dart';
+import 'auth_service.dart';
+import 'biometric_preprocessor.dart';
+import 'canonical_attendance_schedule_service.dart';
+import 'company_context_service.dart';
 
 class AdminBiometricsService {
+  final CanonicalAttendanceScheduleService _canonicalScheduleService =
+      CanonicalAttendanceScheduleService();
+
   Map<String, dynamic> _removeNulls(Map<String, dynamic> data) {
     final cleaned = <String, dynamic>{};
     data.forEach((key, value) {
@@ -25,498 +28,91 @@ class AdminBiometricsService {
         .toLowerCase()
         .replaceAll(RegExp(r'[^a-z0-9_]'), '_')
         .replaceAll(RegExp(r'_+'), '_');
-
     if (cleaned.length <= 32) return cleaned;
     return '${cleaned.substring(0, 20)}_${cleaned.hashCode.abs()}';
   }
 
+  String _dateKey(DateTime value) {
+    return '${value.year.toString().padLeft(4, '0')}-'
+        '${value.month.toString().padLeft(2, '0')}-'
+        '${value.day.toString().padLeft(2, '0')}';
+  }
+
   String _normalizePunchType(dynamic value) {
     final raw = value?.toString().trim().toLowerCase() ?? '';
-
     if (raw == 'i' || raw.contains('in') || raw.contains('دخول')) {
       return 'check_in';
     }
-
     if (raw == 'o' || raw.contains('out') || raw.contains('خروج')) {
       return 'check_out';
     }
-
-    if (raw.isNotEmpty && raw.length <= 20) {
-      return raw;
-    }
-
+    if (raw.isNotEmpty && raw.length <= 20) return raw;
     return 'unknown';
   }
 
   Future<List<ShiftModel>> getShifts(String companyId) async {
+    final scopedCompanyId = await CompanyContextService.requireCompany(companyId);
     final docs = await AppwriteService.tablesDB.listRows(
       databaseId: AppConstants.databaseId,
       tableId: AppConstants.shiftsTable,
-      queries: [Query.equal('company_id', companyId)],
+      queries: [Query.equal('company_id', scopedCompanyId), Query.limit(1000)],
     );
-    return docs.rows.map((d) => ShiftModel.fromMap(d.data, id: d.$id)).toList();
+    return docs.rows
+        .map((row) => ShiftModel.fromMap(row.data, id: row.$id))
+        .toList();
   }
 
+  /// Applies employee_work_schedules to the parsed Excel preview. The
+  /// expected-in/expected-out columns in Excel are never the final authority.
+  Future<PreprocessSummary> prepareProcessedBiometricPreview({
+    required String companyId,
+    required PreprocessSummary summary,
+  }) {
+    return _canonicalScheduleService.apply(
+      companyId: companyId,
+      summary: summary,
+    );
+  }
+
+  /// Backward-compatible raw import entry point. The old global-shift argument
+  /// is intentionally ignored: all attendance timing is resolved from the
+  /// internal daily schedule before persistence.
   Future<void> commitBiometricImport({
     required String companyId,
     required String fileName,
     required List<Map<String, dynamic>> logs,
     String? shiftId,
   }) async {
-    final user = await AuthService().getCurrentUser();
-    final batchId = ID.unique();
-
-    final profilesResponse = await AppwriteService.tablesDB.listRows(
-      databaseId: AppConstants.databaseId,
-      tableId: AppConstants.profilesTable,
-      queries: [Query.equal('company_id', companyId), Query.limit(500)],
+    final summary = await BiometricPreprocessor.process(
+      rawLogs: logs,
+      shiftMode: ShiftSelectionMode.auto,
+      duplicateMode: DuplicateHandlingMode.auto,
     );
-
-    final profilesByBiometricId = <String, String>{};
-    for (var doc in profilesResponse.rows) {
-      final bioId = doc.data['biometric_employee_id']?.toString();
-      if (bioId != null && bioId.isNotEmpty) {
-        profilesByBiometricId[bioId] = doc.$id;
-      }
-    }
-
-    int validRows = 0;
-    int invalidRows = 0;
-
-    for (var log in logs) {
-      if (log['is_valid'] == true) {
-        validRows++;
-        final bioId = log['biometric_employee_id'].toString();
-        final matchedEmployeeId = profilesByBiometricId[bioId];
-        final isMatched = matchedEmployeeId != null;
-
-        await AppwriteService.tablesDB.createRow(
-          databaseId: AppConstants.databaseId,
-          tableId: AppConstants.biometricLogsTable,
-          rowId: ID.unique(),
-          data: _removeNulls({
-            'company_id': companyId,
-            'import_batch_id': batchId,
-            'biometric_employee_id': bioId,
-            'employee_id': matchedEmployeeId,
-            'employee_name_from_device': log['employee_name_from_device'],
-            'punch_time': (log['punch_time'] as DateTime).toIso8601String(),
-            'punch_type': log['punch_type'],
-            'raw_line': log['raw_line'],
-            'is_matched': isMatched,
-            'is_processed': false,
-            'created_at': DateTime.now().toIso8601String(),
-          }),
-        );
-      } else {
-        invalidRows++;
-        await AppwriteService.tablesDB.createRow(
-          databaseId: AppConstants.databaseId,
-          tableId: AppConstants.biometricLogsTable,
-          rowId: ID.unique(),
-          data: _removeNulls({
-            'company_id': companyId,
-            'import_batch_id': batchId,
-            'biometric_employee_id': '',
-            'punch_time': DateTime.now().toIso8601String(),
-            'raw_line': log['raw_line'],
-            'is_matched': false,
-            'is_processed': false,
-            'error_message': log['error_message'],
-            'created_at': DateTime.now().toIso8601String(),
-          }),
-        );
-      }
-    }
-
-    await AppwriteService.tablesDB.createRow(
-      databaseId: AppConstants.databaseId,
-      tableId: AppConstants.biometricImportBatchesTable,
-      rowId: batchId,
-      data: _removeNulls({
-        'company_id': companyId,
-        'file_name': fileName,
-        'imported_by': user.$id,
-        'imported_at': DateTime.now().toIso8601String(),
-        'status': 'imported',
-        'total_rows': logs.length,
-        'valid_rows': validRows,
-        'invalid_rows': invalidRows,
-        'processed_rows': 0,
-      }),
-    );
-
-    // Process the batch immediately
-    await _processBiometricBatch(
+    await _canonicalScheduleService.apply(
       companyId: companyId,
-      batchId: batchId,
-      globalShiftId: shiftId,
+      summary: summary,
     );
-  }
-
-  Future<void> _processBiometricBatch({
-    required String companyId,
-    required String batchId,
-    String? globalShiftId,
-  }) async {
-    final logsResponse = await AppwriteService.tablesDB.listRows(
-      databaseId: AppConstants.databaseId,
-      tableId: AppConstants.biometricLogsTable,
-      queries: [
-        Query.equal('import_batch_id', batchId),
-        Query.equal('is_matched', true),
-        Query.equal('is_processed', false),
-        Query.limit(1000),
-      ],
-    );
-
-    if (logsResponse.rows.isEmpty) return;
-
-    // 1. Get active policy
-    final policyDocs = await AppwriteService.tablesDB.listRows(
-      databaseId: AppConstants.databaseId,
-      tableId: AppConstants.attendancePoliciesTable,
-      queries: [
-        Query.equal('company_id', companyId),
-        Query.equal('active', true),
-      ],
-    );
-    if (policyDocs.rows.isEmpty) throw Exception('No active policy found');
-    final policy = AttendancePolicyModel.fromMap(
-      policyDocs.rows.first.data,
-      id: policyDocs.rows.first.$id,
-    );
-
-    // 2. Get global shift if set
-    ShiftModel? globalShift;
-    if (globalShiftId != null) {
-      final shiftRow = await AppwriteService.tablesDB.getRow(
-        databaseId: AppConstants.databaseId,
-        tableId: AppConstants.shiftsTable,
-        rowId: globalShiftId,
-      );
-      globalShift = ShiftModel.fromMap(shiftRow.data, id: shiftRow.$id);
-    }
-
-    // Group logs by employee
-    final Map<String, List<models.Row>> empLogs = {};
-    for (var doc in logsResponse.rows) {
-      final empId = doc.data['employee_id'];
-      if (empId != null) {
-        empLogs.putIfAbsent(empId, () => []).add(doc);
-      }
-    }
-
-    int processedCount = 0;
-
-    for (var empId in empLogs.keys) {
-      final punches = empLogs[empId]!;
-      punches.sort(
-        (a, b) => DateTime.parse(
-          a.data['punch_time'],
-        ).compareTo(DateTime.parse(b.data['punch_time'])),
-      );
-
-      // Group punches by physical day
-      final Map<String, List<models.Row>> punchesByDay = {};
-      for (var punch in punches) {
-        final pt = DateTime.parse(punch.data['punch_time']);
-        // If time is before 6 AM, attribute it to the previous day (handles overnight shifts ending at 06:00 AM)
-        final effectiveDate = pt.hour < 6
-            ? pt.subtract(const Duration(days: 1))
-            : pt;
-        final dateStr = effectiveDate.toIso8601String().substring(0, 10);
-        punchesByDay.putIfAbsent(dateStr, () => []).add(punch);
-      }
-
-      for (var dateStr in punchesByDay.keys) {
-        final dayPunches = punchesByDay[dateStr]!;
-
-        ShiftModel? shiftToApply = globalShift;
-        // If no global shift, try to find employee_shift_assignments (omitted for brevity, assume global for now)
-
-        if (shiftToApply == null) {
-          // Mark as needs review: no shift
-          await _createNeedsReviewRecord(
-            companyId,
-            empId,
-            dateStr,
-            'لا توجد وردية محددة لهذا اليوم',
-          );
-          for (var p in dayPunches) {
-            await _markProcessed(p.$id);
-            processedCount++;
-          }
-          continue;
-        }
-
-        final workDate = DateTime.parse(dateStr);
-        final sTimeParts = shiftToApply.startTime.split(':');
-        final eTimeParts = shiftToApply.endTime.split(':');
-
-        final shiftStart = DateTime(
-          workDate.year,
-          workDate.month,
-          workDate.day,
-          int.parse(sTimeParts[0]),
-          int.parse(sTimeParts[1]),
-        );
-        var shiftEnd = DateTime(
-          workDate.year,
-          workDate.month,
-          workDate.day,
-          int.parse(eTimeParts[0]),
-          int.parse(eTimeParts[1]),
-        );
-
-        if (shiftToApply.isOvernight || shiftEnd.isBefore(shiftStart)) {
-          shiftEnd = shiftEnd.add(const Duration(days: 1));
-        }
-
-        final actualCheckIn = DateTime.parse(
-          dayPunches.first.data['punch_time'],
-        );
-        final actualCheckOut = DateTime.parse(
-          dayPunches.last.data['punch_time'],
-        );
-
-        if (dayPunches.length == 1) {
-          // Missing check out
-          await _createOrUpdateAttendance(
-            companyId: companyId,
-            employeeId: empId,
-            dateStr: dateStr,
-            shiftStart: shiftStart,
-            shiftEnd: shiftEnd,
-            checkIn: actualCheckIn,
-            checkOut: null,
-            status: 'needs_review',
-            issueType: 'missing_check_out',
-            note: 'يرجى مراجعة مدير الإنتاج لتصحيح بصمة الخروج.',
-          );
-        } else {
-          // We have at least two punches
-          int lateMinutes = 0;
-          final lateDiff = actualCheckIn.difference(shiftStart).inMinutes;
-          final gLate =
-              shiftToApply.graceLateMinutes ?? policy.graceLateMinutes;
-
-          if (lateDiff > gLate) {
-            lateMinutes = policy.lateCalculationMode == 'full_time'
-                ? lateDiff
-                : (lateDiff - gLate);
-          }
-
-          int earlyLeaveMinutes = 0;
-          final earlyDiff = shiftEnd.difference(actualCheckOut).inMinutes;
-          final gEarly =
-              shiftToApply.graceEarlyLeaveMinutes ??
-              policy.graceEarlyLeaveMinutes;
-
-          if (earlyDiff > gEarly) {
-            earlyLeaveMinutes = policy.earlyLeaveCalculationMode == 'full_time'
-                ? earlyDiff
-                : (earlyDiff - gEarly);
-          }
-
-          int overtimeMinutes = 0;
-          final overDiff = actualCheckOut.difference(shiftEnd).inMinutes;
-          if (overDiff > policy.overtimeMinimumMinutes) {
-            overtimeMinutes = overDiff;
-          }
-
-          String finalStatus = (lateMinutes > 0 || earlyLeaveMinutes > 0)
-              ? 'late'
-              : 'present';
-
-          final attId = await _createOrUpdateAttendance(
-            companyId: companyId,
-            employeeId: empId,
-            dateStr: dateStr,
-            shiftStart: shiftStart,
-            shiftEnd: shiftEnd,
-            checkIn: actualCheckIn,
-            checkOut: actualCheckOut,
-            status: finalStatus,
-            lateMins: lateMinutes > 0 ? lateMinutes : null,
-            earlyMins: earlyLeaveMinutes > 0 ? earlyLeaveMinutes : null,
-            overtimeMins: overtimeMinutes > 0 ? overtimeMinutes : null,
-          );
-
-          if (overtimeMinutes > 0 && attId != null) {
-            await _createOvertimeRecord(
-              companyId: companyId,
-              employeeId: empId,
-              attId: attId,
-              workDate: workDate,
-              shiftEnd: shiftEnd,
-              actualCheckOut: actualCheckOut,
-              overtimeMins: overtimeMinutes,
-            );
-          }
-        }
-
-        for (var p in dayPunches) {
-          await _markProcessed(p.$id);
-          processedCount++;
-        }
-      }
-    }
-
-    // update batch
-    await AppwriteService.tablesDB.updateRow(
-      databaseId: AppConstants.databaseId,
-      tableId: AppConstants.biometricImportBatchesTable,
-      rowId: batchId,
-      data: {'processed_rows': processedCount},
-    );
-  }
-
-  Future<String?> _createOrUpdateAttendance({
-    required String companyId,
-    required String employeeId,
-    required String dateStr,
-    required DateTime shiftStart,
-    required DateTime shiftEnd,
-    required DateTime? checkIn,
-    required DateTime? checkOut,
-    required String status,
-    String? issueType,
-    String? note,
-    int? lateMins,
-    int? earlyMins,
-    int? overtimeMins,
-  }) async {
-    // check if exists
-    final existResp = await AppwriteService.tablesDB.listRows(
-      databaseId: AppConstants.databaseId,
-      tableId: AppConstants.attendanceTable,
-      queries: [
-        Query.equal('employee_id', employeeId),
-        Query.equal('work_date', dateStr),
-      ],
-    );
-
-    int workedMins = 0;
-    if (checkIn != null && checkOut != null) {
-      workedMins = checkOut.difference(checkIn).inMinutes;
-    }
-
-    final data = _removeNulls({
-      'company_id': companyId,
-      'employee_id': employeeId,
-      'work_date': dateStr,
-      'shift_start': shiftStart.toIso8601String(),
-      'shift_end': shiftEnd.toIso8601String(),
-      'check_in': checkIn?.toIso8601String(),
-      'check_out': checkOut?.toIso8601String(),
-      'late_minutes': lateMins,
-      'early_leave_minutes': earlyMins,
-      'overtime_minutes': overtimeMins,
-      'worked_minutes': workedMins > 0 ? workedMins : null,
-      'status': status,
-      'attendance_issue_type': issueType,
-      'review_note': note,
-      'review_status': issueType != null ? 'pending' : null,
-    });
-
-    if (existResp.rows.isNotEmpty) {
-      await AppwriteService.tablesDB.updateRow(
-        databaseId: AppConstants.databaseId,
-        tableId: AppConstants.attendanceTable,
-        rowId: existResp.rows.first.$id,
-        data: data,
-      );
-      return existResp.rows.first.$id;
-    } else {
-      final newId = ID.unique();
-      await AppwriteService.tablesDB.createRow(
-        databaseId: AppConstants.databaseId,
-        tableId: AppConstants.attendanceTable,
-        rowId: newId,
-        data: data,
-      );
-      return newId;
-    }
-  }
-
-  Future<void> _createOvertimeRecord({
-    required String companyId,
-    required String employeeId,
-    required String attId,
-    required DateTime workDate,
-    required DateTime shiftEnd,
-    required DateTime actualCheckOut,
-    required int overtimeMins,
-  }) async {
-    // Check if overtime record already exists for this attendance
-    final exist = await AppwriteService.tablesDB.listRows(
-      databaseId: AppConstants.databaseId,
-      tableId: AppConstants.overtimeRecordsTable,
-      queries: [Query.equal('attendance_record_id', attId)],
-    );
-
-    if (exist.rows.isNotEmpty) return; // already recorded
-
-    await AppwriteService.tablesDB.createRow(
-      databaseId: AppConstants.databaseId,
-      tableId: AppConstants.overtimeRecordsTable,
-      rowId: ID.unique(),
-      data: _removeNulls({
-        'company_id': companyId,
-        'employee_id': employeeId,
-        'attendance_record_id': attId,
-        'work_date': workDate.toIso8601String(),
-        'shift_end': shiftEnd.toIso8601String(),
-        'actual_check_out': actualCheckOut.toIso8601String(),
-        'overtime_minutes': overtimeMins,
-        'approval_status': 'pending',
-        'payment_status': 'unpaid',
-        'created_at': DateTime.now().toIso8601String(),
-      }),
-    );
-  }
-
-  Future<void> _createNeedsReviewRecord(
-    String companyId,
-    String employeeId,
-    String dateStr,
-    String note,
-  ) async {
-    await _createOrUpdateAttendance(
+    await commitProcessedBiometricImport(
       companyId: companyId,
-      employeeId: employeeId,
-      dateStr: dateStr,
-      shiftStart: DateTime.now(), // dummy
-      shiftEnd: DateTime.now(), // dummy
-      checkIn: null,
-      checkOut: null,
-      status: 'needs_review',
-      issueType: 'missing_both',
-      note: note,
-    );
-  }
-
-  Future<void> _markProcessed(String logId) async {
-    await AppwriteService.tablesDB.updateRow(
-      databaseId: AppConstants.databaseId,
-      tableId: AppConstants.biometricLogsTable,
-      rowId: logId,
-      data: {'is_processed': true},
+      fileName: fileName,
+      summary: summary,
+      rawLogs: logs,
     );
   }
 
   Future<List<OvertimeRecordModel>> getPendingOvertime() async {
+    final companyId = await CompanyContextService.getCurrentCompanyId();
     final docs = await AppwriteService.tablesDB.listRows(
       databaseId: AppConstants.databaseId,
       tableId: AppConstants.overtimeRecordsTable,
       queries: [
+        Query.equal('company_id', companyId),
         Query.equal('approval_status', 'pending'),
         Query.orderDesc('created_at'),
       ],
     );
     return docs.rows
-        .map((d) => OvertimeRecordModel.fromMap(d.data, id: d.$id))
+        .map((row) => OvertimeRecordModel.fromMap(row.data, id: row.$id))
         .toList();
   }
 
@@ -524,6 +120,10 @@ class AdminBiometricsService {
     String overtimeId,
     String approvalStatus,
   ) async {
+    await _requireCurrentCompanyRow(
+      tableId: AppConstants.overtimeRecordsTable,
+      rowId: overtimeId,
+    );
     await AppwriteService.tablesDB.updateRow(
       databaseId: AppConstants.databaseId,
       tableId: AppConstants.overtimeRecordsTable,
@@ -534,10 +134,13 @@ class AdminBiometricsService {
           'approved_at': DateTime.now().toIso8601String(),
       },
     );
-    // TODO: Send notification
   }
 
   Future<void> payOvertime(String overtimeId, num amount) async {
+    await _requireCurrentCompanyRow(
+      tableId: AppConstants.overtimeRecordsTable,
+      rowId: overtimeId,
+    );
     await AppwriteService.tablesDB.updateRow(
       databaseId: AppConstants.databaseId,
       tableId: AppConstants.overtimeRecordsTable,
@@ -548,15 +151,10 @@ class AdminBiometricsService {
         'paid_at': DateTime.now().toIso8601String(),
       },
     );
-    // TODO: Send notification
   }
 
-  Future<T> _retryOnRateLimit<T>(
-    Future<T> Function() action, {
-    String operationName = 'operation',
-  }) async {
+  Future<T> _retryOnRateLimit<T>(Future<T> Function() action) async {
     var delay = const Duration(seconds: 2);
-
     for (var attempt = 1; attempt <= 4; attempt++) {
       try {
         return await action();
@@ -565,17 +163,12 @@ class AdminBiometricsService {
         final isRateLimit =
             message.contains('general_rate_limit_exceeded') ||
             message.contains('Rate limit');
-
-        if (!isRateLimit || attempt == 4) {
-          rethrow;
-        }
-
+        if (!isRateLimit || attempt == 4) rethrow;
         await Future.delayed(delay);
         delay *= 2;
       }
     }
-
-    return await action();
+    return action();
   }
 
   Future<Map<String, dynamic>> commitProcessedBiometricImport({
@@ -584,661 +177,677 @@ class AdminBiometricsService {
     required PreprocessSummary summary,
     required List<Map<String, dynamic>> rawLogs,
   }) async {
+    final scopedCompanyId = await CompanyContextService.requireCompany(companyId);
+
+    // Re-resolve immediately before persistence so a stale preview, changed
+    // monthly schedule, or manipulated Excel expected time cannot become the
+    // attendance schedule of record.
+    await _canonicalScheduleService.apply(
+      companyId: scopedCompanyId,
+      summary: summary,
+    );
+
+    debugPrint('IMPORT_COMMIT_STARTED');
+    final user = await AuthService().getCurrentUser();
+    final batchId = ID.unique();
+
+    var logsCreated = 0;
+    var logsSkipped = 0;
+    var logsFailed = 0;
+    var logsFailedRateLimit = 0;
+    var attendanceCreated = 0;
+    var attendanceSkipped = 0;
+    var attendanceFailed = 0;
+    var attendanceFailedRateLimit = 0;
+    var temporaryCreated = 0;
+    var temporaryUpdated = 0;
+    var temporarySkippedDuplicate = 0;
+    var temporaryFailedRateLimit = 0;
+    var temporaryFailed = 0;
+    var createdOvertime = 0;
+    var skippedOvertime = 0;
+    var createdNotifications = 0;
+    var skippedRestDays = 0;
+    var batchSaved = false;
+    final errors = <String>[];
+    final temporaryIdsWithImportedNames = <String>{};
+
+    final profilesByBiometricId = await _loadProfilesByBiometricId(
+      scopedCompanyId,
+    );
+
     try {
-      debugPrint('IMPORT_COMMIT_STARTED');
-      final batchId = ID.unique();
-      final user = await AuthService().getCurrentUser();
+      await _retryOnRateLimit(() async {
+        await AppwriteService.tablesDB.createRow(
+          databaseId: AppConstants.databaseId,
+          tableId: AppConstants.biometricImportBatchesTable,
+          rowId: batchId,
+          data: _removeNulls({
+            'company_id': scopedCompanyId,
+            'file_name': fileName,
+            'imported_by': user.$id,
+            'imported_at': DateTime.now().toIso8601String(),
+            'status': 'completed',
+            'total_rows': summary.totalPunches,
+            'valid_rows': summary.matchedEmployees,
+            'invalid_rows': summary.unmatchedEmployees,
+            'processed_rows': summary.matchedEmployees,
+          }),
+        );
+      });
+      batchSaved = true;
+    } catch (e) {
+      errors.add('فشل Batch: ${e.toString().split('\n').first}');
+    }
 
-      int logsCreated = 0;
-      int logsSkipped = 0;
-      int logsFailed = 0;
-      int logsFailedRateLimit = 0;
+    DateTime? minPunch;
+    DateTime? maxPunch;
+    for (final log in rawLogs) {
+      final punch = log['punch_time'];
+      if (punch is! DateTime) continue;
+      if (minPunch == null || punch.isBefore(minPunch)) minPunch = punch;
+      if (maxPunch == null || punch.isAfter(maxPunch)) maxPunch = punch;
+    }
 
-      int attendanceCreated = 0;
-      int attendanceSkipped = 0;
-      int attendanceFailed = 0;
-      int attendanceFailedRateLimit = 0;
+    DateTime? minWork;
+    DateTime? maxWork;
+    for (final group in summary.groups) {
+      final date = group.workDate;
+      if (minWork == null || date.isBefore(minWork)) minWork = date;
+      if (maxWork == null || date.isAfter(maxWork)) maxWork = date;
+    }
 
-      int temporaryCreated = 0;
-      int temporaryUpdated = 0;
-      int temporarySkippedDuplicate = 0;
-      int temporaryFailedRateLimit = 0;
+    final existingLogIds = await _fetchExistingRowIdsInDateRange(
+      tableId: AppConstants.biometricLogsTable,
+      dateField: 'punch_time',
+      companyId: scopedCompanyId,
+      minDate: minPunch,
+      maxDate: maxPunch,
+    );
+    final existingAttendance = await _fetchAttendanceByEmployeeDate(
+      companyId: scopedCompanyId,
+      minDate: minWork,
+      maxDate: maxWork,
+    );
+    final existingOvertimeAttendanceIds = await _fetchOvertimeAttendanceIds(
+      companyId: scopedCompanyId,
+      minDate: minWork,
+      maxDate: maxWork,
+    );
+    final existingTemporaryIds = await _fetchAllCompanyRowIds(
+      AppConstants.temporaryBiometricEmployeesTable,
+      scopedCompanyId,
+    );
 
-      int createdOvertime = 0;
-      int skippedOvertime = 0;
-      int createdNotifications = 0;
-      int temporaryFailed = 0; // general failure
-      final temporaryIdsWithImportedNames = <String>{};
-      int matchedEmployees = 0;
-      bool batchSaved = false;
-
-      List<String> errors = [];
-
-      Future<Set<String>> fetchAllExistingIds(String tableId) async {
-        final existing = <String>{};
-        String? cursor;
-        while (true) {
-          final queries = [
-            Query.equal('company_id', companyId),
-            Query.limit(1000),
-          ];
-          if (cursor != null) queries.add(Query.cursorAfter(cursor));
-          try {
-            final res = await _retryOnRateLimit(
-              () async => await AppwriteService.tablesDB.listRows(
-                databaseId: AppConstants.databaseId,
-                tableId: tableId,
-                queries: queries,
-              ),
-            );
-            for (var doc in res.rows) existing.add(doc.$id);
-            if (res.rows.length < 1000) break;
-            cursor = res.rows.last.$id;
-          } catch (e) {
-            debugPrint('Failed to fetch cache for $tableId: $e');
-            break;
-          }
-        }
-        return existing;
+    debugPrint('IMPORT_SAVE_LOGS_STARTED');
+    for (final log in rawLogs) {
+      if (log['is_valid'] != true || log['punch_time'] is! DateTime) {
+        logsFailed++;
+        continue;
       }
 
-      Future<Set<String>> fetchExistingIdsWithDateRange(
-        String tableId,
-        String dateField,
-        DateTime? minD,
-        DateTime? maxD,
-      ) async {
-        final existing = <String>{};
-        if (minD == null || maxD == null) return existing;
-        String? cursor;
-        final minStr = minD.toIso8601String().substring(0, 10);
-        final maxStr = maxD
-            .add(const Duration(days: 1))
-            .toIso8601String()
-            .substring(0, 10);
-        while (true) {
-          final queries = [
-            Query.equal('company_id', companyId),
-            Query.greaterThanEqual(dateField, minStr),
-            Query.lessThanEqual(dateField, maxStr),
-            Query.limit(1000),
-          ];
-          if (cursor != null) queries.add(Query.cursorAfter(cursor));
-          try {
-            final res = await _retryOnRateLimit(
-              () async => await AppwriteService.tablesDB.listRows(
-                databaseId: AppConstants.databaseId,
-                tableId: tableId,
-                queries: queries,
-              ),
-            );
-            for (var doc in res.rows) existing.add(doc.$id);
-            if (res.rows.length < 1000) break;
-            cursor = res.rows.last.$id;
-          } catch (e) {
-            debugPrint('Failed to fetch cache for $tableId: $e');
-            break;
-          }
-        }
-        return existing;
+      final biometricId = log['biometric_employee_id']?.toString() ?? '';
+      final punchTime = (log['punch_time'] as DateTime).toIso8601String();
+      final rowId = _safeRowId('bio_${biometricId}_$punchTime');
+      if (existingLogIds.contains(rowId)) {
+        logsSkipped++;
+        continue;
       }
 
-      // 1. Create Batch
-      debugPrint('IMPORT_CREATE_BATCH_STARTED');
+      final matchedEmployeeId = profilesByBiometricId[biometricId];
       try {
         await _retryOnRateLimit(() async {
           await AppwriteService.tablesDB.createRow(
             databaseId: AppConstants.databaseId,
-            tableId: AppConstants.biometricImportBatchesTable,
-            rowId: batchId,
+            tableId: AppConstants.biometricLogsTable,
+            rowId: rowId,
             data: _removeNulls({
-              'company_id': companyId,
-              'file_name': fileName,
-              'imported_by': user.$id,
-              'imported_at': DateTime.now().toIso8601String(),
-              'status': 'completed',
-              'total_rows': summary.totalPunches,
-              'valid_rows': summary.matchedEmployees,
-              'invalid_rows': summary.unmatchedEmployees,
-              'processed_rows': summary.matchedEmployees,
+              'company_id': scopedCompanyId,
+              'import_batch_id': batchId,
+              'biometric_employee_id': biometricId,
+              'employee_name_from_device': log['employee_name_from_device'],
+              'employee_id': matchedEmployeeId,
+              'punch_time': punchTime,
+              'punch_type': _normalizePunchType(log['punch_type']),
+              'raw_line': log['raw_line'] ?? '',
+              'is_matched': matchedEmployeeId != null,
+              'is_processed': true,
+              'error_message': log['error_message'],
+              'created_at': DateTime.now().toIso8601String(),
             }),
           );
         });
-        batchSaved = true;
-      } catch (e) {
-        debugPrint('IMPORT_CREATE_BATCH_FAILED: biometric_import_batches / $e');
-        String errorString = e.toString();
-        String exactReason = 'Unknown error';
-        if (errorString.contains('Unknown attribute')) {
-          final matches = RegExp(
-            r'Unknown attribute "(.*?)"',
-          ).firstMatch(errorString);
-          exactReason = 'Unknown attribute "${matches?.group(1) ?? ''}"';
-        } else if (errorString.contains('Missing required attribute')) {
-          final matches = RegExp(
-            r'Missing required attribute "(.*?)"',
-          ).firstMatch(errorString);
-          exactReason =
-              'Missing required attribute "${matches?.group(1) ?? ''}"';
+        logsCreated++;
+        existingLogIds.add(rowId);
+      } on AppwriteException catch (e) {
+        if (e.code == 409 || e.type == 'document_already_exists') {
+          logsSkipped++;
+          existingLogIds.add(rowId);
         } else {
-          exactReason = errorString.split('\n').first;
-        }
-        errors.add('فشل Batch: $exactReason');
-      }
-
-      // Preload Data (Caches)
-      debugPrint('IMPORT_PRELOAD_CACHES_STARTED');
-      final existingTemporaryIds = await fetchAllExistingIds(
-        AppConstants.temporaryBiometricEmployeesTable,
-      );
-
-      DateTime? minPunch, maxPunch;
-      for (var log in rawLogs) {
-        if (log['punch_time'] == null) continue;
-        final d = log['punch_time'] as DateTime;
-        if (minPunch == null || d.isBefore(minPunch)) minPunch = d;
-        if (maxPunch == null || d.isAfter(maxPunch)) maxPunch = d;
-      }
-
-      DateTime? minWork, maxWork;
-      for (var group in summary.groups) {
-        final d = group.workDate;
-        if (minWork == null || d.isBefore(minWork)) minWork = d;
-        if (maxWork == null || d.isAfter(maxWork)) maxWork = d;
-      }
-
-      final existingLogIds = await fetchExistingIdsWithDateRange(
-        AppConstants.biometricLogsTable,
-        'punch_time',
-        minPunch,
-        maxPunch,
-      );
-      final existingAttendanceIds = await fetchExistingIdsWithDateRange(
-        AppConstants.attendanceTable,
-        'work_date',
-        minWork,
-        maxWork,
-      );
-      final existingOvertimeIds = await fetchExistingIdsWithDateRange(
-        AppConstants.overtimeRecordsTable,
-        'work_date',
-        minWork,
-        maxWork,
-      );
-
-      final profilesResponse = await _retryOnRateLimit(() async {
-        return await AppwriteService.tablesDB.listRows(
-          databaseId: AppConstants.databaseId,
-          tableId: AppConstants.profilesTable,
-          queries: [Query.equal('company_id', companyId), Query.limit(1000)],
-        );
-      });
-
-      final profilesByBiometricId = <String, String>{};
-      for (var doc in profilesResponse.rows) {
-        final bioId = doc.data['biometric_employee_id']?.toString();
-        if (bioId != null && bioId.isNotEmpty) {
-          profilesByBiometricId[bioId] = doc.$id;
-        }
-      }
-
-      // 2. Insert biometric logs
-      debugPrint('IMPORT_SAVE_LOGS_STARTED');
-      for (var log in rawLogs) {
-        if (log['is_valid'] != true || log['punch_time'] == null) {
           logsFailed++;
+          if ((e.message ?? '').contains('general_rate_limit_exceeded')) {
+            logsFailedRateLimit++;
+          }
+          if (!errors.any((item) => item.startsWith('فشل Logs:'))) {
+            errors.add('فشل Logs: ${e.message ?? e.toString()}');
+          }
+        }
+      } catch (e) {
+        logsFailed++;
+        if (e.toString().contains('Rate limit')) logsFailedRateLimit++;
+        if (!errors.any((item) => item.startsWith('فشل Logs:'))) {
+          errors.add('فشل Logs: ${e.toString().split('\n').first}');
+        }
+      }
+    }
+
+    final unmatchedBioIds = <String>{};
+    final matchedBioIds = <String>{};
+    final touchedTemporaryIds = <String>{};
+
+    debugPrint('IMPORT_CREATE_ATTENDANCE_STARTED');
+    for (final group in summary.groups) {
+      final employeeId = profilesByBiometricId[group.biometricId];
+      if (employeeId == null) {
+        unmatchedBioIds.add(group.biometricId);
+        final importedName = group.employeeName?.trim();
+        if (importedName != null && importedName.isNotEmpty) {
+          temporaryIdsWithImportedNames.add(group.biometricId);
+        }
+        final tempId = _safeRowId('temp_${group.biometricId}');
+        if (touchedTemporaryIds.contains(tempId)) {
+          temporarySkippedDuplicate++;
           continue;
         }
-
-        final bioIdStr = log['biometric_employee_id']?.toString() ?? '';
-        final pTime = (log['punch_time'] as DateTime).toIso8601String();
-        final logRowId = _safeRowId('bio_${bioIdStr}_$pTime');
-
-        if (existingLogIds.contains(logRowId)) {
-          logsSkipped++;
-          continue; // Fast skip!
-        }
+        touchedTemporaryIds.add(tempId);
+        final now = DateTime.now().toIso8601String();
 
         try {
-          await _retryOnRateLimit(() async {
-            await AppwriteService.tablesDB.createRow(
-              databaseId: AppConstants.databaseId,
-              tableId: AppConstants.biometricLogsTable,
-              rowId: logRowId,
-              data: _removeNulls({
-                'company_id': companyId,
-                'import_batch_id': batchId,
-                'biometric_employee_id': bioIdStr,
-                'employee_name_from_device': log['employee_name_from_device'],
-                'employee_id': log['employee_id'],
-                'punch_time': pTime,
-                'punch_type': _normalizePunchType(log['punch_type']),
-                'raw_line': log['raw_line'] ?? '',
-                'is_matched': log['employee_id'] != null,
-                'is_processed': true,
-                'error_message': log['error_message'],
-                'created_at': DateTime.now().toIso8601String(),
-              }),
-            );
-          });
-          logsCreated++;
-          existingLogIds.add(logRowId);
-          await Future.delayed(const Duration(milliseconds: 50));
-        } on AppwriteException catch (e) {
-          if (e.code == 409 || e.type == 'document_already_exists') {
-            logsSkipped++;
-            existingLogIds.add(logRowId);
-          } else {
-            logsFailed++;
-            if (errors.isEmpty ||
-                !errors.any((err) => err.startsWith('فشل Logs:'))) {
-              String exactReason = 'Unknown error';
-              if (e.message != null &&
-                  (e.message!.contains('general_rate_limit_exceeded') ||
-                      e.message!.contains('Rate limit'))) {
-                logsFailedRateLimit++;
-                exactReason =
-                    'تم تجاوز الحد المسموح للطلبات أثناء حفظ بعض سجلات البصمة، أعد المحاولة بعد قليل.';
-              } else if (e.message != null &&
-                  e.message!.contains('Unknown attribute')) {
-                final matches = RegExp(
-                  r'Unknown attribute "(.*?)"',
-                ).firstMatch(e.message!);
-                exactReason = 'Unknown attribute "${matches?.group(1) ?? ''}"';
-              } else if (e.message != null &&
-                  e.message!.contains('Missing required attribute')) {
-                final matches = RegExp(
-                  r'Missing required attribute "(.*?)"',
-                ).firstMatch(e.message!);
-                exactReason =
-                    'Missing required attribute "${matches?.group(1) ?? ''}"';
-              } else {
-                exactReason = e.message?.split('\n').first ?? '';
-              }
-              errors.add('فشل Logs: $exactReason');
-            }
-          }
-        } catch (e) {
-          final errMsg = e.toString();
-          if (errMsg.contains('general_rate_limit_exceeded') ||
-              errMsg.contains('Rate limit')) {
-            logsFailedRateLimit++;
-            if (errors.isEmpty ||
-                !errors.any((err) => err.startsWith('فشل Logs:'))) {
-              errors.add(
-                'فشل Logs: تم تجاوز الحد المسموح للطلبات أثناء حفظ بعض سجلات البصمة، أعد المحاولة بعد قليل.',
+          if (existingTemporaryIds.contains(tempId)) {
+            await _retryOnRateLimit(() async {
+              await AppwriteService.tablesDB.updateRow(
+                databaseId: AppConstants.databaseId,
+                tableId: AppConstants.temporaryBiometricEmployeesTable,
+                rowId: tempId,
+                data: _removeNulls({
+                  'employee_name_from_device': importedName,
+                  'last_seen_at': now,
+                  'punches_count': group.punches.length,
+                  'source_batch_id': batchId,
+                  'updated_at': now,
+                }),
               );
-            }
+            });
+            temporaryUpdated++;
           } else {
-            logsFailed++;
-            if (errors.isEmpty ||
-                !errors.any((err) => err.startsWith('فشل Logs:'))) {
-              errors.add('فشل Logs: خطأ غير متوقع.');
-            }
-          }
-        }
-      }
-
-      // 3. Process Groups
-      debugPrint('IMPORT_CREATE_ATTENDANCE_STARTED');
-
-      final unmatchedBioIds = <String>{};
-      final matchedBioIds = <String>{};
-      final updatedTempIds = <String>{}; // Deduplication set
-
-      for (var group in summary.groups) {
-        final mappedEmpId = profilesByBiometricId[group.biometricId];
-        if (mappedEmpId == null) {
-          unmatchedBioIds.add(group.biometricId);
-          final employeeNameFromDevice = group.employeeName?.trim();
-          if (employeeNameFromDevice != null &&
-              employeeNameFromDevice.isNotEmpty) {
-            temporaryIdsWithImportedNames.add(group.biometricId);
-          }
-          // Unmatched employee!
-          try {
-            final tempId = _safeRowId('temp_${group.biometricId}');
-
-            // Fast Check Cache
-            if (existingTemporaryIds.contains(tempId) ||
-                updatedTempIds.contains(tempId)) {
-              temporarySkippedDuplicate++;
-              updatedTempIds.add(tempId);
-              continue;
-            }
-
-            final nowStr = DateTime.now().toIso8601String();
-
             await _retryOnRateLimit(() async {
               await AppwriteService.tablesDB.createRow(
                 databaseId: AppConstants.databaseId,
                 tableId: AppConstants.temporaryBiometricEmployeesTable,
                 rowId: tempId,
                 data: _removeNulls({
-                  'company_id': companyId,
+                  'company_id': scopedCompanyId,
                   'biometric_employee_id': group.biometricId,
-                  'employee_name_from_device': employeeNameFromDevice,
+                  'employee_name_from_device': importedName,
                   'status': 'pending',
-                  'first_seen_at': nowStr,
-                  'last_seen_at': nowStr,
+                  'first_seen_at': now,
+                  'last_seen_at': now,
                   'punches_count': group.punches.length,
                   'source_batch_id': batchId,
-                  'created_at': nowStr,
-                  'updated_at': nowStr,
+                  'created_at': now,
+                  'updated_at': now,
                 }),
               );
             });
             temporaryCreated++;
-            updatedTempIds.add(tempId);
             existingTemporaryIds.add(tempId);
-            await Future.delayed(const Duration(milliseconds: 50));
-          } catch (e) {
-            final msg = e.toString();
-            if (msg.contains('general_rate_limit_exceeded') ||
-                msg.contains('Rate limit')) {
-              temporaryFailedRateLimit++;
-              if (errors.isEmpty ||
-                  !errors.any(
-                    (err) => err.startsWith('فشل الموظفين المؤقتين:'),
-                  )) {
-                errors.add(
-                  'فشل الموظفين المؤقتين: تم تجاوز الحد المسموح للطلبات أثناء تحديث بعض الموظفين المؤقتين، أعد المحاولة بعد قليل.',
-                );
-              }
-            } else {
-              temporaryFailed++;
-              if (errors.isEmpty ||
-                  !errors.any(
-                    (err) => err.startsWith('فشل الموظفين المؤقتين:'),
-                  )) {
-                errors.add('فشل الموظفين المؤقتين: $msg');
-              }
-            }
           }
+        } catch (e) {
+          temporaryFailed++;
+          if (e.toString().contains('Rate limit')) temporaryFailedRateLimit++;
+          if (!errors.any(
+            (item) => item.startsWith('فشل الموظفين المؤقتين:'),
+          )) {
+            errors.add('فشل الموظفين المؤقتين: ${e.toString()}');
+          }
+        }
+        continue;
+      }
 
+      matchedBioIds.add(group.biometricId);
+      if (group.skipAttendance) {
+        skippedRestDays++;
+        continue;
+      }
+
+      final dateStr = _dateKey(group.workDate);
+      final attendanceKey = '$employeeId|$dateStr';
+      final existingAttendanceId = existingAttendance[attendanceKey];
+      if (existingAttendanceId != null) {
+        attendanceSkipped++;
+        continue;
+      }
+
+      var status = 'present';
+      String? issueType = group.attendanceIssueType;
+      String? reviewStatus;
+      if (group.isAbsent) {
+        status = 'absent';
+      } else if (group.needsReview) {
+        status = 'needs_review';
+        reviewStatus = 'pending';
+        issueType ??= _inferIssueType(group);
+      }
+
+      final completePunches =
+          group.actualCheckIn != null && group.actualCheckOut != null;
+      var lateMinutes = 0;
+      var earlyLeaveMinutes = 0;
+      var workedMinutes = 0;
+
+      if (completePunches && group.shiftStart != null) {
+        lateMinutes = group.actualCheckIn!.difference(group.shiftStart!).inMinutes;
+        if (lateMinutes < 0) lateMinutes = 0;
+      }
+      if (completePunches && group.shiftEnd != null) {
+        earlyLeaveMinutes = group.shiftEnd!
+            .difference(group.actualCheckOut!)
+            .inMinutes;
+        if (earlyLeaveMinutes < 0) earlyLeaveMinutes = 0;
+      }
+      if (completePunches) {
+        workedMinutes = group.actualCheckOut!
+            .difference(group.actualCheckIn!)
+            .inMinutes;
+        if (workedMinutes < 0) workedMinutes = 0;
+      }
+      if (status == 'present' &&
+          (lateMinutes > 0 || earlyLeaveMinutes > 0)) {
+        status = 'late';
+      }
+
+      final attendanceId = _safeRowId('att_${employeeId}_$dateStr');
+      try {
+        await _retryOnRateLimit(() async {
+          await AppwriteService.tablesDB.createRow(
+            databaseId: AppConstants.databaseId,
+            tableId: AppConstants.attendanceTable,
+            rowId: attendanceId,
+            data: _removeNulls({
+              'company_id': scopedCompanyId,
+              'employee_id': employeeId,
+              'work_date': dateStr,
+              'scheduled_start': group.shiftStart?.toIso8601String(),
+              'scheduled_end': group.shiftEnd?.toIso8601String(),
+              'check_in': group.actualCheckIn?.toIso8601String(),
+              'check_out': group.actualCheckOut?.toIso8601String(),
+              'late_minutes': lateMinutes,
+              'early_leave_minutes': earlyLeaveMinutes,
+              'worked_minutes': workedMinutes,
+              'credited_minutes': workedMinutes,
+              'overtime_minutes': group.expectedOvertimeMinutes,
+              'status': status,
+              'attendance_issue_type': issueType ?? '',
+              'review_status': reviewStatus ?? '',
+              'review_note': group.reviewReason,
+              'source': 'biometric_import',
+            }),
+          );
+        });
+        attendanceCreated++;
+        existingAttendance[attendanceKey] = attendanceId;
+      } on AppwriteException catch (e) {
+        if (e.code == 409 || e.type == 'document_already_exists') {
+          attendanceSkipped++;
+          existingAttendance[attendanceKey] = attendanceId;
           continue;
         }
-
-        final empId = mappedEmpId;
-        matchedBioIds.add(group.biometricId);
-        final dateStr = group.workDate.toIso8601String().substring(0, 10);
-
-        final sStart = group.shiftStart?.toIso8601String() ?? 'none';
-        final sEnd = group.shiftEnd?.toIso8601String() ?? 'none';
-        final attId = _safeRowId('att_${empId}_${dateStr}_${sStart}_$sEnd');
-
-        String status = 'present';
-        String? issueType;
-        String? reviewStatus;
-
-        if (group.isAbsent) {
-          status = 'absent';
-        } else if (group.needsReview) {
-          status = 'needs_review';
-          reviewStatus = 'pending';
-          if (group.actualCheckIn == null && group.actualCheckOut != null) {
-            issueType = 'missing_check_in';
-          } else if (group.actualCheckIn != null &&
-              group.actualCheckOut == null) {
-            issueType = 'missing_check_out';
-          } else if (group.actualCheckIn == null &&
-              group.actualCheckOut == null) {
-            issueType = 'missing_both';
-          }
+        attendanceFailed++;
+        if ((e.message ?? '').contains('general_rate_limit_exceeded')) {
+          attendanceFailedRateLimit++;
         }
-
-        int lateMinutes = 0;
-        int earlyLeaveMinutes = 0;
-        int workedMinutes = 0;
-
-        final hasCompleteActualPunches =
-            group.actualCheckIn != null && group.actualCheckOut != null;
-
-        if (hasCompleteActualPunches && group.shiftStart != null) {
-          lateMinutes = group.actualCheckIn!
-              .difference(group.shiftStart!)
-              .inMinutes;
-          if (lateMinutes < 0) lateMinutes = 0;
+        if (!errors.any((item) => item.startsWith('Attendance:'))) {
+          errors.add('Attendance: ${e.message ?? e.toString()}');
         }
-
-        if (hasCompleteActualPunches && group.shiftEnd != null) {
-          earlyLeaveMinutes = group.shiftEnd!
-              .difference(group.actualCheckOut!)
-              .inMinutes;
-          if (earlyLeaveMinutes < 0) earlyLeaveMinutes = 0;
+        continue;
+      } catch (e) {
+        attendanceFailed++;
+        if (e.toString().contains('Rate limit')) attendanceFailedRateLimit++;
+        if (!errors.any((item) => item.startsWith('Attendance:'))) {
+          errors.add('Attendance: ${e.toString().split('\n').first}');
         }
+        continue;
+      }
 
-        if (hasCompleteActualPunches) {
-          workedMinutes = group.actualCheckOut!
-              .difference(group.actualCheckIn!)
-              .inMinutes;
-          if (workedMinutes < 0) workedMinutes = 0;
-        }
-
-        // Save Attendance
-        if (existingAttendanceIds.contains(attId)) {
-          attendanceSkipped++;
+      if (group.expectedOvertimeMinutes > 0 &&
+          group.canonicalScheduleResolved &&
+          group.isScheduledWorkingDay &&
+          group.shiftEnd != null &&
+          group.actualCheckOut != null) {
+        if (existingOvertimeAttendanceIds.contains(attendanceId)) {
+          skippedOvertime++;
         } else {
+          final overtimeId = _safeRowId('ot_$attendanceId');
           try {
             await _retryOnRateLimit(() async {
               await AppwriteService.tablesDB.createRow(
                 databaseId: AppConstants.databaseId,
-                tableId: AppConstants.attendanceTable,
-                rowId: attId,
+                tableId: AppConstants.overtimeRecordsTable,
+                rowId: overtimeId,
                 data: _removeNulls({
-                  'company_id': companyId,
-                  'employee_id': empId,
+                  'company_id': scopedCompanyId,
+                  'employee_id': employeeId,
+                  'attendance_record_id': attendanceId,
                   'work_date': dateStr,
-                  if (group.shiftStart != null)
-                    'scheduled_start': group.shiftStart!.toIso8601String(),
-                  if (group.shiftEnd != null)
-                    'scheduled_end': group.shiftEnd!.toIso8601String(),
-                  if (group.actualCheckIn != null)
-                    'check_in': group.actualCheckIn!.toIso8601String(),
-                  if (group.actualCheckOut != null)
-                    'check_out': group.actualCheckOut!.toIso8601String(),
-                  'late_minutes': lateMinutes,
-                  'early_leave_minutes': earlyLeaveMinutes,
-                  'worked_minutes': workedMinutes,
-                  'credited_minutes': workedMinutes,
+                  'shift_end': group.shiftEnd!.toIso8601String(),
+                  'actual_check_out': group.actualCheckOut!.toIso8601String(),
                   'overtime_minutes': group.expectedOvertimeMinutes,
-                  'status': status,
-                  'attendance_issue_type': issueType ?? '',
-                  'review_status': reviewStatus ?? '',
-                  'review_note': group.reviewReason,
-                  'source': 'biometric_import',
+                  'approval_status': 'pending',
+                  'payment_status': 'unpaid',
+                  'created_at': DateTime.now().toIso8601String(),
                 }),
               );
             });
-            attendanceCreated++;
-            existingAttendanceIds.add(attId);
-            await Future.delayed(const Duration(milliseconds: 50));
+            createdOvertime++;
+            existingOvertimeAttendanceIds.add(attendanceId);
           } on AppwriteException catch (e) {
             if (e.code == 409 || e.type == 'document_already_exists') {
-              attendanceSkipped++;
-              existingAttendanceIds.add(attId);
-            } else {
-              attendanceFailed++;
-              final msg = e.toString();
-              if (msg.contains('general_rate_limit_exceeded') ||
-                  msg.contains('Rate limit')) {
-                attendanceFailedRateLimit++;
-                if (errors.isEmpty ||
-                    !errors.any((err) => err.startsWith('Attendance:'))) {
-                  errors.add(
-                    'Attendance: تم تجاوز الحد المسموح للطلبات أثناء حفظ بعض سجلات الحضور، أعد المحاولة بعد قليل.',
-                  );
-                }
-              } else {
-                if (errors.isEmpty ||
-                    !errors.any((err) => err.startsWith('Attendance:'))) {
-                  errors.add('Attendance: $msg');
-                }
-                if (msg.contains('row_invalid_structure') ||
-                    msg.contains('Missing required attribute')) {
-                  throw Exception('فشل خطير في الحضور يمنع الاستيراد: $msg');
-                }
-              }
-              continue;
+              skippedOvertime++;
+              existingOvertimeAttendanceIds.add(attendanceId);
+            } else if (!errors.any(
+              (item) => item.startsWith('Overtime:'),
+            )) {
+              errors.add('Overtime: ${e.message ?? e.toString()}');
             }
           } catch (e) {
-            attendanceFailed++;
-            final msg = e.toString();
-            if (msg.contains('general_rate_limit_exceeded') ||
-                msg.contains('Rate limit')) {
-              attendanceFailedRateLimit++;
-              if (errors.isEmpty ||
-                  !errors.any((err) => err.startsWith('Attendance:'))) {
-                errors.add(
-                  'Attendance: تم تجاوز الحد المسموح للطلبات أثناء حفظ بعض سجلات الحضور، أعد المحاولة بعد قليل.',
-                );
-              }
-            } else {
-              if (errors.isEmpty ||
-                  !errors.any((err) => err.startsWith('Attendance:'))) {
-                errors.add('Attendance: $msg');
-              }
-            }
-            continue;
-          }
-        }
-
-        // Save Overtime
-        if (group.expectedOvertimeMinutes > 0 &&
-            group.shiftStart != null &&
-            group.shiftEnd != null) {
-          final otId = _safeRowId('ot_${empId}_${dateStr}_${sStart}_$sEnd');
-          if (existingOvertimeIds.contains(otId)) {
-            skippedOvertime++;
-          } else {
-            debugPrint('IMPORT_CREATE_OVERTIME_STARTED');
-            try {
-              await _retryOnRateLimit(() async {
-                await AppwriteService.tablesDB.createRow(
-                  databaseId: AppConstants.databaseId,
-                  tableId: AppConstants.overtimeRecordsTable,
-                  rowId: otId,
-                  data: _removeNulls({
-                    'company_id': companyId,
-                    'employee_id': empId,
-                    'attendance_record_id': attId,
-                    'work_date': dateStr,
-                    'shift_end': group.shiftEnd!.toIso8601String(),
-                    'actual_check_out':
-                        group.actualCheckOut?.toIso8601String() ??
-                        group.shiftEnd!.toIso8601String(),
-                    'overtime_minutes': group.expectedOvertimeMinutes,
-                    'approval_status': 'pending',
-                    'payment_status': 'unpaid',
-                    'created_at': DateTime.now().toIso8601String(),
-                  }),
-                );
-              });
-              createdOvertime++;
-              existingOvertimeIds.add(otId);
-              await Future.delayed(const Duration(milliseconds: 50));
-            } on AppwriteException catch (e) {
-              if (e.code == 409 || e.type == 'document_already_exists') {
-                skippedOvertime++;
-                existingOvertimeIds.add(otId);
-              } else {
-                debugPrint(
-                  'IMPORT_CREATE_OVERTIME_FAILED: overtime_records / $e',
-                );
-              }
-            } catch (e) {
-              debugPrint(
-                'IMPORT_CREATE_OVERTIME_FAILED: overtime_records / $e',
-              );
+            if (!errors.any((item) => item.startsWith('Overtime:'))) {
+              errors.add('Overtime: ${e.toString().split('\n').first}');
             }
           }
         }
       }
+    }
 
-      matchedEmployees = matchedBioIds.length;
-
-      // Create Summary Notification
-      if (attendanceCreated > 0 ||
-          temporaryCreated > 0 ||
-          summary.needsReviewGroups > 0 ||
-          attendanceSkipped > 0) {
-        debugPrint('IMPORT_CREATE_NOTIFICATION_STARTED');
-        try {
-          final notificationBody =
-              '''
-تم استيراد ملف البصمة.
+    if (attendanceCreated > 0 ||
+        temporaryCreated > 0 ||
+        temporaryUpdated > 0 ||
+        summary.needsReviewGroups > 0 ||
+        attendanceSkipped > 0) {
+      try {
+        final notificationBody = '''
+تم استيراد ملف البصمة بالاعتماد على جدول الدوام الداخلي.
 سجلات حضور جديدة: $attendanceCreated
 سجلات حضور موجودة مسبقًا / متخطاة: $attendanceSkipped
+أيام راحة بدون بصمات تم تجاهلها: $skippedRestDays
 حالات تحتاج مراجعة: ${summary.needsReviewGroups}
 حالات غياب: ${summary.absentCases}
-حالات دخول بدون خروج: ${summary.missingCheckOuts}
-حالات خروج بدون دخول: ${summary.missingCheckIns}
 موظفون مؤقتون جدد: $temporaryCreated
-موظفون مؤقتون موجودون مسبقًا / متخطون: $temporarySkippedDuplicate
-'''
-                  .trim();
+موظفون مؤقتون محدثون: $temporaryUpdated
+'''.trim();
+        await _retryOnRateLimit(() async {
+          await AppwriteService.tablesDB.createRow(
+            databaseId: AppConstants.databaseId,
+            tableId: AppConstants.notificationsTable,
+            rowId: ID.unique(),
+            data: {
+              'company_id': scopedCompanyId,
+              'employee_id': user.$id,
+              'title': 'اكتمل استيراد البصمة',
+              'body': notificationBody,
+              'type': 'attendance_alert',
+              'is_read': false,
+              'created_at': DateTime.now().toIso8601String(),
+            },
+          );
+        });
+        createdNotifications++;
+      } catch (e) {
+        debugPrint('IMPORT_CREATE_NOTIFICATION_FAILED: $e');
+      }
+    }
 
-          await _retryOnRateLimit(() async {
-            await AppwriteService.tablesDB.createRow(
-              databaseId: AppConstants.databaseId,
-              tableId: AppConstants.notificationsTable,
-              rowId: ID.unique(),
-              data: _removeNulls({
-                'company_id': companyId,
-                'employee_id': user.$id,
-                'title': 'اكتمل استيراد البصمة',
-                'body': notificationBody,
-                'type': 'attendance_alert',
-                'is_read': false,
-                'created_at': DateTime.now().toIso8601String(),
-              }),
-            );
-          });
-          createdNotifications++;
-        } catch (e) {
-          debugPrint('IMPORT_CREATE_NOTIFICATION_FAILED: notifications / $e');
+    debugPrint('IMPORT_COMMIT_DONE');
+    return {
+      'batch_saved': batchSaved,
+      'logs_saved': logsCreated,
+      'logs_skipped': logsSkipped,
+      'logs_failed': logsFailed,
+      'logsCreated': logsCreated,
+      'logsSkipped': logsSkipped,
+      'logsFailed': logsFailed,
+      'logsFailedRateLimit': logsFailedRateLimit,
+      'created_attendance': attendanceCreated,
+      'skipped_attendance': attendanceSkipped,
+      'attendanceCreated': attendanceCreated,
+      'attendanceSkipped': attendanceSkipped,
+      'attendanceFailed': attendanceFailed,
+      'attendanceFailedRateLimit': attendanceFailedRateLimit,
+      'created_temporary': temporaryCreated,
+      'updated_temporary': temporaryUpdated,
+      'temporaryCreated': temporaryCreated,
+      'temporaryUpdated': temporaryUpdated,
+      'temporarySkippedDuplicate': temporarySkippedDuplicate,
+      'temporaryFailedRateLimit': temporaryFailedRateLimit,
+      'temporary_failed': temporaryFailed,
+      'created_overtime': createdOvertime,
+      'skipped_overtime': skippedOvertime,
+      'created_notifications': createdNotifications,
+      'skipped_rest_days': skippedRestDays,
+      'excel_rows_read': summary.excelRowsRead,
+      'matched_employees': matchedBioIds.length,
+      'unmatched': unmatchedBioIds.length,
+      'needs_review': summary.needsReviewGroups,
+      'absent_cases': summary.absentCases,
+      'missing_check_in': summary.missingCheckIns,
+      'missing_check_out': summary.missingCheckOuts,
+      'temporary_with_imported_names': temporaryIdsWithImportedNames.length,
+      'errors': errors,
+    };
+  }
+
+  String _inferIssueType(ProcessedGroup group) {
+    if (group.actualCheckIn == null && group.actualCheckOut != null) {
+      return 'missing_check_in';
+    }
+    if (group.actualCheckIn != null && group.actualCheckOut == null) {
+      return 'missing_check_out';
+    }
+    if (group.actualCheckIn == null && group.actualCheckOut == null) {
+      return 'missing_both';
+    }
+    return 'needs_review';
+  }
+
+  Future<Map<String, String>> _loadProfilesByBiometricId(
+    String companyId,
+  ) async {
+    final result = <String, String>{};
+    String? cursor;
+    while (true) {
+      final response = await AppwriteService.tablesDB.listRows(
+        databaseId: AppConstants.databaseId,
+        tableId: AppConstants.profilesTable,
+        queries: [
+          Query.equal('company_id', companyId),
+          Query.limit(1000),
+          if (cursor != null) Query.cursorAfter(cursor),
+        ],
+      );
+      for (final row in response.rows) {
+        final biometricId = row.data['biometric_employee_id']?.toString().trim();
+        if (biometricId != null && biometricId.isNotEmpty) {
+          result[biometricId] = row.$id;
         }
       }
+      if (response.rows.length < 1000) break;
+      cursor = response.rows.last.$id;
+    }
+    return result;
+  }
 
-      debugPrint('IMPORT_COMMIT_DONE');
+  Future<Set<String>> _fetchAllCompanyRowIds(
+    String tableId,
+    String companyId,
+  ) async {
+    final result = <String>{};
+    String? cursor;
+    while (true) {
+      final response = await AppwriteService.tablesDB.listRows(
+        databaseId: AppConstants.databaseId,
+        tableId: tableId,
+        queries: [
+          Query.equal('company_id', companyId),
+          Query.limit(1000),
+          if (cursor != null) Query.cursorAfter(cursor),
+        ],
+      );
+      for (final row in response.rows) result.add(row.$id);
+      if (response.rows.length < 1000) break;
+      cursor = response.rows.last.$id;
+    }
+    return result;
+  }
 
-      return {
-        'batch_saved': batchSaved,
-        'logs_saved': logsCreated,
-        'logsCreated': logsCreated,
-        'logsSkipped': logsSkipped,
-        'logsFailed': logsFailed,
-        'logsFailedRateLimit': logsFailedRateLimit,
-        'created_attendance': attendanceCreated,
-        'skipped_attendance': attendanceSkipped,
-        'attendanceCreated': attendanceCreated,
-        'attendanceSkipped': attendanceSkipped,
-        'attendanceFailed': attendanceFailed,
-        'attendanceFailedRateLimit': attendanceFailedRateLimit,
-        'created_temporary': temporaryCreated,
-        'updated_temporary': temporaryUpdated,
-        'temporaryCreated': temporaryCreated,
-        'temporaryUpdated': temporaryUpdated,
-        'temporarySkippedDuplicate': temporarySkippedDuplicate,
-        'temporaryFailedRateLimit': temporaryFailedRateLimit,
-        'created_overtime': createdOvertime,
-        'skipped_overtime': skippedOvertime,
-        'created_notifications': createdNotifications,
-        'excel_rows_read': summary.excelRowsRead,
-        'matched_employees': matchedEmployees,
-        'unmatched': unmatchedBioIds.length,
-        'needs_review': summary.needsReviewGroups,
-        'absent_cases': summary.absentCases,
-        'missing_check_in': summary.missingCheckIns,
-        'missing_check_out': summary.missingCheckOuts,
-        'temporary_failed': temporaryFailed,
-        'temporary_with_imported_names': temporaryIdsWithImportedNames.length,
-        'errors': errors,
-      };
-    } catch (e, st) {
-      debugPrint('IMPORT_COMMIT_FAILED: $e');
-      debugPrint('IMPORT_COMMIT_STACK: $st');
-      rethrow;
+  Future<Set<String>> _fetchExistingRowIdsInDateRange({
+    required String tableId,
+    required String dateField,
+    required String companyId,
+    required DateTime? minDate,
+    required DateTime? maxDate,
+  }) async {
+    final result = <String>{};
+    if (minDate == null || maxDate == null) return result;
+    String? cursor;
+    final start = DateTime(
+      minDate.year,
+      minDate.month,
+      minDate.day,
+    ).toIso8601String();
+    final endExclusive = DateTime(
+      maxDate.year,
+      maxDate.month,
+      maxDate.day,
+    ).add(const Duration(days: 1)).toIso8601String();
+
+    while (true) {
+      final response = await AppwriteService.tablesDB.listRows(
+        databaseId: AppConstants.databaseId,
+        tableId: tableId,
+        queries: [
+          Query.equal('company_id', companyId),
+          Query.greaterThanEqual(dateField, start),
+          Query.lessThan(dateField, endExclusive),
+          Query.limit(1000),
+          if (cursor != null) Query.cursorAfter(cursor),
+        ],
+      );
+      for (final row in response.rows) result.add(row.$id);
+      if (response.rows.length < 1000) break;
+      cursor = response.rows.last.$id;
+    }
+    return result;
+  }
+
+  Future<Map<String, String>> _fetchAttendanceByEmployeeDate({
+    required String companyId,
+    required DateTime? minDate,
+    required DateTime? maxDate,
+  }) async {
+    final result = <String, String>{};
+    if (minDate == null || maxDate == null) return result;
+    String? cursor;
+    final start = DateTime(
+      minDate.year,
+      minDate.month,
+      minDate.day,
+    ).toIso8601String();
+    final endExclusive = DateTime(
+      maxDate.year,
+      maxDate.month,
+      maxDate.day,
+    ).add(const Duration(days: 1)).toIso8601String();
+
+    while (true) {
+      final response = await AppwriteService.tablesDB.listRows(
+        databaseId: AppConstants.databaseId,
+        tableId: AppConstants.attendanceTable,
+        queries: [
+          Query.equal('company_id', companyId),
+          Query.greaterThanEqual('work_date', start),
+          Query.lessThan('work_date', endExclusive),
+          Query.limit(1000),
+          if (cursor != null) Query.cursorAfter(cursor),
+        ],
+      );
+      for (final row in response.rows) {
+        final employeeId = row.data['employee_id']?.toString();
+        final workDateRaw = row.data['work_date']?.toString();
+        if (employeeId == null || workDateRaw == null) continue;
+        final parsed = DateTime.tryParse(workDateRaw);
+        if (parsed == null) continue;
+        result['$employeeId|${_dateKey(parsed)}'] = row.$id;
+      }
+      if (response.rows.length < 1000) break;
+      cursor = response.rows.last.$id;
+    }
+    return result;
+  }
+
+  Future<Set<String>> _fetchOvertimeAttendanceIds({
+    required String companyId,
+    required DateTime? minDate,
+    required DateTime? maxDate,
+  }) async {
+    final result = <String>{};
+    if (minDate == null || maxDate == null) return result;
+    String? cursor;
+    final start = DateTime(
+      minDate.year,
+      minDate.month,
+      minDate.day,
+    ).toIso8601String();
+    final endExclusive = DateTime(
+      maxDate.year,
+      maxDate.month,
+      maxDate.day,
+    ).add(const Duration(days: 1)).toIso8601String();
+
+    while (true) {
+      final response = await AppwriteService.tablesDB.listRows(
+        databaseId: AppConstants.databaseId,
+        tableId: AppConstants.overtimeRecordsTable,
+        queries: [
+          Query.equal('company_id', companyId),
+          Query.greaterThanEqual('work_date', start),
+          Query.lessThan('work_date', endExclusive),
+          Query.limit(1000),
+          if (cursor != null) Query.cursorAfter(cursor),
+        ],
+      );
+      for (final row in response.rows) {
+        final attendanceId = row.data['attendance_record_id']?.toString();
+        if (attendanceId != null && attendanceId.isNotEmpty) {
+          result.add(attendanceId);
+        }
+      }
+      if (response.rows.length < 1000) break;
+      cursor = response.rows.last.$id;
+    }
+    return result;
+  }
+
+  Future<void> _requireCurrentCompanyRow({
+    required String tableId,
+    required String rowId,
+  }) async {
+    final companyId = await CompanyContextService.getCurrentCompanyId();
+    final row = await AppwriteService.tablesDB.getRow(
+      databaseId: AppConstants.databaseId,
+      tableId: tableId,
+      rowId: rowId,
+    );
+    if (row.data['company_id']?.toString() != companyId) {
+      throw StateError('لا يمكن تنفيذ العملية على بيانات شركة أخرى.');
     }
   }
 
@@ -1246,22 +855,27 @@ class AdminBiometricsService {
     String companyId, {
     String status = 'pending',
   }) async {
+    final scopedCompanyId = await CompanyContextService.requireCompany(companyId);
     final docs = await AppwriteService.tablesDB.listRows(
       databaseId: AppConstants.databaseId,
       tableId: AppConstants.temporaryBiometricEmployeesTable,
       queries: [
-        Query.equal('company_id', companyId),
+        Query.equal('company_id', scopedCompanyId),
         Query.equal('status', status),
         Query.limit(100),
         Query.orderDesc('last_seen_at'),
       ],
     );
     return docs.rows
-        .map((d) => TemporaryEmployeeModel.fromMap(d.data, id: d.$id))
+        .map((row) => TemporaryEmployeeModel.fromMap(row.data, id: row.$id))
         .toList();
   }
 
   Future<void> rejectTemporaryEmployee(String tempId) async {
+    await _requireCurrentCompanyRow(
+      tableId: AppConstants.temporaryBiometricEmployeesTable,
+      rowId: tempId,
+    );
     await AppwriteService.tablesDB.updateRow(
       databaseId: AppConstants.databaseId,
       tableId: AppConstants.temporaryBiometricEmployeesTable,
@@ -1278,6 +892,25 @@ class AdminBiometricsService {
     String biometricId,
     String profileId,
   ) async {
+    final companyId = await CompanyContextService.getCurrentCompanyId();
+    await _requireCurrentCompanyRow(
+      tableId: AppConstants.temporaryBiometricEmployeesTable,
+      rowId: tempId,
+    );
+    final profile = await AppwriteService.tablesDB.getRow(
+      databaseId: AppConstants.databaseId,
+      tableId: AppConstants.profilesTable,
+      rowId: profileId,
+    );
+    if (profile.data['company_id']?.toString() != companyId) {
+      throw StateError('الموظف الرسمي لا يتبع شركة المستخدم الحالية.');
+    }
+    final savedBiometricId =
+        profile.data['biometric_employee_id']?.toString().trim() ?? '';
+    if (savedBiometricId != biometricId.trim()) {
+      throw StateError('رقم البصمة في الملف لا يطابق ملف الموظف الرسمي.');
+    }
+
     await AppwriteService.tablesDB.updateRow(
       databaseId: AppConstants.databaseId,
       tableId: AppConstants.temporaryBiometricEmployeesTable,
