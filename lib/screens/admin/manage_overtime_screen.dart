@@ -256,7 +256,7 @@ class _ManageOvertimeScreenState extends State<ManageOvertimeScreen>
             child: _isLoading
                 ? const AppLoadingState(label: 'جاري تحميل السجلات...')
                 : _filteredRecords.isEmpty
-                    ? const AppEmptyState(message: 'لا توجد سجلات')
+                    ? const AppEmptyState(title: 'لا توجد سجلات', message: 'لا يوجد عمل إضافي مطابق للبحث')
                     : RefreshIndicator(
                         onRefresh: _loadData,
                         child: ListView.builder(
