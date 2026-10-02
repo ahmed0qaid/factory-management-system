@@ -99,11 +99,14 @@ export default async ({ req, res, log, error }) => {
       );
     }
 
+    if (newPassword && newPassword.length < 8) {
+      return res.json({ success: false, error: 'كلمة المرور يجب ألا تقل عن 8 أحرف' }, 400);
+    }
+
     const currentEmployeeNumber = targetProfile.employee_number;
     const oldEmail = `${String(currentEmployeeNumber).trim().toLowerCase()}@${technicalEmailDomain}`;
-
     const updateProfileData = {};
-    let emailUpdated = false;
+    let pendingNewEmail = null;
 
     if (newEmployeeNumber && newEmployeeNumber !== currentEmployeeNumber) {
       const trimmedNewNumber = String(newEmployeeNumber).trim();
@@ -121,15 +124,7 @@ export default async ({ req, res, log, error }) => {
       }
 
       updateProfileData.employee_number = trimmedNewNumber;
-      const newEmail = `${trimmedNewNumber.toLowerCase()}@${technicalEmailDomain}`;
-
-      try {
-        await users.updateEmail(userId, newEmail);
-        emailUpdated = true;
-      } catch (e) {
-        error(`Failed to update Auth email: ${e.message}`);
-        return res.json({ success: false, error: 'فشل تحديث البريد الإلكتروني للمستخدم' }, 500);
-      }
+      pendingNewEmail = `${trimmedNewNumber.toLowerCase()}@${technicalEmailDomain}`;
     }
 
     if (typeof mustChangePassword === 'boolean') {
@@ -199,7 +194,7 @@ export default async ({ req, res, log, error }) => {
     if (Object.prototype.hasOwnProperty.call(profileUpdates, 'dailyWorkHours')) {
       const dailyWorkHours = Number(profileUpdates.dailyWorkHours);
       if (!Number.isFinite(dailyWorkHours) || dailyWorkHours <= 0 || dailyWorkHours > 24) {
-        return res.json({ success: false, error: 'ساعات العمل اليومية يجب أن تكون بين 0 و24' }, 400);
+        return res.json({ success: false, error: 'ساعات العمل اليومية يجب أن تكون أكبر من 0 ولا تتجاوز 24' }, 400);
       }
       updateProfileData.daily_work_hours = dailyWorkHours;
     }
@@ -214,8 +209,16 @@ export default async ({ req, res, log, error }) => {
       updateProfileData.active = profileUpdates.active;
     }
 
-    if (newPassword && newPassword.length < 8) {
-      return res.json({ success: false, error: 'كلمة المرور يجب ألا تقل عن 8 أحرف' }, 400);
+    // All request validation is complete before any Auth or database mutation.
+    let emailUpdated = false;
+    if (pendingNewEmail) {
+      try {
+        await users.updateEmail(userId, pendingNewEmail);
+        emailUpdated = true;
+      } catch (e) {
+        error(`Failed to update Auth email: ${e.message}`);
+        return res.json({ success: false, error: 'فشل تحديث البريد الإلكتروني للمستخدم' }, 500);
+      }
     }
 
     if (Object.keys(updateProfileData).length > 0) {
