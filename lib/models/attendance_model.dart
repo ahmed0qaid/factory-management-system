@@ -10,7 +10,7 @@ class AttendanceRecordModel {
   final int workedMinutes;
   final int creditedMinutes;
   final int overtimeMinutes;
-  final String status;
+  final String rawStatus;
   final String? notes;
   final String? attendanceIssueType;
   final String? reviewNote;
@@ -26,7 +26,7 @@ class AttendanceRecordModel {
   AttendanceRecordModel({
     required this.id,
     required this.workDate,
-    required this.status,
+    required String status,
     required this.lateMinutes,
     required this.earlyLeaveMinutes,
     required this.workedMinutes,
@@ -47,19 +47,34 @@ class AttendanceRecordModel {
     this.calendarExceptionRefId,
     this.calendarExceptionAppliedBy,
     this.calendarExceptionAppliedAt,
-  });
+  }) : rawStatus = status;
 
   bool get hasUnresolvedReview {
     if (reviewStatus == 'resolved') return false;
     final issue = attendanceIssueType?.trim() ?? '';
-    return status == 'needs_review' || reviewStatus == 'pending' || issue.isNotEmpty;
+    return rawStatus == 'needs_review' ||
+        reviewStatus == 'pending' ||
+        issue.isNotEmpty;
   }
 
   bool get hasCalendarException =>
       calendarExceptionType != null && calendarExceptionType!.trim().isNotEmpty;
 
   bool get hasActualPresence =>
-      !hasUnresolvedReview && (status == 'present' || status == 'late');
+      !hasUnresolvedReview && (rawStatus == 'present' || rawStatus == 'late');
+
+  /// Effective status for attendance-facing UI and summaries.
+  /// Persisted/raw attendance remains unchanged for audit purposes.
+  /// Actual attendance wins over calendar exceptions; unresolved reviews stay
+  /// visible as reviews; otherwise an approved leave/stoppage becomes the
+  /// displayed status instead of an older `absent` value.
+  String get status {
+    if (hasUnresolvedReview) return rawStatus;
+    if (hasActualPresence) return rawStatus;
+    final exception = calendarExceptionType?.trim() ?? '';
+    if (exception.isNotEmpty) return exception;
+    return rawStatus;
+  }
 
   factory AttendanceRecordModel.fromMap(Map<String, dynamic> map) {
     DateTime? parse(dynamic value) {
