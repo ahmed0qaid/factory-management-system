@@ -18,6 +18,7 @@ import 'import_biometric_screen.dart';
 import 'job_titles_screen.dart';
 import 'manage_advances_screen.dart';
 import 'manage_announcements_screen.dart';
+import 'manage_attendance_review_screen.dart';
 import 'manage_employees_screen.dart';
 import 'manage_funds_screen.dart';
 import 'manage_leaves_screen.dart';
@@ -87,6 +88,8 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
         _open(MonthlyWorkScheduleScreen(profile: widget.profile));
       case AdminModuleType.biometricImport:
         _open(ImportBiometricScreen(companyId: widget.profile.companyId));
+      case AdminModuleType.attendanceReview:
+        _open(const ManageAttendanceReviewScreen());
       case AdminModuleType.overtime:
         _open(ManageOvertimeScreen(companyId: widget.profile.companyId));
       case AdminModuleType.leaves:
@@ -150,6 +153,8 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
         return Icons.account_balance_outlined;
       case 'campaign':
         return Icons.campaign_outlined;
+      case 'fact_check':
+        return Icons.fact_check_outlined;
       default:
         return Icons.apps_outlined;
     }
@@ -160,8 +165,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     final role = widget.profile.role;
     final modules = AppRoles.modulesFor(role);
 
-    final Widget? createEmployeeButton =
-        AppRoles.canCreateEmployees(role)
+    final Widget? createEmployeeButton = AppRoles.canCreateEmployees(role)
         ? FloatingActionButton.extended(
             onPressed: _openCreate,
             icon: const Icon(Icons.person_add_outlined),
@@ -239,9 +243,9 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
               children: [
                 Text(
                   widget.profile.roleLabel,
-                  style: Theme.of(
-                    context,
-                  ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
+                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
                 const SizedBox(height: 5),
                 Text(_roleDescription(widget.profile.role)),
@@ -263,26 +267,10 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
       builder: (context, constraints) {
         final compact = constraints.maxWidth < 620;
         final cards = [
-          _MetricData(
-            'الموظفون',
-            employees.length.toString(),
-            Icons.groups_outlined,
-          ),
-          _MetricData(
-            'النشطون',
-            active.toString(),
-            Icons.verified_user_outlined,
-          ),
-          _MetricData(
-            'الموقوفون',
-            suspended.toString(),
-            Icons.pause_circle_outline,
-          ),
-          _MetricData(
-            'منتهو الخدمة',
-            terminated.toString(),
-            Icons.person_off_outlined,
-          ),
+          _MetricData('الموظفون', employees.length.toString(), Icons.groups_outlined),
+          _MetricData('النشطون', active.toString(), Icons.verified_user_outlined),
+          _MetricData('الموقوفون', suspended.toString(), Icons.pause_circle_outline),
+          _MetricData('منتهو الخدمة', terminated.toString(), Icons.person_off_outlined),
         ];
         if (compact) {
           return Wrap(
@@ -302,9 +290,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
           spacing: 12,
           runSpacing: 12,
           children: cards
-              .map(
-                (item) => SizedBox(width: 210, child: _MetricCard(data: item)),
-              )
+              .map((item) => SizedBox(width: 210, child: _MetricCard(data: item)))
               .toList(),
         );
       },
@@ -314,9 +300,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   List<Widget> _buildSections(BuildContext context, List<AdminModule> modules) {
     final sections = <Widget>[];
     for (final category in AdminModuleCategory.values) {
-      final items = modules
-          .where((module) => module.category == category)
-          .toList();
+      final items = modules.where((module) => module.category == category).toList();
       if (items.isEmpty) continue;
       final meta = _categoryMeta(category);
       if (sections.isNotEmpty) sections.add(const SizedBox(height: 22));
@@ -351,7 +335,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
       case AdminModuleCategory.approvals:
         return (
           'الطلبات والاعتمادات',
-          'الإجازات والجزاءات وما يحتاج قرارًا إداريًا',
+          'الحضور والإجازات والجزاءات وما يحتاج قرارًا إداريًا',
           Icons.fact_check_outlined,
         );
       case AdminModuleCategory.finance:
@@ -372,9 +356,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   IconData _roleIcon(String role) {
     if (AppRoles.isHr(role)) return Icons.badge_outlined;
     if (AppRoles.isGeneralManager(role)) return Icons.business_center_outlined;
-    if (AppRoles.isFinancialManager(role)) {
-      return Icons.account_balance_outlined;
-    }
+    if (AppRoles.isFinancialManager(role)) return Icons.account_balance_outlined;
     return Icons.person_outline;
   }
 
@@ -440,8 +422,8 @@ class _AdminSection extends StatelessWidget {
             final columns = constraints.maxWidth >= 980
                 ? 3
                 : constraints.maxWidth >= 620
-                ? 2
-                : 1;
+                    ? 2
+                    : 1;
             const gap = 10.0;
             final itemWidth =
                 (constraints.maxWidth - gap * (columns - 1)) / columns;
@@ -458,10 +440,7 @@ class _AdminSection extends StatelessWidget {
                         child: Row(
                           children: [
                             CircleAvatar(
-                              child: Icon(
-                                iconBuilder(module.iconName),
-                                size: 22,
-                              ),
+                              child: Icon(iconBuilder(module.iconName), size: 22),
                             ),
                             const SizedBox(width: 12),
                             Expanded(
@@ -482,9 +461,7 @@ class _AdminSection extends StatelessWidget {
                                     module.description,
                                     maxLines: 2,
                                     overflow: TextOverflow.ellipsis,
-                                    style: Theme.of(
-                                      context,
-                                    ).textTheme.bodySmall,
+                                    style: Theme.of(context).textTheme.bodySmall,
                                   ),
                                 ],
                               ),
@@ -529,9 +506,9 @@ class _MetricCard extends StatelessWidget {
           const SizedBox(height: 6),
           Text(
             data.value,
-            style: Theme.of(
-              context,
-            ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
+            style: Theme.of(context).textTheme.titleLarge?.copyWith(
+              fontWeight: FontWeight.bold,
+            ),
           ),
           Text(
             data.label,
