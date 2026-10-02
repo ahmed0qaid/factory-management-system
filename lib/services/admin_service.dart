@@ -203,7 +203,6 @@ class AdminService {
       ],
     );
 
-    // Notify employee
     final db = AppwriteService.tablesDB;
     await db.createRow(
       databaseId: AppConstants.databaseId,
@@ -285,7 +284,6 @@ class AdminService {
       ],
     );
 
-    // Notify employee
     final db = AppwriteService.tablesDB;
     await db.createRow(
       databaseId: AppConstants.databaseId,
@@ -329,7 +327,6 @@ class AdminService {
     final now = DateTime.now();
     final period = PayrollPeriodService.getCurrentPayrollPeriod(now);
 
-    // Get profile
     final profileRow = await AppwriteService.tablesDB.getRow(
       databaseId: AppConstants.databaseId,
       tableId: AppConstants.profilesTable,
@@ -342,7 +339,6 @@ class AdminService {
       period.periodEnd,
     );
 
-    // Get attendance
     final attendanceData = await AppwriteService.tablesDB.listRows(
       databaseId: AppConstants.databaseId,
       tableId: AppConstants.attendanceTable,
@@ -450,14 +446,7 @@ class AdminService {
     required String status,
   }) async {
     if (status == 'approved') {
-      // Re-check balance before approving
       final balanceInfo = await getEmployeeAdvanceBalance(employeeId);
-
-      // Get the requested advance amount
-
-      // Notice: previousAdvances already includes 'pending' advances.
-      // If this advance is 'pending', its amount is already subtracted from availableBalance.
-      // So if availableBalance < 0, it means including this advance, they are over limit.
       if (balanceInfo.availableBalance < 0) {
         throw Exception(
           'لا يمكن اعتماد السلفة لأن رصيد الموظف المتاح غير كافٍ.',
@@ -472,7 +461,6 @@ class AdminService {
       data: {'status': status},
     );
 
-    // Notify employee
     final db = AppwriteService.tablesDB;
     await db.createRow(
       databaseId: AppConstants.databaseId,
@@ -526,7 +514,6 @@ class AdminService {
       data: {'status': status, 'reviewed_at': DateTime.now().toIso8601String()},
     );
 
-    // Notify employee
     final db = AppwriteService.tablesDB;
     await db.createRow(
       databaseId: AppConstants.databaseId,
@@ -555,7 +542,6 @@ class AdminService {
     );
   }
 
-  // --- Attendance Policy ---
   Future<AttendancePolicyModel> getActiveAttendancePolicy(
     String companyId,
   ) async {
@@ -596,33 +582,10 @@ class AdminService {
   }
 
   Future<void> updateEmployeeStatus(String employeeId, bool isActive) async {
-    if (!isActive) {
-      final doc = await AppwriteService.tablesDB.getRow(
-        databaseId: AppConstants.databaseId,
-        tableId: AppConstants.profilesTable,
-        rowId: employeeId,
-      );
-      if (doc.data['role'] == AppRoles.hrAdmin) {
-        throw Exception('لا يمكن تعطيل حساب الموارد البشرية');
-      }
-    }
-    try {
-      await AppwriteService.tablesDB.updateRow(
-        databaseId: AppConstants.databaseId,
-        tableId: AppConstants.profilesTable,
-        rowId: employeeId,
-        data: {'active': isActive},
-      );
-    } on AppwriteException catch (e) {
-      if (e.code == 401) {
-        throw Exception(
-          'لا توجد صلاحية لتعديل بيانات الموظف. يرجى إصلاح صلاحيات HR Admin في Appwrite.',
-        );
-      }
-      throw Exception(e.message ?? 'خطأ في قاعدة البيانات');
-    } catch (e) {
-      throw Exception(e.toString());
-    }
+    await updateEmployeeCredentials(
+      profileId: employeeId,
+      profileUpdates: {'active': isActive},
+    );
   }
 
   Future<void> updateEmployeeData(
@@ -638,81 +601,37 @@ class AdminService {
     num? dailyWorkHours,
     bool? active,
   }) async {
-    final newBiometricId =
-        (biometricEmployeeId == null || biometricEmployeeId.trim().isEmpty)
-        ? ''
-        : biometricEmployeeId.trim();
-
-    if (newBiometricId.isNotEmpty) {
-      final existing = await AppwriteService.tablesDB.listRows(
-        databaseId: AppConstants.databaseId,
-        tableId: AppConstants.profilesTable,
-        queries: [
-          Query.equal('biometric_employee_id', newBiometricId),
-          Query.limit(5),
-        ],
-      );
-      if (existing.rows.any((r) => r.$id != employeeId)) {
-        throw Exception('رقم البصمة مستخدم بالفعل لموظف آخر.');
-      }
+    final profileUpdates = <String, dynamic>{};
+    if (fullName != null) profileUpdates['fullName'] = fullName.trim();
+    if (departmentName != null) {
+      profileUpdates['departmentName'] = departmentName.trim();
     }
-
-    final data = <String, dynamic>{};
-    if (fullName != null) data['full_name'] = fullName;
-    if (departmentName != null) data['department_name'] = departmentName;
-    if (jobTitleId != null) data['job_title_id'] = jobTitleId;
-    if (jobTitleName != null) data['job_title_name'] = jobTitleName;
-
-    // Set to empty string if it was cleared
-    data['biometric_employee_id'] = newBiometricId;
-
-    if (phone != null) data['phone'] = phone.trim().isEmpty ? '' : phone.trim();
-    if (baseSalary != null) data['base_salary'] = baseSalary;
-    if (monthlyBonus != null) data['monthly_bonus'] = monthlyBonus;
-    if (dailyWorkHours != null) data['daily_work_hours'] = dailyWorkHours;
-    if (active == false) {
-      final doc = await AppwriteService.tablesDB.getRow(
-        databaseId: AppConstants.databaseId,
-        tableId: AppConstants.profilesTable,
-        rowId: employeeId,
-      );
-      if (doc.data['role'] == AppRoles.hrAdmin) {
-        throw Exception('لا يمكن تعطيل حساب الموارد البشرية');
-      }
+    if (jobTitleId != null) profileUpdates['jobTitleId'] = jobTitleId.trim();
+    if (jobTitleName != null) {
+      profileUpdates['jobTitleName'] = jobTitleName.trim();
     }
-
-    if (active != null) data['active'] = active;
-
-    if (data.isEmpty) return;
-
-    try {
-      await AppwriteService.tablesDB.updateRow(
-        databaseId: AppConstants.databaseId,
-        tableId: AppConstants.profilesTable,
-        rowId: employeeId,
-        data: data,
-      );
-    } on AppwriteException catch (e) {
-      if (e.code == 401) {
-        throw Exception(
-          'لا توجد صلاحية لتعديل بيانات الموظف. يرجى إصلاح صلاحيات HR Admin في Appwrite.',
-        );
-      }
-      throw Exception(e.message ?? 'خطأ في قاعدة البيانات');
-    } catch (e) {
-      throw Exception(e.toString());
+    profileUpdates['biometricEmployeeId'] = biometricEmployeeId?.trim() ?? '';
+    if (phone != null) profileUpdates['phone'] = phone.trim();
+    if (baseSalary != null) profileUpdates['baseSalary'] = baseSalary;
+    if (monthlyBonus != null) profileUpdates['monthlyBonus'] = monthlyBonus;
+    if (dailyWorkHours != null) {
+      profileUpdates['dailyWorkHours'] = dailyWorkHours;
     }
+    if (active != null) profileUpdates['active'] = active;
+
+    await updateEmployeeCredentials(
+      profileId: employeeId,
+      profileUpdates: profileUpdates,
+    );
   }
 
   Future<void> updateEmployeeBiometricId(
     String employeeId,
     String? biometricId,
   ) async {
-    await AppwriteService.tablesDB.updateRow(
-      databaseId: AppConstants.databaseId,
-      tableId: AppConstants.profilesTable,
-      rowId: employeeId,
-      data: {'biometric_employee_id': biometricId},
+    await updateEmployeeCredentials(
+      profileId: employeeId,
+      profileUpdates: {'biometricEmployeeId': biometricId?.trim() ?? ''},
     );
   }
 
@@ -721,6 +640,7 @@ class AdminService {
     String? newEmployeeNumber,
     String? newPassword,
     bool? mustChangePassword,
+    Map<String, dynamic>? profileUpdates,
   }) async {
     final payload = {
       'profileId': profileId,
@@ -729,6 +649,8 @@ class AdminService {
       if (newPassword != null && newPassword.trim().isNotEmpty)
         'newPassword': newPassword.trim(),
       if (mustChangePassword != null) 'mustChangePassword': mustChangePassword,
+      if (profileUpdates != null && profileUpdates.isNotEmpty)
+        'profileUpdates': profileUpdates,
     };
 
     final execution = await AppwriteService.functions.createExecution(
