@@ -1,42 +1,75 @@
+import 'dart:io';
+
 import 'package:dart_appwrite/dart_appwrite.dart';
 
-void main() async {
-  Client client = Client();
-  client
-      .setEndpoint('https://fra.cloud.appwrite.io/v1')
-      .setProject('6a6a49d1000884049205')
-      .setKey('standard_8831478838d66625e099e541665906fd006bd08bf2a3c096a2f8f9309808423ce8f9d92445107edbb603f6db41f75886a3e090cb5b8c1e38a8958ddf55527c53742cdb09a5ece5f901fac546e1540f37eefbe1dcfc4eb8e3b629bd485757dcd2c9eef58ca287bb38ee33c5538cac13c601c1a292125b91dd354467c72251ed93');
+/// Configures fund tables for row-level, company-scoped permissions.
+///
+/// Required environment variables:
+/// APPWRITE_ENDPOINT
+/// APPWRITE_PROJECT_ID
+/// APPWRITE_API_KEY
+/// APPWRITE_DATABASE_ID (optional, defaults to hr)
+/// APPWRITE_COMPANY_TEAM_IDS (comma-separated Appwrite Team IDs)
+///
+/// This script intentionally contains no credentials and grants no broad
+/// read/update/delete access at table level. Each fund row is expected to carry
+/// its company-specific document permissions from FundService.
+Future<void> main() async {
+  final endpoint = Platform.environment['APPWRITE_ENDPOINT'];
+  final projectId = Platform.environment['APPWRITE_PROJECT_ID'];
+  final apiKey = Platform.environment['APPWRITE_API_KEY'];
+  final databaseId = Platform.environment['APPWRITE_DATABASE_ID'] ?? 'hr';
+  final teamIds = (Platform.environment['APPWRITE_COMPANY_TEAM_IDS'] ?? '')
+      .split(',')
+      .map((value) => value.trim())
+      .where((value) => value.isNotEmpty)
+      .toList();
 
-  Databases databases = Databases(client);
-  final databaseId = 'hr';
+  if (endpoint == null || projectId == null || apiKey == null) {
+    stderr.writeln(
+      'Missing APPWRITE_ENDPOINT, APPWRITE_PROJECT_ID, or APPWRITE_API_KEY.',
+    );
+    exitCode = 2;
+    return;
+  }
+  if (teamIds.isEmpty) {
+    stderr.writeln('APPWRITE_COMPANY_TEAM_IDS must contain at least one team.');
+    exitCode = 2;
+    return;
+  }
 
-  final collectionsToUpdate = [
+  final client = Client()
+      .setEndpoint(endpoint)
+      .setProject(projectId)
+      .setKey(apiKey);
+  final databases = Databases(client);
+
+  final createPermissions = <String>[];
+  for (final teamId in teamIds) {
+    createPermissions
+      ..add(Permission.create(Role.team(teamId, 'hr_admin')))
+      ..add(Permission.create(Role.team(teamId, 'financial_manager')));
+  }
+
+  for (final table in const [
     'funds',
     'fund_transactions',
     'fund_closures',
-  ];
-
-  final permissions = [
-    Permission.read(Role.users()),
-    Permission.create(Role.users()),
-    Permission.update(Role.users()),
-    Permission.delete(Role.users()),
-  ];
-
-  for (final table in collectionsToUpdate) {
+  ]) {
     try {
-      print('Updating permissions for $table...');
+      stdout.writeln('Updating permissions for $table...');
       await databases.updateCollection(
         databaseId: databaseId,
         collectionId: table,
         name: table,
-        permissions: permissions,
-        documentSecurity: false,
+        permissions: createPermissions,
+        documentSecurity: true,
         enabled: true,
       );
-      print('Successfully updated $table.');
-    } catch (e) {
-      print('Error with $table: $e');
+      stdout.writeln('Successfully updated $table.');
+    } catch (error) {
+      stderr.writeln('Error with $table: $error');
+      exitCode = 1;
     }
   }
 }

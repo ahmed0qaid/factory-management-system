@@ -1,18 +1,45 @@
 import 'package:appwrite/appwrite.dart';
+
 import '../config/constants.dart';
 import '../models/job_title_model.dart';
+import '../permissions/role_permissions.dart';
 import 'appwrite_service.dart';
+import 'company_context_service.dart';
 
 class JobTitleService {
   final TablesDB _db = AppwriteService.tablesDB;
+
+  List<String> _permissions(String companyId) => [
+    Permission.read(Role.team(companyId)),
+    Permission.update(Role.team(companyId, AppRoles.hrAdmin)),
+    Permission.delete(Role.team(companyId, AppRoles.hrAdmin)),
+  ];
+
+  Future<String> _requireRowCompany(String id) async {
+    final companyId = await CompanyContextService.getCurrentCompanyId();
+    final row = await _db.getRow(
+      databaseId: AppConstants.databaseId,
+      tableId: AppConstants.jobTitlesTable,
+      rowId: id,
+    );
+    if (row.data['company_id']?.toString() != companyId) {
+      throw StateError('المسمى الوظيفي لا يتبع شركة المستخدم الحالية.');
+    }
+    return companyId;
+  }
 
   Future<List<JobTitleModel>> getJobTitles({
     required String companyId,
     bool activeOnly = true,
   }) async {
     try {
-      final queries = [Query.equal('company_id', companyId), Query.limit(100)];
-
+      final scopedCompanyId = await CompanyContextService.requireCompany(
+        companyId,
+      );
+      final queries = [
+        Query.equal('company_id', scopedCompanyId),
+        Query.limit(100),
+      ];
       if (activeOnly) {
         queries.add(Query.equal('active', true));
       }
@@ -22,7 +49,6 @@ class JobTitleService {
         tableId: AppConstants.jobTitlesTable,
         queries: queries,
       );
-
       return res.rows.map((doc) => JobTitleModel.fromMap(doc.data)).toList();
     } catch (e) {
       throw Exception('فشل في جلب المسميات الوظيفية: $e');
@@ -34,11 +60,15 @@ class JobTitleService {
     required String name,
   }) async {
     try {
+      final scopedCompanyId = await CompanyContextService.requireCompany(
+        companyId,
+      );
       final res = await _db.createRow(
         databaseId: AppConstants.databaseId,
         tableId: AppConstants.jobTitlesTable,
         rowId: ID.unique(),
-        data: {'company_id': companyId, 'name': name, 'active': true},
+        data: {'company_id': scopedCompanyId, 'name': name, 'active': true},
+        permissions: _permissions(scopedCompanyId),
       );
       return JobTitleModel.fromMap(res.data);
     } catch (e) {
@@ -52,6 +82,7 @@ class JobTitleService {
     required bool active,
   }) async {
     try {
+      await _requireRowCompany(id);
       final res = await _db.updateRow(
         databaseId: AppConstants.databaseId,
         tableId: AppConstants.jobTitlesTable,
@@ -66,6 +97,7 @@ class JobTitleService {
 
   Future<void> deactivateJobTitle(String id) async {
     try {
+      await _requireRowCompany(id);
       await _db.updateRow(
         databaseId: AppConstants.databaseId,
         tableId: AppConstants.jobTitlesTable,
@@ -79,10 +111,15 @@ class JobTitleService {
 
   Future<bool> isJobTitleInUse(String id) async {
     try {
+      final companyId = await _requireRowCompany(id);
       final res = await _db.listRows(
         databaseId: AppConstants.databaseId,
         tableId: AppConstants.profilesTable,
-        queries: [Query.equal('job_title_id', id), Query.limit(1)],
+        queries: [
+          Query.equal('company_id', companyId),
+          Query.equal('job_title_id', id),
+          Query.limit(1),
+        ],
       );
       return res.rows.isNotEmpty;
     } catch (e) {
@@ -92,6 +129,7 @@ class JobTitleService {
 
   Future<void> deleteJobTitle(String id) async {
     try {
+      await _requireRowCompany(id);
       final inUse = await isJobTitleInUse(id);
       if (inUse) {
         throw Exception('لا يمكن حذف هذا المسمى لأنه مسند إلى موظف حالياً');
@@ -102,7 +140,6 @@ class JobTitleService {
         rowId: id,
       );
     } catch (e) {
-      // Re-throw if it's our own friendly exception
       if (e.toString().contains('لا يمكن حذف هذا المسمى')) {
         rethrow;
       }

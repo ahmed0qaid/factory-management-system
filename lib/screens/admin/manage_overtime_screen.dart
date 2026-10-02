@@ -2,8 +2,9 @@ import 'package:flutter/material.dart';
 
 import '../../models/overtime_record_model.dart';
 import '../../models/profile_model.dart';
-import '../../services/admin_biometrics_service.dart';
 import '../../services/admin_service.dart';
+import '../../services/company_context_service.dart';
+import '../../services/overtime_admin_service.dart';
 import '../../utils/formatters.dart';
 import '../../widgets/common/app_card.dart';
 import '../../widgets/common/app_confirm_dialog.dart';
@@ -24,7 +25,7 @@ class ManageOvertimeScreen extends StatefulWidget {
 }
 
 class _ManageOvertimeScreenState extends State<ManageOvertimeScreen> {
-  final _biometricsService = AdminBiometricsService();
+  final _overtimeService = OvertimeAdminService();
   final _adminService = AdminService();
 
   bool _isLoading = true;
@@ -41,7 +42,8 @@ class _ManageOvertimeScreenState extends State<ManageOvertimeScreen> {
   Future<void> _loadData() async {
     setState(() => _isLoading = true);
     try {
-      final recordsFuture = _biometricsService.getPendingOvertime();
+      await CompanyContextService.requireCompany(widget.companyId);
+      final recordsFuture = _overtimeService.getPendingOvertime();
       final employeesFuture = _adminService.getEmployees(limit: 500);
       final records = await recordsFuture;
       final employees = await employeesFuture;
@@ -82,7 +84,7 @@ class _ManageOvertimeScreenState extends State<ManageOvertimeScreen> {
   Future<void> _updateStatus(String id, String status) async {
     setState(() => _processingId = id);
     try {
-      await _biometricsService.updateOvertimeStatus(id, status);
+      await _overtimeService.updateOvertimeStatus(id, status);
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -146,7 +148,7 @@ class _ManageOvertimeScreenState extends State<ManageOvertimeScreen> {
             return false;
           }
           try {
-            await _biometricsService.payOvertime(record.id, amount);
+            await _overtimeService.payOvertime(record.id, amount);
             if (!mounted) return false;
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(

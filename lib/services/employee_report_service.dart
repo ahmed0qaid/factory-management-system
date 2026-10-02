@@ -11,6 +11,7 @@ import '../models/payroll_model.dart';
 import '../models/penalty_model.dart';
 import '../models/profile_model.dart';
 import 'appwrite_service.dart';
+import 'company_context_service.dart';
 
 class EmployeeReportService {
   Map<String, dynamic> _data(models.Row row) {
@@ -22,11 +23,32 @@ class EmployeeReportService {
 
   String _dateOnly(DateTime value) => value.toIso8601String().substring(0, 10);
 
+  Future<String> _companyId() => CompanyContextService.getCurrentCompanyId();
+
+  Future<ProfileModel> _requireEmployee(String employeeId) async {
+    final companyId = await _companyId();
+    final row = await AppwriteService.tablesDB.getRow(
+      databaseId: AppConstants.databaseId,
+      tableId: AppConstants.profilesTable,
+      rowId: employeeId,
+    );
+    final employee = ProfileModel.fromMap(_data(row));
+    if (employee.companyId != companyId) {
+      throw StateError('لا يمكن عرض تقرير موظف تابع لشركة أخرى.');
+    }
+    return employee;
+  }
+
   Future<List<ProfileModel>> getEmployees({int limit = 200}) async {
+    final companyId = await _companyId();
     final rows = await AppwriteService.tablesDB.listRows(
       databaseId: AppConstants.databaseId,
       tableId: AppConstants.profilesTable,
-      queries: [Query.orderAsc('full_name'), Query.limit(limit)],
+      queries: [
+        Query.equal('company_id', companyId),
+        Query.orderAsc('full_name'),
+        Query.limit(limit),
+      ],
     );
     return rows.rows.map((row) => ProfileModel.fromMap(_data(row))).toList();
   }
@@ -36,25 +58,64 @@ class EmployeeReportService {
     DateTime? from,
     DateTime? to,
   }) async {
-    final employeeRow = await AppwriteService.tablesDB.getRow(
-      databaseId: AppConstants.databaseId,
-      tableId: AppConstants.profilesTable,
-      rowId: employeeId,
-    );
-    final employee = ProfileModel.fromMap(_data(employeeRow));
+    final employee = await _requireEmployee(employeeId);
+    final companyId = employee.companyId;
 
     final results = await Future.wait<List<dynamic>>([
       _safeList(
-        () => _getAttendance(employeeId: employeeId, from: from, to: to),
+        () => _getAttendance(
+          companyId: companyId,
+          employeeId: employeeId,
+          from: from,
+          to: to,
+        ),
       ),
-      _safeList(() => _getPayroll(employeeId: employeeId, from: from, to: to)),
-      _safeList(() => _getAdvances(employeeId: employeeId, from: from, to: to)),
       _safeList(
-        () => _getPenalties(employeeId: employeeId, from: from, to: to),
+        () => _getPayroll(
+          companyId: companyId,
+          employeeId: employeeId,
+          from: from,
+          to: to,
+        ),
       ),
-      _safeList(() => _getLeaves(employeeId: employeeId, from: from, to: to)),
-      _safeList(() => _getOvertime(employeeId: employeeId, from: from, to: to)),
-      _safeList(() => _getDocuments(employeeId: employeeId)),
+      _safeList(
+        () => _getAdvances(
+          companyId: companyId,
+          employeeId: employeeId,
+          from: from,
+          to: to,
+        ),
+      ),
+      _safeList(
+        () => _getPenalties(
+          companyId: companyId,
+          employeeId: employeeId,
+          from: from,
+          to: to,
+        ),
+      ),
+      _safeList(
+        () => _getLeaves(
+          companyId: companyId,
+          employeeId: employeeId,
+          from: from,
+          to: to,
+        ),
+      ),
+      _safeList(
+        () => _getOvertime(
+          companyId: companyId,
+          employeeId: employeeId,
+          from: from,
+          to: to,
+        ),
+      ),
+      _safeList(
+        () => _getDocuments(
+          companyId: companyId,
+          employeeId: employeeId,
+        ),
+      ),
     ]);
 
     return EmployeeFullReport(
@@ -74,114 +135,100 @@ class EmployeeReportService {
     DateTime? from,
     DateTime? to,
     int limit = 500,
-  }) {
-    return _listRows(
-      tableId: AppConstants.attendanceTable,
-      employeeId: employeeId,
-      dateField: 'work_date',
-      from: from,
-      to: to,
-      orderField: 'work_date',
-      limit: limit,
-    );
-  }
+  }) => _listRows(
+    tableId: AppConstants.attendanceTable,
+    employeeId: employeeId,
+    dateField: 'work_date',
+    from: from,
+    to: to,
+    orderField: 'work_date',
+    limit: limit,
+  );
 
   Future<List<models.Row>> getPayrollReport({
     String? employeeId,
     DateTime? from,
     DateTime? to,
     int limit = 500,
-  }) {
-    return _listRows(
-      tableId: AppConstants.payrollTable,
-      employeeId: employeeId,
-      dateField: 'created_at',
-      from: from,
-      to: to,
-      orderField: 'created_at',
-      limit: limit,
-    );
-  }
+  }) => _listRows(
+    tableId: AppConstants.payrollTable,
+    employeeId: employeeId,
+    dateField: 'created_at',
+    from: from,
+    to: to,
+    orderField: 'created_at',
+    limit: limit,
+  );
 
   Future<List<models.Row>> getAdvancesReport({
     String? employeeId,
     DateTime? from,
     DateTime? to,
     int limit = 500,
-  }) {
-    return _listRows(
-      tableId: AppConstants.advancesTable,
-      employeeId: employeeId,
-      dateField: 'created_at',
-      from: from,
-      to: to,
-      orderField: 'created_at',
-      limit: limit,
-    );
-  }
+  }) => _listRows(
+    tableId: AppConstants.advancesTable,
+    employeeId: employeeId,
+    dateField: 'created_at',
+    from: from,
+    to: to,
+    orderField: 'created_at',
+    limit: limit,
+  );
 
   Future<List<models.Row>> getPenaltiesReport({
     String? employeeId,
     DateTime? from,
     DateTime? to,
     int limit = 500,
-  }) {
-    return _listRows(
-      tableId: AppConstants.penaltiesTable,
-      employeeId: employeeId,
-      dateField: 'penalty_date',
-      from: from,
-      to: to,
-      orderField: 'penalty_date',
-      limit: limit,
-    );
-  }
+  }) => _listRows(
+    tableId: AppConstants.penaltiesTable,
+    employeeId: employeeId,
+    dateField: 'penalty_date',
+    from: from,
+    to: to,
+    orderField: 'penalty_date',
+    limit: limit,
+  );
 
   Future<List<models.Row>> getLeavesReport({
     String? employeeId,
     DateTime? from,
     DateTime? to,
     int limit = 500,
-  }) {
-    return _listRows(
-      tableId: AppConstants.leaveRequestsTable,
-      employeeId: employeeId,
-      dateField: 'start_date',
-      from: from,
-      to: to,
-      orderField: 'created_at',
-      limit: limit,
-    );
-  }
+  }) => _listRows(
+    tableId: AppConstants.leaveRequestsTable,
+    employeeId: employeeId,
+    dateField: 'start_date',
+    from: from,
+    to: to,
+    orderField: 'created_at',
+    limit: limit,
+  );
 
   Future<List<models.Row>> getOvertimeReport({
     String? employeeId,
     DateTime? from,
     DateTime? to,
     int limit = 500,
-  }) {
-    return _listRows(
-      tableId: AppConstants.overtimeRecordsTable,
-      employeeId: employeeId,
-      dateField: 'work_date',
-      from: from,
-      to: to,
-      orderField: 'work_date',
-      limit: limit,
-    );
-  }
+  }) => _listRows(
+    tableId: AppConstants.overtimeRecordsTable,
+    employeeId: employeeId,
+    dateField: 'work_date',
+    from: from,
+    to: to,
+    orderField: 'work_date',
+    limit: limit,
+  );
 
   Future<List<models.Row>> getDocumentsReport({
     String? employeeId,
     int limit = 500,
-  }) {
-    return _listRows(
-      tableId: AppConstants.employeeDocumentsTable,
-      employeeId: employeeId,
-      orderField: r'$createdAt',
-      limit: limit,
-    );
-  }
+  }) => _listRows(
+    tableId: AppConstants.employeeDocumentsTable,
+    employeeId: employeeId,
+    orderField: r'$createdAt',
+    limit: limit,
+  );
 
   Future<List<models.Row>> _listRows({
     required String tableId,
@@ -192,7 +239,12 @@ class EmployeeReportService {
     String? orderField,
     int limit = 500,
   }) async {
+    final companyId = await _companyId();
+    if (employeeId != null) {
+      await _requireEmployee(employeeId);
+    }
     final queries = <String>[
+      Query.equal('company_id', companyId),
       if (employeeId != null) Query.equal('employee_id', employeeId),
       if (dateField != null && from != null)
         Query.greaterThanEqual(
@@ -226,21 +278,22 @@ class EmployeeReportService {
   }
 
   Future<List<AttendanceRecordModel>> _getAttendance({
+    required String companyId,
     required String employeeId,
     DateTime? from,
     DateTime? to,
   }) async {
-    final queries = <String>[
-      Query.equal('employee_id', employeeId),
-      Query.orderDesc('work_date'),
-      Query.limit(500),
-      if (from != null) Query.greaterThanEqual('work_date', _dateOnly(from)),
-      if (to != null) Query.lessThanEqual('work_date', _dateOnly(to)),
-    ];
     final rows = await AppwriteService.tablesDB.listRows(
       databaseId: AppConstants.databaseId,
       tableId: AppConstants.attendanceTable,
-      queries: queries,
+      queries: [
+        Query.equal('company_id', companyId),
+        Query.equal('employee_id', employeeId),
+        Query.orderDesc('work_date'),
+        Query.limit(500),
+        if (from != null) Query.greaterThanEqual('work_date', _dateOnly(from)),
+        if (to != null) Query.lessThanEqual('work_date', _dateOnly(to)),
+      ],
     );
     return rows.rows
         .map((row) => AttendanceRecordModel.fromMap(_data(row)))
@@ -248,22 +301,23 @@ class EmployeeReportService {
   }
 
   Future<List<PayrollRecordModel>> _getPayroll({
+    required String companyId,
     required String employeeId,
     DateTime? from,
     DateTime? to,
   }) async {
-    final queries = <String>[
-      Query.equal('employee_id', employeeId),
-      Query.orderDesc('created_at'),
-      Query.limit(200),
-      if (from != null)
-        Query.greaterThanEqual('created_at', from.toIso8601String()),
-      if (to != null) Query.lessThanEqual('created_at', to.toIso8601String()),
-    ];
     final rows = await AppwriteService.tablesDB.listRows(
       databaseId: AppConstants.databaseId,
       tableId: AppConstants.payrollTable,
-      queries: queries,
+      queries: [
+        Query.equal('company_id', companyId),
+        Query.equal('employee_id', employeeId),
+        Query.orderDesc('created_at'),
+        Query.limit(200),
+        if (from != null)
+          Query.greaterThanEqual('created_at', from.toIso8601String()),
+        if (to != null) Query.lessThanEqual('created_at', to.toIso8601String()),
+      ],
     );
     return rows.rows
         .map((row) => PayrollRecordModel.fromMap(_data(row)))
@@ -271,93 +325,101 @@ class EmployeeReportService {
   }
 
   Future<List<AdvanceModel>> _getAdvances({
+    required String companyId,
     required String employeeId,
     DateTime? from,
     DateTime? to,
   }) async {
-    final queries = <String>[
-      Query.equal('employee_id', employeeId),
-      Query.orderDesc('created_at'),
-      Query.limit(200),
-      if (from != null)
-        Query.greaterThanEqual('created_at', from.toIso8601String()),
-      if (to != null) Query.lessThanEqual('created_at', to.toIso8601String()),
-    ];
     final rows = await AppwriteService.tablesDB.listRows(
       databaseId: AppConstants.databaseId,
       tableId: AppConstants.advancesTable,
-      queries: queries,
+      queries: [
+        Query.equal('company_id', companyId),
+        Query.equal('employee_id', employeeId),
+        Query.orderDesc('created_at'),
+        Query.limit(200),
+        if (from != null)
+          Query.greaterThanEqual('created_at', from.toIso8601String()),
+        if (to != null) Query.lessThanEqual('created_at', to.toIso8601String()),
+      ],
     );
     return rows.rows.map((row) => AdvanceModel.fromMap(_data(row))).toList();
   }
 
   Future<List<PenaltyModel>> _getPenalties({
+    required String companyId,
     required String employeeId,
     DateTime? from,
     DateTime? to,
   }) async {
-    final queries = <String>[
-      Query.equal('employee_id', employeeId),
-      Query.orderDesc('penalty_date'),
-      Query.limit(200),
-      if (from != null) Query.greaterThanEqual('penalty_date', _dateOnly(from)),
-      if (to != null) Query.lessThanEqual('penalty_date', _dateOnly(to)),
-    ];
     final rows = await AppwriteService.tablesDB.listRows(
       databaseId: AppConstants.databaseId,
       tableId: AppConstants.penaltiesTable,
-      queries: queries,
+      queries: [
+        Query.equal('company_id', companyId),
+        Query.equal('employee_id', employeeId),
+        Query.orderDesc('penalty_date'),
+        Query.limit(200),
+        if (from != null) Query.greaterThanEqual('penalty_date', _dateOnly(from)),
+        if (to != null) Query.lessThanEqual('penalty_date', _dateOnly(to)),
+      ],
     );
     return rows.rows.map((row) => PenaltyModel.fromMap(_data(row))).toList();
   }
 
   Future<List<LeaveModel>> _getLeaves({
+    required String companyId,
     required String employeeId,
     DateTime? from,
     DateTime? to,
   }) async {
-    final queries = <String>[
-      Query.equal('employee_id', employeeId),
-      Query.orderDesc('created_at'),
-      Query.limit(200),
-      if (from != null) Query.greaterThanEqual('start_date', _dateOnly(from)),
-      if (to != null) Query.lessThanEqual('end_date', _dateOnly(to)),
-    ];
     final rows = await AppwriteService.tablesDB.listRows(
       databaseId: AppConstants.databaseId,
       tableId: AppConstants.leaveRequestsTable,
-      queries: queries,
+      queries: [
+        Query.equal('company_id', companyId),
+        Query.equal('employee_id', employeeId),
+        Query.orderDesc('created_at'),
+        Query.limit(200),
+        if (from != null) Query.greaterThanEqual('start_date', _dateOnly(from)),
+        if (to != null) Query.lessThanEqual('end_date', _dateOnly(to)),
+      ],
     );
     return rows.rows.map((row) => LeaveModel.fromMap(_data(row))).toList();
   }
 
   Future<List<OvertimeRecordModel>> _getOvertime({
+    required String companyId,
     required String employeeId,
     DateTime? from,
     DateTime? to,
   }) async {
-    final queries = <String>[
-      Query.equal('employee_id', employeeId),
-      Query.orderDesc('work_date'),
-      Query.limit(200),
-      if (from != null) Query.greaterThanEqual('work_date', _dateOnly(from)),
-      if (to != null) Query.lessThanEqual('work_date', _dateOnly(to)),
-    ];
     final rows = await AppwriteService.tablesDB.listRows(
       databaseId: AppConstants.databaseId,
       tableId: AppConstants.overtimeRecordsTable,
-      queries: queries,
+      queries: [
+        Query.equal('company_id', companyId),
+        Query.equal('employee_id', employeeId),
+        Query.orderDesc('work_date'),
+        Query.limit(200),
+        if (from != null) Query.greaterThanEqual('work_date', _dateOnly(from)),
+        if (to != null) Query.lessThanEqual('work_date', _dateOnly(to)),
+      ],
     );
     return rows.rows
         .map((row) => OvertimeRecordModel.fromMap(_data(row)))
         .toList();
   }
 
-  Future<List<models.Row>> _getDocuments({required String employeeId}) async {
+  Future<List<models.Row>> _getDocuments({
+    required String companyId,
+    required String employeeId,
+  }) async {
     final rows = await AppwriteService.tablesDB.listRows(
       databaseId: AppConstants.databaseId,
       tableId: AppConstants.employeeDocumentsTable,
       queries: [
+        Query.equal('company_id', companyId),
         Query.equal('employee_id', employeeId),
         Query.orderDesc(r'$createdAt'),
         Query.limit(200),
