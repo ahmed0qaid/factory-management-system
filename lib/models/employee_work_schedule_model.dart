@@ -8,6 +8,9 @@ class EmployeeWorkScheduleModel {
   final DateTime? scheduledEnd;
   final bool isWorkingDay;
   final String? notes;
+  final bool isManualOverride;
+  final DateTime? updatedAt;
+  final String? updatedBy;
 
   EmployeeWorkScheduleModel({
     required this.id,
@@ -19,6 +22,9 @@ class EmployeeWorkScheduleModel {
     this.scheduledEnd,
     required this.isWorkingDay,
     this.notes,
+    this.isManualOverride = false,
+    this.updatedAt,
+    this.updatedBy,
   });
 
   factory EmployeeWorkScheduleModel.fromMap(
@@ -39,6 +45,11 @@ class EmployeeWorkScheduleModel {
           : null,
       isWorkingDay: map['is_working_day'] ?? true,
       notes: map['notes'],
+      isManualOverride: map['is_manual_override'] ?? false,
+      updatedAt: map['updated_at'] != null
+          ? DateTime.tryParse(map['updated_at'].toString())
+          : null,
+      updatedBy: map['updated_by']?.toString(),
     );
   }
 
@@ -52,6 +63,9 @@ class EmployeeWorkScheduleModel {
       'scheduled_end': scheduledEnd?.toIso8601String(),
       'is_working_day': isWorkingDay,
       'notes': notes,
+      'is_manual_override': isManualOverride,
+      'updated_at': updatedAt?.toIso8601String(),
+      'updated_by': updatedBy,
     };
   }
 }
