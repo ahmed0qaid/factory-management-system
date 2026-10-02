@@ -4,23 +4,69 @@ import 'package:appwrite/appwrite.dart';
 import 'package:appwrite/models.dart' as models;
 
 import '../config/constants.dart';
-import '../models/profile_model.dart';
+import '../models/advance_model.dart';
 import '../models/attendance_model.dart';
 import '../models/attendance_policy_model.dart';
-import '../models/advance_model.dart';
 import '../models/penalty_model.dart';
+import '../models/profile_model.dart';
 import '../permissions/role_permissions.dart';
 import 'appwrite_service.dart';
+import 'company_context_service.dart';
 import 'payroll_period_service.dart';
 
 class AdminService {
   Map<String, dynamic> _data(models.Row row) => {...row.data, 'id': row.$id};
 
+  Future<String> _companyId() => CompanyContextService.getCurrentCompanyId();
+
+  Future<ProfileModel> _requireEmployeeInCurrentCompany(
+    String employeeId,
+  ) async {
+    final companyId = await _companyId();
+    final row = await AppwriteService.tablesDB.getRow(
+      databaseId: AppConstants.databaseId,
+      tableId: AppConstants.profilesTable,
+      rowId: employeeId,
+    );
+    final profile = ProfileModel.fromMap(_data(row));
+    if (profile.companyId != companyId) {
+      throw StateError('الموظف لا يتبع شركة المستخدم الحالية.');
+    }
+    return profile;
+  }
+
+  Future<models.Row> _requireCompanyRow({
+    required String tableId,
+    required String rowId,
+    required String companyId,
+    String? employeeId,
+  }) async {
+    await CompanyContextService.requireCompany(companyId);
+    final row = await AppwriteService.tablesDB.getRow(
+      databaseId: AppConstants.databaseId,
+      tableId: tableId,
+      rowId: rowId,
+    );
+    if (row.data['company_id']?.toString() != companyId) {
+      throw StateError('السجل لا يتبع شركة المستخدم الحالية.');
+    }
+    if (employeeId != null &&
+        row.data['employee_id']?.toString() != employeeId) {
+      throw StateError('السجل لا يتبع الموظف المحدد.');
+    }
+    return row;
+  }
+
   Future<List<ProfileModel>> getEmployees({int limit = 100}) async {
+    final companyId = await _companyId();
     final data = await AppwriteService.tablesDB.listRows(
       databaseId: AppConstants.databaseId,
       tableId: AppConstants.profilesTable,
-      queries: [Query.orderDesc(r'$createdAt'), Query.limit(limit)],
+      queries: [
+        Query.equal('company_id', companyId),
+        Query.orderDesc(r'$createdAt'),
+        Query.limit(limit),
+      ],
     );
     return data.rows.map((e) => ProfileModel.fromMap(_data(e))).toList();
   }
@@ -30,12 +76,14 @@ class AdminService {
     required int year,
     required int month,
   }) async {
+    final profile = await _requireEmployeeInCurrentCompany(employeeId);
     final start = DateTime(year, month, 1).toIso8601String().substring(0, 10);
     final end = DateTime(year, month + 1, 0).toIso8601String().substring(0, 10);
     final data = await AppwriteService.tablesDB.listRows(
       databaseId: AppConstants.databaseId,
       tableId: AppConstants.attendanceTable,
       queries: [
+        Query.equal('company_id', profile.companyId),
         Query.equal('employee_id', employeeId),
         Query.greaterThanEqual('work_date', start),
         Query.lessThanEqual('work_date', end),
@@ -52,12 +100,14 @@ class AdminService {
     required int year,
     required int month,
   }) async {
+    final profile = await _requireEmployeeInCurrentCompany(employeeId);
     final start = DateTime(year, month, 1).toIso8601String().substring(0, 10);
     final end = DateTime(year, month + 1, 0).toIso8601String().substring(0, 10);
     final data = await AppwriteService.tablesDB.listRows(
       databaseId: AppConstants.databaseId,
       tableId: AppConstants.penaltiesTable,
       queries: [
+        Query.equal('company_id', profile.companyId),
         Query.equal('employee_id', employeeId),
         Query.greaterThanEqual('penalty_date', start),
         Query.lessThanEqual('penalty_date', end),
@@ -75,12 +125,14 @@ class AdminService {
     required int year,
     required int month,
   }) async {
+    final profile = await _requireEmployeeInCurrentCompany(employeeId);
     final start = DateTime(year, month, 1).toIso8601String();
     final end = DateTime(year, month + 1, 0, 23, 59, 59).toIso8601String();
     final data = await AppwriteService.tablesDB.listRows(
       databaseId: AppConstants.databaseId,
       tableId: AppConstants.advancesTable,
       queries: [
+        Query.equal('company_id', profile.companyId),
         Query.equal('employee_id', employeeId),
         Query.greaterThanEqual('created_at', start),
         Query.lessThanEqual('created_at', end),
@@ -98,19 +150,29 @@ class AdminService {
   }
 
   Future<List<models.Row>> getPayrollRows({int limit = 500}) async {
+    final companyId = await _companyId();
     final data = await AppwriteService.tablesDB.listRows(
       databaseId: AppConstants.databaseId,
       tableId: AppConstants.payrollTable,
-      queries: [Query.orderDesc('created_at'), Query.limit(limit)],
+      queries: [
+        Query.equal('company_id', companyId),
+        Query.orderDesc('created_at'),
+        Query.limit(limit),
+      ],
     );
     return data.rows;
   }
 
   Future<List<models.Row>> getAttendanceRows({int limit = 1000}) async {
+    final companyId = await _companyId();
     final data = await AppwriteService.tablesDB.listRows(
       databaseId: AppConstants.databaseId,
       tableId: AppConstants.attendanceTable,
-      queries: [Query.orderDesc('work_date'), Query.limit(limit)],
+      queries: [
+        Query.equal('company_id', companyId),
+        Query.orderDesc('work_date'),
+        Query.limit(limit),
+      ],
     );
     return data.rows;
   }
@@ -181,13 +243,15 @@ class AdminService {
     required int minutesDeducted,
     required String penaltyDate,
   }) async {
+    final scopedCompanyId = await CompanyContextService.requireCompany(companyId);
+    await _requireEmployeeInCurrentCompany(employeeId);
     final penaltyId = ID.unique();
     await AppwriteService.tablesDB.createRow(
       databaseId: AppConstants.databaseId,
       tableId: AppConstants.penaltiesTable,
       rowId: penaltyId,
       data: {
-        'company_id': companyId,
+        'company_id': scopedCompanyId,
         'employee_id': employeeId,
         'category': category,
         'reason': reason,
@@ -198,18 +262,19 @@ class AdminService {
       },
       permissions: [
         Permission.read(Role.user(employeeId)),
-        Permission.read(Role.team('company_main')),
-        Permission.update(Role.team('company_main', 'hr_admin')),
+        Permission.read(Role.team(scopedCompanyId, AppRoles.hrAdmin)),
+        Permission.update(Role.team(scopedCompanyId, AppRoles.hrAdmin)),
+        Permission.read(Role.team(scopedCompanyId, AppRoles.generalManager)),
+        Permission.update(Role.team(scopedCompanyId, AppRoles.generalManager)),
       ],
     );
 
-    final db = AppwriteService.tablesDB;
-    await db.createRow(
+    await AppwriteService.tablesDB.createRow(
       databaseId: AppConstants.databaseId,
       tableId: AppConstants.notificationsTable,
       rowId: ID.unique(),
       data: {
-        'company_id': companyId,
+        'company_id': scopedCompanyId,
         'employee_id': employeeId,
         'title': 'تم إضافة جزاء',
         'body':
@@ -223,7 +288,7 @@ class AdminService {
       permissions: [
         Permission.read(Role.user(employeeId)),
         Permission.update(Role.user(employeeId)),
-        Permission.read(Role.team('company_main')),
+        Permission.read(Role.team(scopedCompanyId, AppRoles.hrAdmin)),
       ],
     );
   }
@@ -242,6 +307,8 @@ class AdminService {
     required num advanceInstallments,
     required num otherDeductions,
   }) async {
+    final scopedCompanyId = await CompanyContextService.requireCompany(companyId);
+    await _requireEmployeeInCurrentCompany(employeeId);
     final monthlyEntitlement = baseSalary + monthlyBonus;
     final netSalary =
         monthlyEntitlement +
@@ -260,7 +327,7 @@ class AdminService {
       tableId: AppConstants.payrollTable,
       rowId: payrollId,
       data: {
-        'company_id': companyId,
+        'company_id': scopedCompanyId,
         'employee_id': employeeId,
         'base_salary': baseSalary,
         'monthly_bonus': monthlyBonus,
@@ -279,18 +346,21 @@ class AdminService {
       },
       permissions: [
         Permission.read(Role.user(employeeId)),
-        Permission.read(Role.team('company_main')),
-        Permission.update(Role.team('company_main', 'hr_admin')),
+        Permission.read(Role.team(scopedCompanyId, AppRoles.hrAdmin)),
+        Permission.update(Role.team(scopedCompanyId, AppRoles.hrAdmin)),
+        Permission.read(Role.team(scopedCompanyId, AppRoles.financialManager)),
+        Permission.update(
+          Role.team(scopedCompanyId, AppRoles.financialManager),
+        ),
       ],
     );
 
-    final db = AppwriteService.tablesDB;
-    await db.createRow(
+    await AppwriteService.tablesDB.createRow(
       databaseId: AppConstants.databaseId,
       tableId: AppConstants.notificationsTable,
       rowId: ID.unique(),
       data: {
-        'company_id': companyId,
+        'company_id': scopedCompanyId,
         'employee_id': employeeId,
         'title': 'تم اعتماد الراتب',
         'body':
@@ -304,16 +374,19 @@ class AdminService {
       permissions: [
         Permission.read(Role.user(employeeId)),
         Permission.update(Role.user(employeeId)),
-        Permission.read(Role.team('company_main')),
+        Permission.read(Role.team(scopedCompanyId, AppRoles.hrAdmin)),
+        Permission.read(Role.team(scopedCompanyId, AppRoles.financialManager)),
       ],
     );
   }
 
   Future<List<models.Row>> getPendingAdvances() async {
+    final companyId = await _companyId();
     final response = await AppwriteService.tablesDB.listRows(
       databaseId: AppConstants.databaseId,
       tableId: AppConstants.advancesTable,
       queries: [
+        Query.equal('company_id', companyId),
         Query.equal('status', 'pending'),
         Query.orderDesc('created_at'),
       ],
@@ -324,15 +397,9 @@ class AdminService {
   Future<AdvanceBalanceInfo> getEmployeeAdvanceBalance(
     String employeeId,
   ) async {
+    final profile = await _requireEmployeeInCurrentCompany(employeeId);
     final now = DateTime.now();
     final period = PayrollPeriodService.getCurrentPayrollPeriod(now);
-
-    final profileRow = await AppwriteService.tablesDB.getRow(
-      databaseId: AppConstants.databaseId,
-      tableId: AppConstants.profilesTable,
-      rowId: employeeId,
-    );
-    final profile = ProfileModel.fromMap(_data(profileRow));
 
     final workingDaysInPeriod = PayrollPeriodService.countWorkingDays(
       period.periodStart,
@@ -343,6 +410,7 @@ class AdminService {
       databaseId: AppConstants.databaseId,
       tableId: AppConstants.attendanceTable,
       queries: [
+        Query.equal('company_id', profile.companyId),
         Query.equal('employee_id', employeeId),
         Query.greaterThanEqual(
           'work_date',
@@ -356,11 +424,9 @@ class AdminService {
     );
 
     int attendanceDays = 0;
-    for (var doc in attendanceData.rows) {
+    for (final doc in attendanceData.rows) {
       final status = doc.data['status'];
-      if (status == 'present' || status == 'late') {
-        attendanceDays++;
-      } else if (doc.data['check_in'] != null) {
+      if (status == 'present' || status == 'late' || doc.data['check_in'] != null) {
         attendanceDays++;
       }
     }
@@ -374,6 +440,7 @@ class AdminService {
       databaseId: AppConstants.databaseId,
       tableId: AppConstants.advancesTable,
       queries: [
+        Query.equal('company_id', profile.companyId),
         Query.equal('employee_id', employeeId),
         Query.greaterThanEqual(
           'created_at',
@@ -384,7 +451,7 @@ class AdminService {
     );
 
     num previousAdvances = 0;
-    for (var doc in advancesData.rows) {
+    for (final doc in advancesData.rows) {
       final status = doc.data['status'];
       if (status == 'pending' || status == 'approved' || status == 'paid') {
         previousAdvances += (doc.data['principal_amount'] as num? ?? 0);
@@ -395,6 +462,7 @@ class AdminService {
       databaseId: AppConstants.databaseId,
       tableId: AppConstants.penaltiesTable,
       queries: [
+        Query.equal('company_id', profile.companyId),
         Query.equal('employee_id', employeeId),
         Query.greaterThanEqual(
           'penalty_date',
@@ -409,7 +477,7 @@ class AdminService {
 
     int penaltiesCount = 0;
     num penaltiesAmount = 0;
-    for (var doc in penaltiesData.rows) {
+    for (final doc in penaltiesData.rows) {
       final status = doc.data['status'];
       if (status == 'pending' || status == 'approved') {
         penaltiesCount++;
@@ -445,6 +513,15 @@ class AdminService {
     required String employeeId,
     required String status,
   }) async {
+    final scopedCompanyId = await CompanyContextService.requireCompany(companyId);
+    await _requireEmployeeInCurrentCompany(employeeId);
+    await _requireCompanyRow(
+      tableId: AppConstants.advancesTable,
+      rowId: advanceId,
+      companyId: scopedCompanyId,
+      employeeId: employeeId,
+    );
+
     if (status == 'approved') {
       final balanceInfo = await getEmployeeAdvanceBalance(employeeId);
       if (balanceInfo.availableBalance < 0) {
@@ -461,13 +538,12 @@ class AdminService {
       data: {'status': status},
     );
 
-    final db = AppwriteService.tablesDB;
-    await db.createRow(
+    await AppwriteService.tablesDB.createRow(
       databaseId: AppConstants.databaseId,
       tableId: AppConstants.notificationsTable,
       rowId: ID.unique(),
       data: {
-        'company_id': companyId,
+        'company_id': scopedCompanyId,
         'employee_id': employeeId,
         'title': status == 'approved'
             ? 'تم اعتماد طلب السلفة'
@@ -484,16 +560,19 @@ class AdminService {
       permissions: [
         Permission.read(Role.user(employeeId)),
         Permission.update(Role.user(employeeId)),
-        Permission.read(Role.team('company_main')),
+        Permission.read(Role.team(scopedCompanyId, AppRoles.hrAdmin)),
+        Permission.read(Role.team(scopedCompanyId, AppRoles.financialManager)),
       ],
     );
   }
 
   Future<List<models.Row>> getPendingLeaves() async {
+    final companyId = await _companyId();
     final response = await AppwriteService.tablesDB.listRows(
       databaseId: AppConstants.databaseId,
       tableId: AppConstants.leaveRequestsTable,
       queries: [
+        Query.equal('company_id', companyId),
         Query.equal('status', 'pending'),
         Query.orderDesc('created_at'),
       ],
@@ -507,6 +586,15 @@ class AdminService {
     required String employeeId,
     required String status,
   }) async {
+    final scopedCompanyId = await CompanyContextService.requireCompany(companyId);
+    await _requireEmployeeInCurrentCompany(employeeId);
+    await _requireCompanyRow(
+      tableId: AppConstants.leaveRequestsTable,
+      rowId: leaveId,
+      companyId: scopedCompanyId,
+      employeeId: employeeId,
+    );
+
     await AppwriteService.tablesDB.updateRow(
       databaseId: AppConstants.databaseId,
       tableId: AppConstants.leaveRequestsTable,
@@ -514,13 +602,12 @@ class AdminService {
       data: {'status': status, 'reviewed_at': DateTime.now().toIso8601String()},
     );
 
-    final db = AppwriteService.tablesDB;
-    await db.createRow(
+    await AppwriteService.tablesDB.createRow(
       databaseId: AppConstants.databaseId,
       tableId: AppConstants.notificationsTable,
       rowId: ID.unique(),
       data: {
-        'company_id': companyId,
+        'company_id': scopedCompanyId,
         'employee_id': employeeId,
         'title': status == 'approved'
             ? 'تم اعتماد طلب الإجازة'
@@ -537,7 +624,8 @@ class AdminService {
       permissions: [
         Permission.read(Role.user(employeeId)),
         Permission.update(Role.user(employeeId)),
-        Permission.read(Role.team('company_main')),
+        Permission.read(Role.team(scopedCompanyId, AppRoles.hrAdmin)),
+        Permission.read(Role.team(scopedCompanyId, AppRoles.generalManager)),
       ],
     );
   }
@@ -545,11 +633,12 @@ class AdminService {
   Future<AttendancePolicyModel> getActiveAttendancePolicy(
     String companyId,
   ) async {
+    final scopedCompanyId = await CompanyContextService.requireCompany(companyId);
     final docs = await AppwriteService.tablesDB.listRows(
       databaseId: AppConstants.databaseId,
       tableId: AppConstants.attendancePoliciesTable,
       queries: [
-        Query.equal('company_id', companyId),
+        Query.equal('company_id', scopedCompanyId),
         Query.equal('active', true),
       ],
     );
@@ -565,6 +654,15 @@ class AdminService {
   }
 
   Future<void> updateAttendancePolicy(AttendancePolicyModel policy) async {
+    final companyId = await _companyId();
+    final row = await AppwriteService.tablesDB.getRow(
+      databaseId: AppConstants.databaseId,
+      tableId: AppConstants.attendancePoliciesTable,
+      rowId: policy.id,
+    );
+    if (row.data['company_id']?.toString() != companyId) {
+      throw StateError('سياسة الدوام لا تتبع شركة المستخدم الحالية.');
+    }
     await AppwriteService.tablesDB.updateRow(
       databaseId: AppConstants.databaseId,
       tableId: AppConstants.attendancePoliciesTable,
@@ -582,6 +680,7 @@ class AdminService {
   }
 
   Future<void> updateEmployeeStatus(String employeeId, bool isActive) async {
+    await _requireEmployeeInCurrentCompany(employeeId);
     await updateEmployeeCredentials(
       profileId: employeeId,
       profileUpdates: {'active': isActive},
@@ -601,6 +700,7 @@ class AdminService {
     num? dailyWorkHours,
     bool? active,
   }) async {
+    await _requireEmployeeInCurrentCompany(employeeId);
     final profileUpdates = <String, dynamic>{};
     if (fullName != null) profileUpdates['fullName'] = fullName.trim();
     if (departmentName != null) {
@@ -629,6 +729,7 @@ class AdminService {
     String employeeId,
     String? biometricId,
   ) async {
+    await _requireEmployeeInCurrentCompany(employeeId);
     await updateEmployeeCredentials(
       profileId: employeeId,
       profileUpdates: {'biometricEmployeeId': biometricId?.trim() ?? ''},
@@ -642,6 +743,7 @@ class AdminService {
     bool? mustChangePassword,
     Map<String, dynamic>? profileUpdates,
   }) async {
+    await _requireEmployeeInCurrentCompany(profileId);
     final payload = {
       'profileId': profileId,
       if (newEmployeeNumber != null && newEmployeeNumber.trim().isNotEmpty)
