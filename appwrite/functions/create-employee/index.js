@@ -33,6 +33,10 @@ export default async ({ req, res, log, error }) => {
       return res.json({ success: false, error: 'Forbidden' }, 403);
     }
 
+    if (actorProfile.active === false) {
+      return res.json({ success: false, error: 'Disabled account' }, 403);
+    }
+
     const body =
       typeof req.body === 'string' ? JSON.parse(req.body || '{}') : req.body || {};
     const {
@@ -137,7 +141,6 @@ export default async ({ req, res, log, error }) => {
         profileData,
         [
           Permission.read(Role.user(user.$id)),
-          Permission.update(Role.user(user.$id)),
           Permission.read(Role.team(companyId, 'hr_admin')),
           Permission.update(Role.team(companyId, 'hr_admin')),
           Permission.delete(Role.team(companyId, 'hr_admin')),
