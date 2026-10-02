@@ -3,9 +3,10 @@ import 'package:flutter/material.dart';
 import '../../models/job_title_model.dart';
 import '../../models/profile_model.dart';
 import '../../permissions/role_permissions.dart';
-import '../../services/admin_service.dart';
+import '../../services/employee_lifecycle_service.dart';
 import '../../services/job_title_service.dart';
 import '../../theme/app_spacing.dart';
+import '../../utils/formatters.dart';
 import '../../widgets/common/app_card.dart';
 import '../../widgets/common/app_dropdown_field.dart';
 import '../../widgets/common/app_empty_state.dart';
@@ -25,17 +26,21 @@ class CreateEmployeeScreen extends StatefulWidget {
 
 class _CreateEmployeeScreenState extends State<CreateEmployeeScreen> {
   static final _phonePattern = RegExp(r'^\+[0-9]{8,15}$');
+
   final _formKey = GlobalKey<FormState>();
-  final _service = AdminService();
+  final _service = EmployeeLifecycleService();
   final _number = TextEditingController();
   final _name = TextEditingController();
   final _password = TextEditingController();
   final _phone = TextEditingController();
+  final _department = TextEditingController();
   final _salary = TextEditingController();
   final _monthlyBonus = TextEditingController();
   final _biometric = TextEditingController();
+
   bool _loading = false;
   String _role = AppRoles.employee;
+  DateTime _hireDate = DateTime.now();
 
   final _jobTitleService = JobTitleService();
   List<JobTitleModel> _jobTitles = [];
@@ -46,6 +51,19 @@ class _CreateEmployeeScreenState extends State<CreateEmployeeScreen> {
   void initState() {
     super.initState();
     _loadJobTitles();
+  }
+
+  @override
+  void dispose() {
+    _number.dispose();
+    _name.dispose();
+    _password.dispose();
+    _phone.dispose();
+    _department.dispose();
+    _salary.dispose();
+    _monthlyBonus.dispose();
+    _biometric.dispose();
+    super.dispose();
   }
 
   Future<void> _loadJobTitles() async {
@@ -70,6 +88,19 @@ class _CreateEmployeeScreenState extends State<CreateEmployeeScreen> {
     }
   }
 
+  Future<void> _pickHireDate() async {
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: _hireDate,
+      firstDate: DateTime(1990),
+      lastDate: DateTime.now(),
+      helpText: 'اختر تاريخ التعيين',
+    );
+    if (picked != null && mounted) {
+      setState(() => _hireDate = picked);
+    }
+  }
+
   Future<void> _save() async {
     if (!AppRoles.canCreateEmployees(widget.currentProfile.role)) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -78,6 +109,13 @@ class _CreateEmployeeScreenState extends State<CreateEmployeeScreen> {
       return;
     }
     if (!_formKey.currentState!.validate()) return;
+    if (_selectedJobTitles.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('يرجى اختيار المسمى الوظيفي')),
+      );
+      return;
+    }
+
     setState(() => _loading = true);
     try {
       await _service.createEmployee(
@@ -85,6 +123,8 @@ class _CreateEmployeeScreenState extends State<CreateEmployeeScreen> {
         fullName: _name.text.trim(),
         temporaryPassword: _password.text,
         phone: _phone.text.trim().isEmpty ? null : _phone.text.trim(),
+        departmentName: _department.text.trim(),
+        hireDate: _hireDate,
         baseSalary: num.tryParse(_salary.text.trim()) ?? 0,
         monthlyBonus: num.tryParse(_monthlyBonus.text.trim()) ?? 0,
         biometricEmployeeId: _biometric.text.trim().isEmpty
@@ -98,7 +138,7 @@ class _CreateEmployeeScreenState extends State<CreateEmployeeScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text(
-            'تم إنشاء الحساب وسيُطلب منه تغيير كلمة المرور عند أول دخول',
+            'تم إنشاء الموظف بحالة نشطة وسيُطلب منه تغيير كلمة المرور عند أول دخول.',
           ),
         ),
       );
@@ -134,7 +174,7 @@ class _CreateEmployeeScreenState extends State<CreateEmployeeScreen> {
       body: Align(
         alignment: Alignment.topCenter,
         child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 620),
+          constraints: const BoxConstraints(maxWidth: 680),
           child: SingleChildScrollView(
             keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
             padding: const EdgeInsets.all(AppSpacing.md),
@@ -171,7 +211,7 @@ class _CreateEmployeeScreenState extends State<CreateEmployeeScreen> {
                     const Divider(),
                     const SizedBox(height: AppSpacing.xl),
                     Text(
-                      'بيانات الموظف',
+                      'البيانات الوظيفية',
                       style: theme.textTheme.titleMedium?.copyWith(
                         fontWeight: FontWeight.w700,
                       ),
@@ -185,6 +225,31 @@ class _CreateEmployeeScreenState extends State<CreateEmployeeScreen> {
                     ),
                     const SizedBox(height: AppSpacing.md),
                     AppFormField(
+                      controller: _department,
+                      labelText: 'القسم',
+                      hintText: 'مثال: الإنتاج، الموارد البشرية، المالية',
+                      prefixIcon: Icons.apartment_outlined,
+                      validator: _required,
+                    ),
+                    const SizedBox(height: AppSpacing.md),
+                    InkWell(
+                      borderRadius: BorderRadius.circular(12),
+                      onTap: _pickHireDate,
+                      child: InputDecorator(
+                        decoration: const InputDecoration(
+                          labelText: 'تاريخ التعيين',
+                          prefixIcon: Icon(Icons.event_available_outlined),
+                        ),
+                        child: Row(
+                          children: [
+                            Expanded(child: Text(Formatters.date(_hireDate))),
+                            const Icon(Icons.calendar_month_outlined, size: 20),
+                          ],
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: AppSpacing.md),
+                    AppFormField(
                       controller: _phone,
                       keyboardType: TextInputType.phone,
                       labelText: 'الهاتف',
@@ -192,18 +257,26 @@ class _CreateEmployeeScreenState extends State<CreateEmployeeScreen> {
                       validator: _phoneValidator,
                     ),
                     const SizedBox(height: AppSpacing.md),
-                    AppFormField(
-                      controller: _salary,
-                      keyboardType: TextInputType.number,
-                      labelText: 'الراتب الأساسي',
-                      prefixIcon: Icons.attach_money_outlined,
-                    ),
-                    const SizedBox(height: AppSpacing.md),
-                    AppFormField(
-                      controller: _monthlyBonus,
-                      keyboardType: TextInputType.number,
-                      labelText: 'المكافأة الشهرية',
-                      prefixIcon: Icons.money_outlined,
+                    Row(
+                      children: [
+                        Expanded(
+                          child: AppFormField(
+                            controller: _salary,
+                            keyboardType: TextInputType.number,
+                            labelText: 'الراتب الأساسي',
+                            prefixIcon: Icons.attach_money_outlined,
+                          ),
+                        ),
+                        const SizedBox(width: AppSpacing.sm),
+                        Expanded(
+                          child: AppFormField(
+                            controller: _monthlyBonus,
+                            keyboardType: TextInputType.number,
+                            labelText: 'المكافأة الشهرية',
+                            prefixIcon: Icons.money_outlined,
+                          ),
+                        ),
+                      ],
                     ),
                     const SizedBox(height: AppSpacing.md),
                     if (_loadingTitles)
@@ -245,56 +318,39 @@ class _CreateEmployeeScreenState extends State<CreateEmployeeScreen> {
                         ),
                       )
                     else
-                      FormField<List<JobTitleModel>>(
-                        initialValue: _selectedJobTitles,
-                        validator: (val) => _selectedJobTitles.isEmpty
-                            ? 'يرجى اختيار المسمى الوظيفي'
-                            : null,
-                        builder: (state) {
-                          return InputDecorator(
-                            decoration: InputDecoration(
-                              labelText: 'المسمى الوظيفي',
-                              hintText: 'اختر مسمى وظيفي واحد أو أكثر',
-                              errorText: state.errorText,
-                            ),
-                            child: Wrap(
-                              spacing: AppSpacing.sm,
-                              runSpacing: AppSpacing.xs,
-                              children: _jobTitles.map((title) {
-                                final isSelected = _selectedJobTitles.contains(
-                                  title,
-                                );
-                                return FilterChip(
-                                  label: Text(title.name),
-                                  selected: isSelected,
-                                  onSelected: (selected) {
-                                    setState(() {
-                                      if (selected) {
-                                        _selectedJobTitles.add(title);
-                                      } else {
-                                        _selectedJobTitles.remove(title);
-                                      }
-                                      state.didChange(_selectedJobTitles);
-                                    });
-                                  },
-                                );
-                              }).toList(),
-                            ),
-                          );
-                        },
+                      InputDecorator(
+                        decoration: const InputDecoration(
+                          labelText: 'المسمى الوظيفي',
+                          hintText: 'اختر مسمى وظيفي واحد أو أكثر',
+                        ),
+                        child: Wrap(
+                          spacing: AppSpacing.sm,
+                          runSpacing: AppSpacing.xs,
+                          children: _jobTitles.map((title) {
+                            final isSelected = _selectedJobTitles.contains(
+                              title,
+                            );
+                            return FilterChip(
+                              label: Text(title.name),
+                              selected: isSelected,
+                              onSelected: (selected) {
+                                setState(() {
+                                  if (selected) {
+                                    _selectedJobTitles.add(title);
+                                  } else {
+                                    _selectedJobTitles.remove(title);
+                                  }
+                                });
+                              },
+                            );
+                          }).toList(),
+                        ),
                       ),
                     const SizedBox(height: AppSpacing.md),
                     AppFormField(
                       controller: _biometric,
                       labelText: 'رقم البصمة (اختياري)',
                       prefixIcon: Icons.fingerprint_outlined,
-                    ),
-                    const SizedBox(height: AppSpacing.md),
-                    Text(
-                      'المستحق الشهري = الراتب الأساسي + المكافأة الشهرية',
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: scheme.onSurfaceVariant,
-                      ),
                     ),
                     const SizedBox(height: AppSpacing.md),
                     AppDropdownField<String>(
@@ -330,7 +386,7 @@ class _CreateEmployeeScreenState extends State<CreateEmployeeScreen> {
                           const SizedBox(width: AppSpacing.sm),
                           Expanded(
                             child: Text(
-                              'بعد أول تسجيل دخول، سيجبر النظام المستخدم على تغيير كلمة المرور المؤقتة. يجب أن تكون كلمة المرور المؤقتة 8 أحرف على الأقل.',
+                              'الحساب الجديد يبدأ بحالة وظيفية نشطة. الإيقاف المؤقت أو إنهاء الخدمة يتم لاحقًا من إدارة دورة حياة الموظف، بدون حذف أي سجل سابق.',
                               style: theme.textTheme.bodySmall?.copyWith(
                                 color: scheme.onSurfaceVariant,
                                 height: 1.5,
