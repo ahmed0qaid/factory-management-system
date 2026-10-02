@@ -29,9 +29,15 @@ class MonthlySalaryReport {
   final num hourlyWage;
   final int presentDays;
   final int absentDays;
+  final int paidLeaveDays;
+  final int unpaidLeaveDays;
+  final int paidStoppageDays;
+  final int unpaidStoppageDays;
   final int unresolvedAttendanceCount;
   final num attendanceSalary;
   final num absenceDeduction;
+  final num unpaidLeaveDeduction;
+  final num unpaidStoppageDeduction;
   final num penaltiesDeduction;
   final num advanceDeduction;
   final num netSalary;
@@ -52,9 +58,15 @@ class MonthlySalaryReport {
     required this.hourlyWage,
     required this.presentDays,
     required this.absentDays,
+    required this.paidLeaveDays,
+    required this.unpaidLeaveDays,
+    required this.paidStoppageDays,
+    required this.unpaidStoppageDays,
     required this.unresolvedAttendanceCount,
     required this.attendanceSalary,
     required this.absenceDeduction,
+    required this.unpaidLeaveDeduction,
+    required this.unpaidStoppageDeduction,
     required this.penaltiesDeduction,
     required this.advanceDeduction,
     required this.netSalary,
@@ -62,6 +74,8 @@ class MonthlySalaryReport {
 
   String get monthKey => '$year-${month.toString().padLeft(2, '0')}';
   bool get isAttendanceFinalized => unresolvedAttendanceCount == 0;
+  int get paidProtectedDays => paidLeaveDays + paidStoppageDays;
+  int get unpaidProtectedDays => unpaidLeaveDays + unpaidStoppageDays;
 }
 
 class SalaryCalculationService {
@@ -141,17 +155,39 @@ class SalaryCalculationService {
     final finalizedAttendance = attendanceRecords
         .where((record) => !record.hasUnresolvedReview)
         .toList();
+
     final presentDays = finalizedAttendance.where(_isPresent).length;
-    final absentDays = finalizedAttendance.where(_isAbsent).length;
-    final attendanceSalary = presentDays * dailyWage;
+    final paidLeaveDays = finalizedAttendance
+        .where((record) => _isExceptionDay(record, 'paid_leave'))
+        .length;
+    final unpaidLeaveDays = finalizedAttendance
+        .where((record) => _isExceptionDay(record, 'unpaid_leave'))
+        .length;
+    final paidStoppageDays = finalizedAttendance
+        .where((record) => _isExceptionDay(record, 'factory_stoppage_paid'))
+        .length;
+    final unpaidStoppageDays = finalizedAttendance
+        .where((record) => _isExceptionDay(record, 'factory_stoppage_unpaid'))
+        .length;
+    final absentDays = finalizedAttendance.where(_isChargeableAbsence).length;
+
+    final attendanceSalary =
+        (presentDays + paidLeaveDays + paidStoppageDays) * dailyWage;
     final absenceDeduction = absentDays * dailyWage;
+    final unpaidLeaveDeduction = unpaidLeaveDays * dailyWage;
+    final unpaidStoppageDeduction = unpaidStoppageDays * dailyWage;
     final penaltiesDeduction = penalties.fold<num>(
       0,
       (total, penalty) => total + penalty.amount,
     );
     final advanceDeduction = advancesTotal;
     final netSalary =
-        grossSalary - absenceDeduction - penaltiesDeduction - advanceDeduction;
+        grossSalary -
+        absenceDeduction -
+        unpaidLeaveDeduction -
+        unpaidStoppageDeduction -
+        penaltiesDeduction -
+        advanceDeduction;
 
     return MonthlySalaryReport(
       employee: employee,
@@ -169,9 +205,15 @@ class SalaryCalculationService {
       hourlyWage: hourlyWage,
       presentDays: presentDays,
       absentDays: absentDays,
+      paidLeaveDays: paidLeaveDays,
+      unpaidLeaveDays: unpaidLeaveDays,
+      paidStoppageDays: paidStoppageDays,
+      unpaidStoppageDays: unpaidStoppageDays,
       unresolvedAttendanceCount: 0,
       attendanceSalary: attendanceSalary,
       absenceDeduction: absenceDeduction,
+      unpaidLeaveDeduction: unpaidLeaveDeduction,
+      unpaidStoppageDeduction: unpaidStoppageDeduction,
       penaltiesDeduction: penaltiesDeduction,
       advanceDeduction: advanceDeduction,
       netSalary: netSalary,
@@ -183,8 +225,14 @@ class SalaryCalculationService {
     return record.status == 'present' || record.status == 'late';
   }
 
-  static bool _isAbsent(AttendanceRecordModel record) {
-    if (record.hasUnresolvedReview) return false;
+  static bool _isExceptionDay(AttendanceRecordModel record, String type) {
+    if (record.hasUnresolvedReview || record.hasActualPresence) return false;
+    return record.calendarExceptionType == type;
+  }
+
+  static bool _isChargeableAbsence(AttendanceRecordModel record) {
+    if (record.hasUnresolvedReview || record.hasActualPresence) return false;
+    if (record.hasCalendarException) return false;
     return record.status == 'absent';
   }
 }
