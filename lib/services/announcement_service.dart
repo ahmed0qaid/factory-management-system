@@ -3,6 +3,7 @@ import 'package:appwrite/models.dart' as models;
 
 import '../config/constants.dart';
 import 'appwrite_service.dart';
+import 'company_context_service.dart';
 
 class AnnouncementPublishResult {
   final String announcementId;
@@ -19,15 +20,30 @@ class AnnouncementPublishResult {
 }
 
 class AnnouncementService {
+  Future<void> _requireAnnouncementInCurrentCompany(
+    String announcementId,
+  ) async {
+    final companyId = await CompanyContextService.getCurrentCompanyId();
+    final row = await AppwriteService.tablesDB.getRow(
+      databaseId: AppConstants.databaseId,
+      tableId: AppConstants.announcementsTable,
+      rowId: announcementId,
+    );
+    if (row.data['company_id']?.toString() != companyId) {
+      throw StateError('الإعلان لا يتبع شركة المستخدم الحالية.');
+    }
+  }
+
   Future<List<models.Row>> getAnnouncements({
     required String companyId,
     int limit = 100,
   }) async {
+    final scopedCompanyId = await CompanyContextService.requireCompany(companyId);
     final response = await AppwriteService.tablesDB.listRows(
       databaseId: AppConstants.databaseId,
       tableId: AppConstants.announcementsTable,
       queries: [
-        Query.equal('company_id', companyId),
+        Query.equal('company_id', scopedCompanyId),
         Query.orderDesc('publish_at'),
         Query.limit(limit),
       ],
@@ -57,6 +73,7 @@ class AnnouncementService {
     DateTime? publishAt,
     DateTime? expiresAt,
   }) async {
+    final scopedCompanyId = await CompanyContextService.requireCompany(companyId);
     final cleanTitle = title.trim();
     final cleanBody = body.trim();
     if (cleanTitle.isEmpty || cleanBody.isEmpty) {
@@ -77,18 +94,18 @@ class AnnouncementService {
       tableId: AppConstants.announcementsTable,
       rowId: announcementId,
       data: {
-        'company_id': companyId,
+        'company_id': scopedCompanyId,
         'title': cleanTitle,
         'body': cleanBody,
         'publish_at': publishedAt.toIso8601String(),
         'expires_at': expiresAt?.toIso8601String(),
       },
       permissions: [
-        Permission.read(Role.team(companyId)),
-        Permission.update(Role.team(companyId, 'hr_admin')),
-        Permission.delete(Role.team(companyId, 'hr_admin')),
-        Permission.update(Role.team(companyId, 'general_manager')),
-        Permission.delete(Role.team(companyId, 'general_manager')),
+        Permission.read(Role.team(scopedCompanyId)),
+        Permission.update(Role.team(scopedCompanyId, 'hr_admin')),
+        Permission.delete(Role.team(scopedCompanyId, 'hr_admin')),
+        Permission.update(Role.team(scopedCompanyId, 'general_manager')),
+        Permission.delete(Role.team(scopedCompanyId, 'general_manager')),
       ],
     );
 
@@ -101,7 +118,7 @@ class AnnouncementService {
         databaseId: AppConstants.databaseId,
         tableId: AppConstants.profilesTable,
         queries: [
-          Query.equal('company_id', companyId),
+          Query.equal('company_id', scopedCompanyId),
           Query.equal('active', true),
           Query.limit(500),
         ],
@@ -118,7 +135,7 @@ class AnnouncementService {
             tableId: AppConstants.notificationsTable,
             rowId: ID.unique(),
             data: {
-              'company_id': companyId,
+              'company_id': scopedCompanyId,
               'employee_id': profile.$id,
               'title': cleanTitle,
               'body': notificationBody,
@@ -131,7 +148,7 @@ class AnnouncementService {
             permissions: [
               Permission.read(Role.user(profile.$id)),
               Permission.update(Role.user(profile.$id)),
-              Permission.read(Role.team(companyId, 'hr_admin')),
+              Permission.read(Role.team(scopedCompanyId, 'hr_admin')),
             ],
           );
           sent++;
@@ -157,6 +174,7 @@ class AnnouncementService {
     required String body,
     DateTime? expiresAt,
   }) async {
+    await _requireAnnouncementInCurrentCompany(announcementId);
     final cleanTitle = title.trim();
     final cleanBody = body.trim();
     if (cleanTitle.isEmpty || cleanBody.isEmpty) {
@@ -182,6 +200,7 @@ class AnnouncementService {
   }
 
   Future<void> deleteAnnouncement(String announcementId) async {
+    await _requireAnnouncementInCurrentCompany(announcementId);
     await AppwriteService.tablesDB.deleteRow(
       databaseId: AppConstants.databaseId,
       tableId: AppConstants.announcementsTable,
