@@ -144,8 +144,10 @@ class _ImportBiometricScreenState extends State<ImportBiometricScreen> {
   @override
   Widget build(BuildContext context) {
     final groups = _summary?.groups ?? const <ProcessedGroup>[];
-    final start = ((_currentPage - 1) * _itemsPerPage).clamp(0, groups.length);
-    final end = (start + _itemsPerPage).clamp(0, groups.length);
+    final start = ((_currentPage - 1) * _itemsPerPage)
+        .clamp(0, groups.length)
+        .toInt();
+    final end = (start + _itemsPerPage).clamp(0, groups.length).toInt();
     final currentGroups = groups.sublist(start, end);
 
     return AppScaffold(
@@ -318,10 +320,7 @@ class _ImportBiometricScreenState extends State<ImportBiometricScreen> {
   }
 
   Widget _summaryChip(String label, int value, {Color? color}) {
-    return Chip(
-      backgroundColor: color,
-      label: Text('$label: $value'),
-    );
+    return Chip(backgroundColor: color, label: Text('$label: $value'));
   }
 
   Widget _buildGroupTile(ProcessedGroup group) {
@@ -430,28 +429,57 @@ class _ImportBiometricScreenState extends State<ImportBiometricScreen> {
     await showDialog<void>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        title: Text(hasErrors ? 'اكتمل الاستيراد مع ملاحظات' : 'اكتمل الاستيراد'),
+        title: Text(
+          hasErrors ? 'اكتمل الاستيراد مع ملاحظات' : 'اكتمل الاستيراد',
+        ),
         content: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 560),
           child: SingleChildScrollView(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                _resultLine('Batch محفوظ', result['batch_saved'] == true ? 'نعم' : 'لا'),
+                _resultLine(
+                  'Batch محفوظ',
+                  result['batch_saved'] == true ? 'نعم' : 'لا',
+                ),
                 _resultLine('صفوف Excel', '${result['excel_rows_read'] ?? 0}'),
-                _resultLine('الموظفون المطابقون', '${result['matched_employees'] ?? 0}'),
+                _resultLine(
+                  'الموظفون المطابقون',
+                  '${result['matched_employees'] ?? 0}',
+                ),
                 _resultLine('غير المرتبطين', '${result['unmatched'] ?? 0}'),
                 const Divider(),
                 _resultLine('Logs محفوظة', '${result['logs_saved'] ?? 0}'),
                 _resultLine('Logs متخطاة', '${result['logs_skipped'] ?? 0}'),
-                _resultLine('حضور منشأ', '${result['created_attendance'] ?? 0}'),
-                _resultLine('حضور متخطى', '${result['skipped_attendance'] ?? 0}'),
-                _resultLine('أيام راحة متخطاة', '${result['skipped_rest_days'] ?? 0}'),
-                _resultLine('إضافي منشأ', '${result['created_overtime'] ?? 0}'),
-                _resultLine('تحتاج مراجعة', '${result['needs_review'] ?? 0}'),
+                _resultLine(
+                  'حضور منشأ',
+                  '${result['created_attendance'] ?? 0}',
+                ),
+                _resultLine(
+                  'حضور متخطى',
+                  '${result['skipped_attendance'] ?? 0}',
+                ),
+                _resultLine(
+                  'أيام راحة متخطاة',
+                  '${result['skipped_rest_days'] ?? 0}',
+                ),
+                _resultLine(
+                  'إضافي منشأ',
+                  '${result['created_overtime'] ?? 0}',
+                ),
+                _resultLine(
+                  'تحتاج مراجعة',
+                  '${result['needs_review'] ?? 0}',
+                ),
                 _resultLine('غياب', '${result['absent_cases'] ?? 0}'),
-                _resultLine('موظفون مؤقتون جدد', '${result['created_temporary'] ?? 0}'),
-                _resultLine('موظفون مؤقتون محدثون', '${result['updated_temporary'] ?? 0}'),
+                _resultLine(
+                  'موظفون مؤقتون جدد',
+                  '${result['created_temporary'] ?? 0}',
+                ),
+                _resultLine(
+                  'موظفون مؤقتون محدثون',
+                  '${result['updated_temporary'] ?? 0}',
+                ),
                 if (hasErrors) ...[
                   const Divider(),
                   Text(
