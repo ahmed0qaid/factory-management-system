@@ -40,8 +40,8 @@ class _ImportBiometricScreenState extends State<ImportBiometricScreen> {
       allowedExtensions: ['xlsx'],
       withData: true,
     );
-
     if (result == null || result.files.isEmpty) return;
+
     final file = result.files.first;
     if (file.extension?.toLowerCase() != 'xlsx') {
       if (mounted) {
@@ -61,20 +61,26 @@ class _ImportBiometricScreenState extends State<ImportBiometricScreen> {
   }
 
   Future<void> _generatePreview() async {
-    if (_selectedFile == null || _selectedFile!.bytes == null) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('الرجاء اختيار ملف صحيح')));
+    final file = _selectedFile;
+    if (file == null || file.bytes == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('الرجاء اختيار ملف Excel صحيح.')),
+      );
       return;
     }
 
     setState(() => _isLoading = true);
     try {
-      final parsed = ExcelAttendanceImportParser.parse(_selectedFile!.bytes!);
+      final parsed = ExcelAttendanceImportParser.parse(file.bytes!);
+      final canonicalSummary = await _adminBiometrics
+          .prepareProcessedBiometricPreview(
+            companyId: widget.companyId,
+            summary: parsed.summary,
+          );
       if (!mounted) return;
       setState(() {
         _previewData = parsed.rawLogs;
-        _summary = parsed.summary;
+        _summary = canonicalSummary;
         _currentPage = 1;
       });
     } catch (e) {
@@ -92,21 +98,21 @@ class _ImportBiometricScreenState extends State<ImportBiometricScreen> {
     final summary = _summary;
     if (summary == null || summary.groups.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('الرجاء معاينة الملف أولاً')),
+        const SnackBar(content: Text('الرجاء معاينة الملف أولاً.')),
       );
       return;
     }
 
     final hasReviewCases = summary.needsReviewGroups > 0;
-    final confirm = await AppConfirmDialog.show(
+    final confirmed = await AppConfirmDialog.show(
       context,
       title: hasReviewCases ? 'حالات تحتاج مراجعة' : 'تأكيد الاستيراد',
       content: hasReviewCases
-          ? 'توجد حالات تحتاج مراجعة. سيتم حفظ الحالات غير المكتملة كسجلات «تحتاج مراجعة» وتنبيهات للموظفين. هل تريد المتابعة؟'
-          : 'سيتم حفظ نتائج المعاينة في قاعدة البيانات. هل تريد المتابعة؟',
-      confirmText: hasReviewCases ? 'استيراد ومتابعة' : 'متابعة',
+          ? 'توجد حالات تحتاج مراجعة وفق جدول الدوام الداخلي. سيتم حفظها بحالة «تحتاج مراجعة» دون الاعتماد على أوقات الدوام الموجودة في Excel. هل تريد المتابعة؟'
+          : 'سيتم إنشاء الحضور باستخدام employee_work_schedules كمصدر رسمي لأوقات الدوام. هل تريد المتابعة؟',
+      confirmText: 'استيراد',
     );
-    if (confirm != true) return;
+    if (confirmed != true) return;
 
     setState(() => _isLoading = true);
     try {
@@ -118,36 +124,14 @@ class _ImportBiometricScreenState extends State<ImportBiometricScreen> {
       );
       if (mounted) await _showImportResult(result);
     } catch (e, st) {
+      debugPrint('IMPORT_UI_FAILED: $e');
+      debugPrint('IMPORT_UI_STACK: $st');
       if (mounted) {
-        final msg = e.toString();
-        debugPrint('IMPORT_UI_FAILED: $e');
-        debugPrint('IMPORT_UI_STACK: $st');
-
-        String displayMsg = 'فشل الاستيراد: حدث خطأ غير متوقع.';
-        if (msg.contains('صلاحية') || msg.contains('401')) {
-          displayMsg = msg.replaceFirst('Exception: ', '');
-          if (!displayMsg.contains('صلاحية')) {
-            displayMsg =
-                'فشل الاستيراد: لا توجد صلاحية لحفظ سجلات البصمة في Appwrite.';
-          }
-        } else if (msg.contains('حقل غير موجود') || msg.contains('Attribute')) {
-          displayMsg = msg.replaceFirst('Exception: ', '');
-          if (!displayMsg.contains('حقل غير موجود')) {
-            displayMsg =
-                'فشل الاستيراد: حقل غير موجود أو نوع بيانات غير صحيح. راجع Debug Console.';
-          }
-        } else {
-          final cleanMsg = msg
-              .split('\n')
-              .first
-              .replaceFirst('Exception: ', '')
-              .trim();
-          displayMsg = 'فشل الاستيراد: $cleanMsg';
-        }
-
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(displayMsg),
+            content: Text(
+              'فشل الاستيراد: ${e.toString().replaceFirst('Exception: ', '')}',
+            ),
             duration: const Duration(seconds: 5),
           ),
         );
@@ -157,177 +141,328 @@ class _ImportBiometricScreenState extends State<ImportBiometricScreen> {
     }
   }
 
-  Future<void> _showImportResult(Map<String, dynamic> result) async {
+  @override
+  Widget build(BuildContext context) {
+    final groups = _summary?.groups ?? const <ProcessedGroup>[];
+    final start = ((_currentPage - 1) * _itemsPerPage).clamp(0, groups.length);
+    final end = (start + _itemsPerPage).clamp(0, groups.length);
+    final currentGroups = groups.sublist(start, end);
+
+    return AppScaffold(
+      title: 'استيراد ملف الحضور Excel',
+      body: Align(
+        alignment: Alignment.topCenter,
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 1100),
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                _buildSourceNotice(),
+                const SizedBox(height: 12),
+                _buildFileCard(),
+                const SizedBox(height: 16),
+                if (_isLoading)
+                  const AppLoadingState(label: 'جاري معالجة ملف البصمة')
+                else if (_summary != null) ...[
+                  _buildSummaryCard(_summary!),
+                  const SizedBox(height: 16),
+                  if (groups.isEmpty)
+                    const AppEmptyState(
+                      title: 'لا توجد بيانات قابلة للمعالجة',
+                      message: 'لم يتم العثور على صفوف حضور صالحة في الملف.',
+                      icon: Icons.event_busy_outlined,
+                    )
+                  else
+                    AppCard(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          Text(
+                            'معاينة حسب جدول الدوام الداخلي',
+                            style: Theme.of(context).textTheme.titleMedium
+                                ?.copyWith(fontWeight: FontWeight.w700),
+                          ),
+                          const SizedBox(height: 12),
+                          ...currentGroups.map(_buildGroupTile),
+                          const SizedBox(height: 8),
+                          PaginationControls(
+                            currentPage: _currentPage,
+                            totalItems: groups.length,
+                            itemsPerPage: _itemsPerPage,
+                            onPageChanged: (page) =>
+                                setState(() => _currentPage = page),
+                            onItemsPerPageChanged: (count) => setState(() {
+                              _itemsPerPage = count;
+                              _currentPage = 1;
+                            }),
+                          ),
+                        ],
+                      ),
+                    ),
+                  const SizedBox(height: 16),
+                  AppLoadingButton(
+                    onPressed: _importData,
+                    isLoading: _isLoading,
+                    text: 'اعتماد واستيراد النتائج',
+                    icon: Icons.cloud_upload_outlined,
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSourceNotice() {
+    final scheme = Theme.of(context).colorScheme;
+    return AppCard(
+      backgroundColor: scheme.primaryContainer.withValues(alpha: .42),
+      borderColor: scheme.primary.withValues(alpha: .22),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(Icons.verified_outlined, color: scheme.primary),
+          const SizedBox(width: 10),
+          const Expanded(
+            child: Text(
+              'المصدر الرسمي للدوام هو جدول employee_work_schedules. أعمدة «الحضور المطلوب» و«الانصراف المطلوب» في Excel لا تستخدم لحساب التأخير أو الإضافي أو وقت الدوام المحفوظ.',
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildFileCard() {
+    final file = _selectedFile;
+    return AppCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(
+            'ملف البصمة',
+            style: Theme.of(
+              context,
+            ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
+          ),
+          const SizedBox(height: 12),
+          if (file != null)
+            ListTile(
+              contentPadding: EdgeInsets.zero,
+              leading: const Icon(Icons.description_outlined),
+              title: Text(file.name),
+              subtitle: Text('${file.size} bytes'),
+            )
+          else
+            const Text('لم يتم اختيار ملف بعد.'),
+          const SizedBox(height: 12),
+          Wrap(
+            spacing: 10,
+            runSpacing: 10,
+            children: [
+              OutlinedButton.icon(
+                onPressed: _isLoading ? null : _pickFile,
+                icon: const Icon(Icons.attach_file),
+                label: Text(file == null ? 'اختيار ملف' : 'تغيير الملف'),
+              ),
+              FilledButton.icon(
+                onPressed: file == null || _isLoading ? null : _generatePreview,
+                icon: const Icon(Icons.preview_outlined),
+                label: const Text('معاينة'),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSummaryCard(PreprocessSummary summary) {
+    final semantic = context.semanticColors;
+    return AppCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(
+            'ملخص المعالجة',
+            style: Theme.of(
+              context,
+            ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
+          ),
+          const SizedBox(height: 12),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              _summaryChip('صفوف Excel', summary.excelRowsRead),
+              _summaryChip('موظفون مطابقون', summary.matchedEmployees),
+              _summaryChip('غير مرتبطين', summary.unmatchedEmployees),
+              _summaryChip('غياب', summary.absentCases),
+              _summaryChip(
+                'تحتاج مراجعة',
+                summary.needsReviewGroups,
+                color: summary.needsReviewGroups > 0
+                    ? semantic.warningContainer
+                    : null,
+              ),
+              _summaryChip('إضافي متوقع', summary.expectedOvertimeCases),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _summaryChip(String label, int value, {Color? color}) {
+    return Chip(
+      backgroundColor: color,
+      label: Text('$label: $value'),
+    );
+  }
+
+  Widget _buildGroupTile(ProcessedGroup group) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
-    final semantic = context.semanticColors;
+
+    Widget statusPill;
+    if (group.skipAttendance) {
+      statusPill = AppStatusPill.neutral('راحة');
+    } else if (!group.canonicalScheduleResolved) {
+      statusPill = AppStatusPill.warning('بدون جدول داخلي');
+    } else if (group.needsReview) {
+      statusPill = AppStatusPill.warning('تحتاج مراجعة');
+    } else if (group.isAbsent) {
+      statusPill = AppStatusPill.neutral('غياب');
+    } else {
+      statusPill = AppStatusPill.success('جاهز');
+    }
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        border: Border.all(color: scheme.outlineVariant),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  group.employeeName?.trim().isNotEmpty == true
+                      ? group.employeeName!.trim()
+                      : 'رقم البصمة ${group.biometricId}',
+                  style: theme.textTheme.titleSmall?.copyWith(
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+              statusPill,
+            ],
+          ),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 18,
+            runSpacing: 8,
+            children: [
+              _dataText('رقم البصمة', group.biometricId),
+              _dataText('تاريخ الدوام', Formatters.date(group.workDate)),
+              _dataText(
+                'الوردية',
+                group.suggestedShift?.name ??
+                    (group.skipAttendance ? 'يوم راحة' : 'غير محددة'),
+              ),
+              _dataText(
+                'بداية الدوام',
+                group.shiftStart == null
+                    ? '-'
+                    : Formatters.time(group.shiftStart!),
+              ),
+              _dataText(
+                'نهاية الدوام',
+                group.shiftEnd == null ? '-' : Formatters.time(group.shiftEnd!),
+              ),
+              _dataText(
+                'دخول فعلي',
+                group.actualCheckIn == null
+                    ? '-'
+                    : Formatters.time(group.actualCheckIn!),
+              ),
+              _dataText(
+                'خروج فعلي',
+                group.actualCheckOut == null
+                    ? '-'
+                    : Formatters.time(group.actualCheckOut!),
+              ),
+            ],
+          ),
+          if (group.reviewReason.trim().isNotEmpty) ...[
+            const SizedBox(height: 8),
+            Text(
+              group.reviewReason,
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: group.needsReview
+                    ? context.semanticColors.warning
+                    : scheme.onSurfaceVariant,
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _dataText(String label, String value) {
+    return Text('$label: $value');
+  }
+
+  Future<void> _showImportResult(Map<String, dynamic> result) async {
     final errors = result['errors'] as List? ?? const [];
     final hasErrors = errors.isNotEmpty;
+    final scheme = Theme.of(context).colorScheme;
 
     await showDialog<void>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        title: Row(
-          children: [
-            Container(
-              width: 40,
-              height: 40,
-              decoration: BoxDecoration(
-                color: hasErrors
-                    ? semantic.warningContainer
-                    : semantic.successContainer,
-                shape: BoxShape.circle,
-              ),
-              child: Icon(
-                hasErrors ? Icons.warning_amber_rounded : Icons.check_rounded,
-                color: hasErrors
-                    ? semantic.onWarningContainer
-                    : semantic.onSuccessContainer,
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Text(
-                hasErrors ? 'تم الاستيراد بنجاح جزئي' : 'اكتمل الاستيراد بنجاح',
-              ),
-            ),
-          ],
-        ),
+        title: Text(hasErrors ? 'اكتمل الاستيراد مع ملاحظات' : 'اكتمل الاستيراد'),
         content: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 560),
           child: SingleChildScrollView(
             child: Column(
-              mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                _resultLine(
-                  'Batch محفوظ',
-                  result['batch_saved'] == true ? 'نعم' : 'لا',
-                ),
-                _resultLine(
-                  'صفوف Excel المقروءة',
-                  '${result['excel_rows_read'] ?? _summary?.excelRowsRead ?? 0}',
-                ),
-                _resultLine(
-                  'الموظفون المطابقون',
-                  '${result['matched_employees'] ?? 0}',
-                ),
-                _resultLine(
-                  'أرقام البصمة غير المرتبطة',
-                  '${result['unmatched'] ?? 0}',
-                ),
-                const Divider(height: 20),
-                _resultLine(
-                  'سجلات بصمة محفوظة',
-                  '${result['logs_saved'] ?? 0}',
-                ),
-                _resultLine(
-                  'سجلات بصمة متخطاة',
-                  '${result['logs_skipped'] ?? 0}',
-                ),
-                _resultLine(
-                  'سجلات بصمة فشلت',
-                  '${result['logs_failed'] ?? 0}',
-                  color: (result['logs_failed'] ?? 0) != 0
-                      ? scheme.error
-                      : null,
-                ),
-                const Divider(height: 20),
-                _resultLine(
-                  'سجلات حضور منشأة',
-                  '${result['created_attendance'] ?? 0}',
-                ),
-                _resultLine(
-                  'سجلات حضور متخطاة',
-                  '${result['skipped_attendance'] ?? 0}',
-                ),
+                _resultLine('Batch محفوظ', result['batch_saved'] == true ? 'نعم' : 'لا'),
+                _resultLine('صفوف Excel', '${result['excel_rows_read'] ?? 0}'),
+                _resultLine('الموظفون المطابقون', '${result['matched_employees'] ?? 0}'),
+                _resultLine('غير المرتبطين', '${result['unmatched'] ?? 0}'),
+                const Divider(),
+                _resultLine('Logs محفوظة', '${result['logs_saved'] ?? 0}'),
+                _resultLine('Logs متخطاة', '${result['logs_skipped'] ?? 0}'),
+                _resultLine('حضور منشأ', '${result['created_attendance'] ?? 0}'),
+                _resultLine('حضور متخطى', '${result['skipped_attendance'] ?? 0}'),
+                _resultLine('أيام راحة متخطاة', '${result['skipped_rest_days'] ?? 0}'),
                 _resultLine('إضافي منشأ', '${result['created_overtime'] ?? 0}'),
-                _resultLine(
-                  'إضافي متخطى',
-                  '${result['skipped_overtime'] ?? 0}',
-                ),
-                _resultLine(
-                  'تنبيهات منشأة',
-                  '${result['created_notifications'] ?? 0}',
-                ),
-                _resultLine(
-                  'حالات تحتاج مراجعة',
-                  '${result['needs_review'] ?? 0}',
-                  color: (result['needs_review'] ?? 0) != 0
-                      ? semantic.warning
-                      : null,
-                ),
-                _resultLine(
-                  'حالات غياب',
-                  '${result['absent_cases'] ?? 0}',
-                  color: (result['absent_cases'] ?? 0) != 0
-                      ? scheme.error
-                      : null,
-                ),
-                _resultLine(
-                  'دخول بدون خروج',
-                  '${result['missing_check_out'] ?? 0}',
-                ),
-                _resultLine(
-                  'خروج بدون دخول',
-                  '${result['missing_check_in'] ?? 0}',
-                ),
-                const Divider(height: 20),
-                _resultLine(
-                  'موظفون مؤقتون جدد',
-                  '${result['created_temporary'] ?? 0}',
-                ),
-                _resultLine(
-                  'موظفون مؤقتون محدثون',
-                  '${result['updated_temporary'] ?? 0}',
-                ),
-                _resultLine(
-                  'موظفون مؤقتون متخطون',
-                  '${result['skipped_temporary'] ?? 0}',
-                ),
-                _resultLine(
-                  'موظفون مؤقتون فشل حفظهم',
-                  '${result['temporary_failed'] ?? 0}',
-                  color: (result['temporary_failed'] ?? 0) != 0
-                      ? scheme.error
-                      : null,
-                ),
-                _resultLine(
-                  'موظفون مؤقتون بأسماء من Excel',
-                  '${result['temporary_with_imported_names'] ?? 0}',
-                ),
+                _resultLine('تحتاج مراجعة', '${result['needs_review'] ?? 0}'),
+                _resultLine('غياب', '${result['absent_cases'] ?? 0}'),
+                _resultLine('موظفون مؤقتون جدد', '${result['created_temporary'] ?? 0}'),
+                _resultLine('موظفون مؤقتون محدثون', '${result['updated_temporary'] ?? 0}'),
                 if (hasErrors) ...[
-                  const Divider(height: 24),
+                  const Divider(),
                   Text(
-                    'أخطاء جزئية',
-                    style: theme.textTheme.titleSmall?.copyWith(
+                    'ملاحظات وأخطاء جزئية',
+                    style: TextStyle(
                       color: scheme.error,
                       fontWeight: FontWeight.w700,
                     ),
                   ),
                   const SizedBox(height: 8),
-                  Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: scheme.errorContainer,
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        for (final error in errors)
-                          Padding(
-                            padding: const EdgeInsets.only(bottom: 4),
-                            child: Text(
-                              '• $error',
-                              style: theme.textTheme.bodySmall?.copyWith(
-                                color: scheme.onErrorContainer,
-                              ),
-                            ),
-                          ),
-                      ],
-                    ),
-                  ),
+                  for (final error in errors) Text('• $error'),
                 ],
               ],
             ),
@@ -343,441 +478,14 @@ class _ImportBiometricScreenState extends State<ImportBiometricScreen> {
     );
   }
 
-  Widget _resultLine(String label, String value, {Color? color}) {
-    final theme = Theme.of(context);
-    final scheme = theme.colorScheme;
+  Widget _resultLine(String label, String value) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 3),
       child: Row(
         children: [
-          Expanded(
-            child: Text(
-              label,
-              style: theme.textTheme.bodySmall?.copyWith(
-                color: scheme.onSurfaceVariant,
-              ),
-            ),
-          ),
+          Expanded(child: Text(label)),
           const SizedBox(width: 12),
-          Text(
-            value,
-            style: theme.textTheme.bodyMedium?.copyWith(
-              fontWeight: FontWeight.w600,
-              color: color ?? scheme.onSurface,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final scheme = theme.colorScheme;
-    final groups = _summary?.groups ?? [];
-    final startIndex = (_currentPage - 1) * _itemsPerPage;
-    final safeStart = startIndex < 0
-        ? 0
-        : (startIndex > groups.length ? groups.length : startIndex);
-    final endIndex = safeStart + _itemsPerPage < groups.length
-        ? safeStart + _itemsPerPage
-        : groups.length;
-    final currentView = groups.isNotEmpty
-        ? groups.sublist(safeStart, endIndex)
-        : <ProcessedGroup>[];
-
-    return AppScaffold(
-      title: 'استيراد ملف الحضور Excel',
-      body: Align(
-        alignment: Alignment.topCenter,
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 1100),
-          child: LayoutBuilder(
-            builder: (context, constraints) {
-              final isMobile = constraints.maxWidth < 700;
-              return SingleChildScrollView(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    AppCard(
-                      padding: const EdgeInsets.all(16),
-                      child: isMobile
-                          ? Column(
-                              crossAxisAlignment: CrossAxisAlignment.stretch,
-                              children: _buildControls(theme, isMobile),
-                            )
-                          : Wrap(
-                              spacing: 16,
-                              runSpacing: 16,
-                              crossAxisAlignment: WrapCrossAlignment.center,
-                              children: _buildControls(theme, isMobile),
-                            ),
-                    ),
-                    const SizedBox(height: 16),
-                    if (_isLoading)
-                      const AppLoadingState(label: 'جاري معالجة ملف البصمة')
-                    else if (_summary != null) ...[
-                      _buildSummaryCard(_summary!),
-                      const SizedBox(height: 16),
-                      AppCard(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
-                          children: [
-                            _buildMobileList(currentView),
-                            const Divider(height: 1),
-                            PaginationControls(
-                              currentPage: _currentPage,
-                              totalItems: groups.length,
-                              itemsPerPage: _itemsPerPage,
-                              onPageChanged: (page) =>
-                                  setState(() => _currentPage = page),
-                              onItemsPerPageChanged: (items) => setState(() {
-                                _itemsPerPage = items;
-                                _currentPage = 1;
-                              }),
-                            ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-                      Align(
-                        alignment: AlignmentDirectional.centerEnd,
-                        child: AppLoadingButton(
-                          onPressed: _isLoading ? null : _importData,
-                          icon: Icons.save_outlined,
-                          text: 'بدء الاستيراد والمعالجة',
-                        ),
-                      ),
-                    ] else
-                      AppEmptyState(
-                        title: 'لا توجد معاينة بعد',
-                        message:
-                            'اختر ملف Excel ثم اضغط «معاينة الملف» لفحص البيانات قبل الاستيراد.',
-                        icon: Icons.table_view_outlined,
-                        actionLabel: _selectedFile == null
-                            ? 'اختيار ملف Excel'
-                            : null,
-                        onAction: _selectedFile == null ? _pickFile : null,
-                      ),
-                    if (_selectedFile != null &&
-                        _summary == null &&
-                        !_isLoading)
-                      Padding(
-                        padding: const EdgeInsets.only(top: 8),
-                        child: Text(
-                          'الملف المحدد: ${_selectedFile!.name}',
-                          textAlign: TextAlign.center,
-                          style: theme.textTheme.bodySmall?.copyWith(
-                            color: scheme.onSurfaceVariant,
-                          ),
-                        ),
-                      ),
-                  ],
-                ),
-              );
-            },
-          ),
-        ),
-      ),
-    );
-  }
-
-  List<Widget> _buildControls(ThemeData theme, bool isMobile) {
-    final scheme = theme.colorScheme;
-    return [
-      OutlinedButton.icon(
-        onPressed: _isLoading ? null : _pickFile,
-        icon: const Icon(Icons.attach_file),
-        label: ConstrainedBox(
-          constraints: BoxConstraints(
-            maxWidth: isMobile ? double.infinity : 190,
-          ),
-          child: Text(
-            _selectedFile != null ? _selectedFile!.name : 'اختر ملف Excel',
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-          ),
-        ),
-      ),
-      if (isMobile) const SizedBox(height: 8),
-      Text(
-        'يقبل النظام ملفات Excel بصيغة xlsx فقط وبالأعمدة المحددة.',
-        style: theme.textTheme.bodySmall?.copyWith(
-          color: scheme.onSurfaceVariant,
-        ),
-      ),
-      if (isMobile) const SizedBox(height: 8),
-      FilledButton.tonalIcon(
-        onPressed: (_selectedFile != null && !_isLoading)
-            ? _generatePreview
-            : null,
-        icon: const Icon(Icons.visibility_outlined),
-        label: const Text('معاينة الملف'),
-      ),
-    ];
-  }
-
-  Widget _buildSummaryCard(PreprocessSummary summary) {
-    final dates = summary.groups.map((g) => g.workDate).toSet().toList()
-      ..sort();
-    final firstDate = dates.isNotEmpty ? Formatters.date(dates.first) : '-';
-    final lastDate = dates.isNotEmpty ? Formatters.date(dates.last) : '-';
-    final theme = Theme.of(context);
-    final scheme = theme.colorScheme;
-    final semantic = context.semanticColors;
-
-    return AppCard(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'تقرير المعاينة قبل الاستيراد',
-            style: theme.textTheme.titleMedium?.copyWith(
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'راجع الأرقام والحالات أدناه قبل تثبيت الاستيراد.',
-            style: theme.textTheme.bodySmall?.copyWith(
-              color: scheme.onSurfaceVariant,
-            ),
-          ),
-          const Divider(height: 24),
-          Wrap(
-            spacing: 16,
-            runSpacing: 14,
-            children: [
-              _summaryLine('صفوف Excel المقروءة', '${summary.excelRowsRead}'),
-              _summaryLine(
-                'أرقام بصمة في الملف',
-                '${summary.matchedEmployees}',
-              ),
-              _summaryLine(
-                'ورديات من Excel',
-                '${summary.groups.where((g) => g.shiftStart != null && g.shiftEnd != null).length}',
-              ),
-              _summaryLine('تواريخ الدوام المكتشفة', '${dates.length}'),
-              _summaryLine('من تاريخ', firstDate),
-              _summaryLine('إلى تاريخ', lastDate),
-              _summaryLine('دخول مستخدم', '${summary.usedCheckIns}'),
-              _summaryLine('خروج مستخدم', '${summary.usedCheckOuts}'),
-              _summaryLine(
-                'حالات غياب',
-                '${summary.absentCases}',
-                color: summary.absentCases > 0 ? scheme.error : null,
-              ),
-              _summaryLine(
-                'فقدان بصمة دخول',
-                '${summary.missingCheckIns}',
-                color: summary.missingCheckIns > 0 ? scheme.error : null,
-              ),
-              _summaryLine(
-                'فقدان بصمة خروج',
-                '${summary.missingCheckOuts}',
-                color: summary.missingCheckOuts > 0 ? scheme.error : null,
-              ),
-              _summaryLine(
-                'إضافي متوقع',
-                '${summary.expectedOvertimeCases} حالة',
-              ),
-              _summaryLine(
-                'مجموعات تحتاج مراجعة',
-                '${summary.needsReviewGroups}',
-                color: summary.needsReviewGroups > 0 ? semantic.warning : null,
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _summaryLine(String title, String value, {Color? color}) {
-    final theme = Theme.of(context);
-    final scheme = theme.colorScheme;
-    return SizedBox(
-      width: 160,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            title,
-            style: theme.textTheme.bodySmall?.copyWith(
-              color: scheme.onSurfaceVariant,
-            ),
-          ),
-          const SizedBox(height: 2),
-          Text(
-            value,
-            style: theme.textTheme.titleSmall?.copyWith(
-              color: color ?? scheme.onSurface,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildMobileList(List<ProcessedGroup> currentView) {
-    return ListView.builder(
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      padding: const EdgeInsets.all(8),
-      itemCount: currentView.length,
-      itemBuilder: (context, index) {
-        final group = currentView[index];
-        final isReady = !group.needsReview;
-        final isFirstOfDate =
-            index == 0 || currentView[index - 1].workDate != group.workDate;
-        final theme = Theme.of(context);
-        final scheme = theme.colorScheme;
-        final semantic = context.semanticColors;
-
-        final checkOutStr = _displayPunch(group.actualCheckOut, group.workDate);
-        final checkInStr = _displayPunch(group.actualCheckIn, group.workDate);
-
-        final card = AppCard(
-          margin: const EdgeInsets.symmetric(vertical: 6),
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      'رقم البصمة: ${group.biometricId}',
-                      style: theme.textTheme.titleSmall?.copyWith(
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                  ),
-                  if (group.isAbsent)
-                    AppStatusPill.danger('غياب')
-                  else if (isReady)
-                    AppStatusPill.success('جاهز')
-                  else
-                    AppStatusPill.warning('يحتاج مراجعة'),
-                ],
-              ),
-              const Divider(height: 24),
-              if (group.employeeName != null)
-                _buildDataField('الاسم', group.employeeName!),
-              _buildDataField('تاريخ الدوام', Formatters.date(group.workDate)),
-              _buildDataField(
-                'الوردية المقترحة',
-                group.suggestedShift?.name ?? 'غير معروف',
-              ),
-              if (group.shiftEnd != null)
-                _buildDataField(
-                  'نهاية الدوام الرسمي',
-                  Formatters.time(group.shiftEnd!),
-                ),
-              const Divider(),
-              const SizedBox(height: 8),
-              Row(
-                children: [
-                  Expanded(
-                    child: _buildDataField('الدخول المستخدم', checkInStr),
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: _buildDataField('الخروج الفعلي', checkOutStr),
-                  ),
-                ],
-              ),
-              if (group.shiftEnd != null)
-                _buildDataField(
-                  'شرط احتساب الإضافي',
-                  'بعد تجاوز ${BiometricPreprocessor.overtimeMinimumTriggerMinutes} دقيقة',
-                  valueColor: scheme.onSurfaceVariant,
-                ),
-              if (group.expectedOvertimeMinutes > 0)
-                _buildDataField(
-                  'الإضافي المتوقع',
-                  Formatters.minutesToHours(group.expectedOvertimeMinutes),
-                  valueColor: scheme.primary,
-                ),
-              if (group.ignoredCount > 0)
-                _buildDataField(
-                  'المكرر المتجاهل',
-                  '${group.ignoredCount}',
-                  valueColor: scheme.onSurfaceVariant,
-                ),
-              if ((group.needsReview || group.isAbsent) &&
-                  group.reviewReason.isNotEmpty)
-                _buildDataField(
-                  'السبب',
-                  group.reviewReason,
-                  valueColor: group.isAbsent ? scheme.error : semantic.warning,
-                ),
-            ],
-          ),
-        );
-
-        if (!isFirstOfDate) return card;
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Padding(
-              padding: const EdgeInsetsDirectional.only(
-                top: 16,
-                bottom: 8,
-                start: 8,
-              ),
-              child: Text(
-                'تاريخ الدوام: ${Formatters.date(group.workDate)}',
-                style: theme.textTheme.titleMedium?.copyWith(
-                  color: scheme.onSurface,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-            ),
-            card,
-          ],
-        );
-      },
-    );
-  }
-
-  String _displayPunch(DateTime? value, DateTime workDate) {
-    if (value == null) return 'مفقود';
-    final differentDay =
-        value.day != workDate.day ||
-        value.month != workDate.month ||
-        value.year != workDate.year;
-    return differentDay
-        ? '${Formatters.date(value)} ${Formatters.time(value)}'
-        : Formatters.time(value);
-  }
-
-  Widget _buildDataField(String title, String value, {Color? valueColor}) {
-    final theme = Theme.of(context);
-    final scheme = theme.colorScheme;
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            title,
-            style: theme.textTheme.bodySmall?.copyWith(
-              color: scheme.onSurfaceVariant,
-            ),
-          ),
-          const SizedBox(height: 2),
-          Text(
-            value,
-            style: theme.textTheme.bodyMedium?.copyWith(
-              color: valueColor ?? scheme.onSurface,
-              fontWeight: FontWeight.w500,
-            ),
-          ),
+          Text(value, style: const TextStyle(fontWeight: FontWeight.w600)),
         ],
       ),
     );
