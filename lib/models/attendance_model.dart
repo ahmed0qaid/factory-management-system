@@ -15,6 +15,9 @@ class AttendanceRecordModel {
   final String? attendanceIssueType;
   final String? reviewNote;
   final String? reviewStatus;
+  final String? reviewResolution;
+  final String? reviewedBy;
+  final DateTime? reviewedAt;
 
   AttendanceRecordModel({
     required this.id,
@@ -33,18 +36,31 @@ class AttendanceRecordModel {
     this.attendanceIssueType,
     this.reviewNote,
     this.reviewStatus,
+    this.reviewResolution,
+    this.reviewedBy,
+    this.reviewedAt,
   });
 
+  bool get hasUnresolvedReview {
+    if (reviewStatus == 'resolved') return false;
+    final issue = attendanceIssueType?.trim() ?? '';
+    return status == 'needs_review' || reviewStatus == 'pending' || issue.isNotEmpty;
+  }
+
   factory AttendanceRecordModel.fromMap(Map<String, dynamic> map) {
-    DateTime? parse(String? value) =>
-        value == null ? null : DateTime.parse(value);
+    DateTime? parse(dynamic value) {
+      final text = value?.toString();
+      if (text == null || text.trim().isEmpty) return null;
+      return DateTime.tryParse(text);
+    }
+
     return AttendanceRecordModel(
       id: map['id'] as String,
       workDate: DateTime.parse(map['work_date'] as String),
-      scheduledStart: parse(map['scheduled_start'] as String?),
-      scheduledEnd: parse(map['scheduled_end'] as String?),
-      checkIn: parse(map['check_in'] as String?),
-      checkOut: parse(map['check_out'] as String?),
+      scheduledStart: parse(map['scheduled_start']),
+      scheduledEnd: parse(map['scheduled_end']),
+      checkIn: parse(map['check_in']),
+      checkOut: parse(map['check_out']),
       lateMinutes: map['late_minutes'] as int? ?? 0,
       earlyLeaveMinutes: map['early_leave_minutes'] as int? ?? 0,
       workedMinutes: map['worked_minutes'] as int? ?? 0,
@@ -55,6 +71,9 @@ class AttendanceRecordModel {
       attendanceIssueType: map['attendance_issue_type'] as String?,
       reviewNote: map['review_note'] as String?,
       reviewStatus: map['review_status'] as String?,
+      reviewResolution: map['review_resolution'] as String?,
+      reviewedBy: map['reviewed_by'] as String?,
+      reviewedAt: parse(map['reviewed_at']),
     );
   }
 }
