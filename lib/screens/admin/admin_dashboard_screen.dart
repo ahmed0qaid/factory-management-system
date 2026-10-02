@@ -99,7 +99,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
       case AdminModuleType.payroll:
         _open(const ManagePayrollScreen());
       case AdminModuleType.advances:
-        _open(ManageAdvancesScreen(currentProfile: widget.profile));
+        _open(ManageAdvancesScreen(companyId: widget.profile.companyId));
       case AdminModuleType.funds:
         _open(ManageFundsScreen(currentProfile: widget.profile));
       case AdminModuleType.announcements:

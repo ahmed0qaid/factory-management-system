@@ -292,6 +292,8 @@ class _ManagePayrollScreenState extends State<ManagePayrollScreen> {
     try {
       await _service.addPayroll(
         companyId: report.employee.companyId,
+        year: report.year,
+        month: report.month,
         employeeId: report.employee.id,
         baseSalary: report.baseSalary,
         monthlyBonus: report.monthlyBonus,
